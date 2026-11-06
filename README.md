@@ -155,3 +155,11 @@ Não houve integração com o Google Drive nem criação de nova cópia históri
 Os JSONs adicionais do Pages são `data/epagri_geo.json` e `data/epagri_notices.json`. Não foi acrescentado armazenamento externo, banco pago ou credencial. Consultas continuam agendadas pelo workflow existente.
 
 Consulte [Integrações regionais e correção INMET](docs/INTEGRACOES_REGIONAIS_V8.md).
+
+## Etapa V9: qualidade de medições regionais e boletins editoriais
+
+- A nova consolidação `data/regional_quality.json` torna visível quando a estação mais próxima **não** tem precipitação válida e escolhe uma alternativa apenas se houver um dia com **24/24 horas** de chuva medida. O total de sete dias depende de **sete dias inteiros consecutivos**. Distância e defasagem acompanham o dado; a medição de outra estação nunca é apresentada como chuva do município.
+- `data/epagri_bulletins.json` apresenta publicações da categoria oficial de previsão editorial da Epagri/Ciram (5 e 10 dias), distintas da previsão numérica Open-Meteo/CPTEC, dos avisos meteorológicos e dos alertas da Defesa Civil.
+- O portal Epagri de download gratuito de dados horários exige cadastro inicial e aceite dos termos; adicionamos **somente o link**, sem automação de login ou coleta de credenciais.
+
+Detalhes e limitações em [docs/INTEGRACOES_V9.md](docs/INTEGRACOES_V9.md).

@@ -23,7 +23,29 @@ def validate(output: Path, *, fixture: bool = False) -> None:
     archive = json.loads((data / "inmet_archive.json").read_text(encoding="utf-8"))
     epagri_geo = json.loads((data / "epagri_geo.json").read_text(encoding="utf-8"))
     epagri_notices = json.loads((data / "epagri_notices.json").read_text(encoding="utf-8"))
+    epagri_bulletins = json.loads((data / "epagri_bulletins.json").read_text(encoding="utf-8"))
+    regional_quality = json.loads((data / "regional_quality.json").read_text(encoding="utf-8"))
     notices_archive = json.loads((data / "notice_history.json").read_text(encoding="utf-8"))
+    if epagri_bulletins.get("kind") != "epagri_ciram_editorial_forecast_bulletins_not_emergency_alerts" or epagri_bulletins.get("status") not in ("available", "cached", "stale", "no_recent_bulletins", "unavailable"):
+        raise ValueError("Invalid Epagri editorial forecast product")
+    for bulletin in epagri_bulletins.get("bulletins", []):
+        if (not isinstance(bulletin, dict) or bulletin.get("data_kind") != "editorial_regional_forecast_not_station_observation_or_civil_defense_alert"
+                or not bulletin.get("published_at") or not bulletin.get("title")):
+            raise ValueError("Epagri editorial forecast mislabeled")
+    if regional_quality.get("kind") != "regional_gauge_coverage_and_spatial_model_context_not_live_alert" or regional_quality.get("status") not in ("available", "unavailable", "no_complete_gauge_data"):
+        raise ValueError("Invalid regional observation coverage dataset")
+    if {row.get("location_id") for row in regional_quality.get("locations", [])} != {row["id"] for row in overview.get("locations", [])}:
+        raise ValueError("Regional gauge analysis missing locations")
+    for row in regional_quality["locations"]:
+        selected = row.get("selected_station")
+        if row.get("status") == "available":
+            if (not isinstance(selected, dict) or selected.get("status") != "has_complete_observations"
+                    or selected.get("last_complete_rain_mm") is None or selected.get("last_complete_day_utc") is None):
+                raise ValueError("Regional gauge analysis has no complete dated measurement")
+        elif selected is not None:
+            raise ValueError("Regional gauge analysis must not invent observations")
+        if row.get("epagri_catalog_is_measurement") is not False:
+            raise ValueError("Epagri registry cannot be presented as sensor readings")
     if epagri_geo.get("kind") != "epagri_arcgis_station_registry_not_live_measurements":
         raise ValueError("Epagri station registry incorrectly classified")
     if epagri_notices.get("kind") != "epagri_ciram_official_advisories_not_civil_defense_alerts":

@@ -20,6 +20,7 @@ from observatorio.defesa_civil_sc import collect as collect_defesa  # noqa: E402
 from observatorio.inmet_archive import ARCHIVE_ROOT  # noqa: E402
 from observatorio.epagri_geo import collect as collect_geo  # noqa: E402
 from observatorio.epagri_notices import collect as collect_advisories  # noqa: E402
+from observatorio.epagri_bulletins import collect as collect_bulletins  # noqa: E402
 
 
 def main() -> int:
@@ -44,6 +45,8 @@ def main() -> int:
     print(f"Epagri ArcGIS registry: {geo['status']}; nearby listings={registry_count}; source is metadata only")
     advisories = collect_advisories(stamp)
     print(f"Epagri/Ciram RSS advisories: {advisories['status']}; publications={len(advisories.get('notices', []))}")
+    editorial = collect_bulletins(stamp)
+    print(f"Epagri/Ciram editorial forecast RSS: {editorial['status']}; bulletins={len(editorial.get('bulletins', []))}")
     print("Network probes are informational; validate actual datasets after publishing.")
     return 0
 
