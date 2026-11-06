@@ -63,3 +63,7 @@ NUNCA confundir uma previsao retrospectiva do modelo com uma medicao de pluviome
 GitHub Actions `schedule` nao e um relogio exato; pode atrasar ou deixar de executar. Em repositorios publicos sem atividade, agendas podem ser desativadas. O portal precisa indicar a defasagem dos dados. O site nao deve ser utilizado como fonte unica para decisoes de protecao civil.
 
 Se um provedor alterar o esquema, o adaptador deve falhar de forma explicita, sem publicar valores com unidades incorretas. As ferramentas Python de arquivo devem sempre gravar em arquivo temporario e substituir o destino somente apos escrita completa.
+
+## Extensões opcionais: chuva medida e arquivo de avisos
+
+`observatorio.inmet_rain` acessa, somente quando autorizado e configurado, registros horários brutos de estações INMET, com seleção regional limitada, validação de ausência e indicação de cobertura. `observatorio.notice_archive` consolida a presença de avisos oficiais em arquivos pequenos de longa duração, mas **não** converte avisos em eventos ocorridos. O pipeline publica `data/rain_gauges.json` e `data/notice_history.json`. Os arquivos anteriores são consultados no Pages com tratamento estrito para falhas; não constituem backup permanente.

@@ -50,6 +50,12 @@ O site com `fixture_mode` nunca deve ser publicado: o navegador recusa o conjunt
 
 O Pages nao executa Python quando alguem abre o site. O Python roda apenas durante os workflows. As consultas no navegador usam os JSONs publicados.
 
+## Chuva observada e arquivo de avisos
+
+A versão seguinte acrescenta consulta **opcional** à precipitação medida em estações INMET, sem confundir dados brutos de estação com estimativas Open-Meteo. A consulta depende de token autorizado e é desligada por padrão. Se o mantenedor obtiver uma credencial, pode armazená-la como *GitHub Actions repository secret* `INMET_API_TOKEN` (Settings → Secrets and variables → Actions). **Nunca** inclua credenciais no código, navegador, issues ou chat. Até que isso seja configurado e validado, a interface mostra que a integração pluviométrica não está habilitada.
+
+Também é criado um arquivo progressivo `data/notice_history.json`, que preserva avisos anteriormente publicados para os municípios da região, sem inferir que um evento ocorreu ou que um aviso desaparecido foi cancelado. A recuperação depende da publicação anterior do Pages e **não é backup independente**. Documentação: [Chuva e histórico de avisos](docs/CHUVA_E_HISTORICO_AVISOS.md).
+
 ## Armazenamento e historicos
 
 A fase incremental publica um **histórico progressivo de um snapshot de modelo por dia e localidade, limitado aos últimos 366 dias**, recuperando o arquivo da publicação anterior no GitHub Pages. Isso **não é backup independente** e não representa uma série de observações meteorológicas. O código também mantém as primitivas JSONL.GZ locais; integração a armazenamento externo permanente ainda depende de credenciais e validação. Não são utilizados banco pago, Drive ou planilhas no fluxo padrão.
@@ -70,7 +76,9 @@ Dados numericos: [Open-Meteo](https://open-meteo.com/en/docs) (uso gratuito nao 
 - [x] Inventário de estações INMET próximas, usando apenas metadados oficiais (sem medidas).
 - [x] Histórico progressivo de publicações do modelo (não séries observadas).
 - [x] Integrar **avisos INMET por IBGE** e **boletins aeroportuários METAR** em módulos opcionais (não pluviômetros); validar execução real após merge.
-- [ ] Integrar observações pluviométricas reais com disponibilidade confirmada.
+- [x] Implementar adaptador opcional para precipitação horária medida INMET, condicionado a token e teste real; **não está validado em produção**.
+- [x] Histórico progressivo de avisos oficiais com deduplicação e retenção configurável.
+- [ ] Confirmar acesso e funcionamento da API de observações do INMET com credencial autorizada.
 - [ ] Persistencia historica externa e retencao automatica completa.
 - [ ] Dados hidrológicos, pluviômetros, mapas e comparação de modelos.
 

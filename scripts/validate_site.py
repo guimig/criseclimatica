@@ -14,6 +14,8 @@ def validate(output: Path, *, fixture: bool = False) -> None:
     stations = json.loads((data / "stations.json").read_text(encoding="utf-8"))
     alerts = json.loads((data / "alerts.json").read_text(encoding="utf-8"))
     observations = json.loads((data / "observations.json").read_text(encoding="utf-8"))
+    rain = json.loads((data / "rain_gauges.json").read_text(encoding="utf-8"))
+    notices_archive = json.loads((data / "notice_history.json").read_text(encoding="utf-8"))
     if overview.get("schema_version") != 1 or overview.get("fixture_mode", False) is not fixture:
         raise ValueError("Unexpected manifest schema or fixture mode")
     if not overview.get("available_locations") or not overview.get("locations"):
@@ -26,8 +28,20 @@ def validate(output: Path, *, fixture: bool = False) -> None:
         raise ValueError("INMET alerts classification or status invalid")
     if observations.get("kind") != "aerodrome_metar_observations_not_municipal_measurements" or observations.get("status") not in ("available", "no_recent_reports", "unavailable"):
         raise ValueError("METAR observations classification or status invalid")
+    if rain.get("kind") != "inmet_automatic_station_hourly_observed_rain_unvalidated" or rain.get("status") not in ("available", "unavailable", "not_configured", "no_nearby_catalog_stations", "fixture_mode"):
+        raise ValueError("INMET measured precipitation classification invalid")
+    if rain["status"] == "fixture_mode" and not fixture:
+        raise ValueError("Synthetic INMET rainfall forbidden in production")
+    if rain["status"] != "available" and rain.get("stations"):
+        raise ValueError("Unavailable rainfall source cannot include measured values")
+    if overview.get("notice_archive_published") is not True:
+        raise ValueError("Published archive marker is missing")
+    if notices_archive.get("kind") != "archive_of_inmet_notices_not_confirmed_weather_events" or notices_archive.get("schema_version") != 1 or notices_archive.get("feed_status") != alerts["status"]:
+        raise ValueError("Notice archive source classification invalid")
+    if not isinstance(notices_archive.get("records"), list) or len(notices_archive["records"]) > 2000:
+        raise ValueError("Invalid notice archive records")
     expected = {loc["id"] for loc in overview["locations"]}
-    for dataset in (alerts, observations):
+    for dataset in (alerts, observations, rain):
         if not isinstance(dataset.get("locations"), list) or {row.get("location_id") for row in dataset["locations"]} != expected:
             raise ValueError("Incomplete or invalid regional provider coverage")
     if alerts["status"] == "unavailable" and any(x.get("alerts") for x in alerts["locations"]):
