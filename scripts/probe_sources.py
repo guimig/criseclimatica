@@ -15,6 +15,7 @@ from urllib.request import Request, urlopen
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from observatorio.metar import fetch_metars, normalize_metars, MetarSourceError
 from observatorio.config import load_locations  # noqa: E402
 from observatorio.defesa_civil_sc import collect as collect_defesa  # noqa: E402
 from observatorio.inmet_archive import ARCHIVE_ROOT  # noqa: E402
@@ -47,9 +48,16 @@ def main() -> int:
     print(f"Epagri/Ciram RSS advisories: {advisories['status']}; publications={len(advisories.get('notices', []))}")
     editorial = collect_bulletins(stamp)
     print(f"Epagri/Ciram editorial forecast RSS: {editorial['status']}; bulletins={len(editorial.get('bulletins', []))}")
+    try:
+        metars = normalize_metars(fetch_metars(), locations, stamp)
+        codes = ",".join(row["icao"] for row in metars["stations"])
+        print(f"NOAA/METAR regional: {metars['status']}; stations={len(metars['stations'])}/6; codes={codes or 'none'}")
+    except (MetarSourceError, OSError, ValueError) as exc:
+        print(f"NOAA/METAR regional: unavailable ({type(exc).__name__})")
     print("Network probes are informational; validate actual datasets after publishing.")
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

@@ -26,6 +26,7 @@ def summarize(locations: list[dict], manifest: dict, cemaden: dict, sensors: dic
     sensor_places = {row["location_id"]: row for row in sensors["locations"]}
     sensor_stations = {row["code"]: row for row in sensors.get("stations", [])}
     metars = {row["location_id"]: row for row in observations["locations"]}
+    metar_stations = {row["icao"]: row for row in observations.get("stations", [])}
     out = []
     for place in locations:
         slug = place["id"]
@@ -36,6 +37,10 @@ def summarize(locations: list[dict], manifest: dict, cemaden: dict, sensors: dic
                     sensor_stations.get(ref["code"], {}).get("readings", [])]
         metar = metars.get(slug, {})
         observation = metar.get("observation") or {}
+        metar_refs = metar.get("stations", [])
+        metar_readings = [metar_stations[ref["icao"]] for ref in metar_refs if ref["icao"] in metar_stations]
+        if not metar_readings and observation:
+            metar_readings = [observation]
         model = models[slug]
         rain_variables = sorted({key for row in gauges for key, val in row.items()
                                  if key.startswith("rain_") and key.endswith("_mm") and val is not None})
@@ -63,13 +68,14 @@ def summarize(locations: list[dict], manifest: dict, cemaden: dict, sensors: dic
              "nearest_distance_km": min((ref["distance_km"] for ref in matches), default=None),
              "variables": [f"{name} ({unit})" for name, unit in sensor_variables]},
             {"id": "metar", "name": "NOAA · METAR", "kind": "aerodrome_observation",
-             "status": metar.get("status", observations["status"]),
+             "status": "available" if metar_readings else metar.get("status", observations["status"]),
              "checked_at": observations.get("retrieved_at"),
-             "reference_at": observation.get("observed_at"),
-             "station_count": 1 if observation else 0,
+             "reference_at": _latest(row.get("observed_at") for row in metar_readings),
+             "station_count": len(metar_readings),
+             "regional_context_only_count": sum(ref.get("scope") == "regional_context_only" for ref in metar_refs),
              "variables": [name for key, name in (("temperature_c", "Temperatura (°C)"),
                            ("wind_kmh", "Vento (km/h)"), ("gust_kmh", "Rajada (km/h)"))
-                           if observation.get(key) is not None]},
+                           if any(row.get(key) is not None for row in metar_readings)]},
         ]
         out.append({"location_id": slug, "products": products})
     return {"schema_version": 1, "kind": KIND, "checked_at": checked_at, "locations": out}

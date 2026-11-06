@@ -292,6 +292,12 @@ def build(
           f"epagri_notices={epagri_notices['status']} "
           f"epagri_bulletins={epagri_bulletins['status']} "
           f"regional_quality={regional_quality['status']}")
+    metar_codes = ",".join(row["icao"] for row in observations.get("stations", []))
+    print(f"Station coverage: cemaden_rain={sum(len(row.get('stations', [])) for row in cemaden.get('locations', []))} "
+          f"cemaden_sensors_regional={len(cemaden_sensors.get('stations', []))} "
+          f"cemaden_sensors_selected={sum(len(row.get('stations', [])) for row in cemaden_sensors.get('locations', []))} "
+          f"metar={len(observations.get('stations', []))}/{len(observations.get('queried_stations', []))} "
+          f"metar_codes={metar_codes or 'none'}")
     output = output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="observatorio-build-", dir=output.parent) as temp:

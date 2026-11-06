@@ -6,8 +6,8 @@ Portal meteorológico aberto com prioridade em Araquari e cobertura de dez munic
 
 - Open-Meteo: estimativas atuais e previsão horária/diária, com identificação explícita de modelo.
 - Avisos INMET por código municipal IBGE e arquivo progressivo de avisos; não são registros de desastres confirmados.
-- METAR/NOAA: observações nos aeródromos de Joinville e Navegantes, sem atribuição a todo o município.
-- Cemaden PED: acumulados de 1–120h por estação e consulta regional de sensores recentes, com SGAA e limite compartilhado de requisições.
+- METAR/NOAA: consulta conjunta de Joinville (SBJV), Navegantes (SBNF), Blumenau (SSBL), Florianópolis (SBFL), Afonso Pena (SBCT) e Bacacheri (SBBI). Exibe todos os boletins válidos até 180 km, distinguindo contexto regional acima de 100 km e mantendo a observação principal dentro de 100 km.
+- Cemaden PED: acumulados de 1–120h por estação e consulta regional de sensores recentes, com SGAA e limite compartilhado de requisições. Sensores: até 24 estações por localidade em um raio de 130 km; acumulados municipais: todas as estações retornadas, sem o antigo corte de seis na interface.
 - INMET: catálogos automático/convencional, arquivo anual observado com atraso e adaptador de precipitação recente condicionado a acesso autorizado.
 - Epagri: cadastro de estações, avisos meteorológicos e boletins editoriais; cadastro não é telemetria.
 - CPTEC: previsão independente para a localidade de referência; NASA POWER: estimativas diárias em grade para Araquari.
@@ -74,3 +74,5 @@ O Pages recupera da publicação anterior um snapshot diário de modelo por loca
 Sem commits de dados a cada ciclo, Drive ou armazenamento histórico externo nesta etapa. A decisão vigente é amadurecer integrações antes de ampliar persistência. Há utilitários JSONL.GZ locais para evolução futura.
 
 Consulte [roadmap atual](docs/ROADMAP.md), [decisões](docs/DECISOES.md), [arquitetura](docs/ARQUITETURA.md), [fontes](docs/FONTES.md) e [pacote de confiabilidade](docs/CONFIABILIDADE.md). Os documentos das etapas anteriores preservam os diagnósticos da época; o roadmap concentra o estado atual.
+
+A ampliação das redes está descrita em [Estações Cemaden e METAR](docs/AMPLIACAO_ESTACOES.md). Seleção geográfica não garante disponibilidade de boletim ou representatividade local.

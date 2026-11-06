@@ -55,3 +55,14 @@ Evidência de operação: [execução 42255045977](https://github.com/guimig/cri
 7. Visão Brasil por agregados.
 
 Documentos anteriores em `docs/` registram o desenvolvimento e as limitações de cada etapa. Este arquivo e o README consolidam as prioridades vigentes.
+
+## Ampliação das estações Cemaden e METAR
+
+- [x] Cemaden: seleção de até 24 estações em 130 km por município (antes seis em 85 km); mesma consulta regional SC e limitador PED preservados.
+- [x] Acumulados municipais: todas as estações válidas ficam acessíveis na interface; detalhes recolhidos após seis cartões.
+- [x] METAR: consulta única de seis aeródromos SC/PR e referências por município até 180 km, com contexto regional explicitado acima de 100 km.
+- [x] Mantida a observação principal METAR dentro de 100 km, com formatos legados preservados.
+- [x] Logs públicos de contagem de estações, testes de raio, completude da seleção e boletins ausentes.
+- [ ] Confirmar contagens reais no runner após integração; código consultado não significa boletim disponível.
+
+Ver [Ampliação das estações](AMPLIACAO_ESTACOES.md).

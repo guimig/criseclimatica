@@ -215,6 +215,7 @@ def collect(locations: list[dict[str, Any]], stamp: str, *, token: str | None = 
         row.update(stations=stations,
                    status=error or ("available" if stations else "no_recent_data"),
                    diagnostic=error or ("ok" if stations else "no_valid_recent_readings"))
+    base["stations_with_readings"] = sum(len(row["stations"]) for row in base["locations"])
     base["municipalities_checked"] = len(locations)
     base["municipalities_failed"] = len(failures)
     if any(rows for rows, _ in results):
