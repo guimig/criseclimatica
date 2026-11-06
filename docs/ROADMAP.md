@@ -97,3 +97,18 @@ Ver [Integrações e chuva observada](INTEGRACOES_FASE_ATUAL.md).
   e cobertura territorial estiverem verificadas.
 
 **Armazenamento histórico externo permanece adiado por decisão do projeto.**
+
+
+### Etapa 8 — qualidade e rede regional (2026-11)
+
+- [x] Retrocompatibilidade do catálogo INMET automático sem `network_type`.
+- [x] Descoberta independente de estações próximas a partir dos metadados de CSV do ZIP anual INMET, com validação de código, localização e cobertura.
+- [x] Integração do cadastro GIS oficial da Epagri/SC (metadados, não medições), com cache e painel por município.
+- [x] Integração RSS de avisos meteorológicos Epagri/Ciram (publicações, janelas e abrangências explicitadas quando disponíveis).
+- [x] Testes sintéticos e diagnósticos de conectividade adicionados.
+- [ ] Provar leitura integral de estações reais do ZIP no GitHub Actions após merge; identificar estado e cobertura.
+- [ ] Provar comunicação dos novos endpoints Epagri no runner do GitHub; monitorar disponibilidade e mudanças de esquema.
+- [ ] Encontrar interface oficial de boletins da Defesa Civil SC efetivamente acessível pelo runner sem burla de proteção.
+- [ ] Obter autorização real das APIs INMET recente/Cemaden ou outra fonte instrumental para chuva quase em tempo real.
+
+Nenhuma alteração foi feita no armazenamento histórico externo, conforme decisão do projeto.

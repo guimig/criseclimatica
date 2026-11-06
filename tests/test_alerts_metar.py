@@ -18,6 +18,10 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from observatorio.alerts import AlertSourceError, normalize_alerts, unavailable_alerts, fetch_alerts
 from observatorio.metar import MetarSourceError, normalize_metars, unavailable_metars, fetch_metars
 from observatorio.config import load_locations
+from observatorio.inmet_archive import unavailable_archive
+from observatorio.nasa_power import unavailable as unavailable_nasa
+from observatorio.epagri_geo import unavailable as unavailable_epagri_geo
+from observatorio.epagri_notices import unavailable as unavailable_epagri_notices
 from build_site import build
 from validate_site import validate
 
@@ -138,6 +142,10 @@ class TestStaticBuild(unittest.TestCase):
                  patch("build_site.fetch_alerts", side_effect=AlertSourceError("service offline")), \
                  patch("build_site.fetch_metars", side_effect=MetarSourceError("service offline")), \
                  patch("build_site.station_catalog_for_build", return_value=catalog), \
+                 patch("build_site.collect_archive", side_effect=lambda locations, catalog, stamp, **kwargs: unavailable_archive(stamp)), \
+                 patch("build_site.collect_nasa", side_effect=lambda place, stamp, previous=None: unavailable_nasa(place, stamp)), \
+                 patch("build_site.collect_epagri_geo", side_effect=lambda locations, stamp, **kwargs: unavailable_epagri_geo(stamp)), \
+                 patch("build_site.collect_epagri_notices", side_effect=lambda stamp, **kwargs: unavailable_epagri_notices(stamp)), \
                  patch("build_site.collect_cptec", return_value={"schema_version":1,"kind":"cptec_inpe_daily_forecast_nearest_locality_not_station_measurements","status":"unavailable","checked_at":"2026-11-05T12:00:00Z","locations":[{"location_id":loc["id"],"status":"unavailable","days":[]} for loc in LOCATIONS]}), \
                  patch("build_site.collect_defesa", return_value={"schema_version":1,"kind":"defesa_civil_sc_publications_not_verified_active_alerts","status":"unavailable","checked_at":"2026-11-05T12:00:00Z","publications":[]}):
                 build(out)

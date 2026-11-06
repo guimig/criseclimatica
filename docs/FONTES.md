@@ -63,3 +63,12 @@ Defesa Civil SC: https://www.defesacivil.sc.gov.br/boletins-do-tempo/ .
 O conector WordPress/RSS/HTML oficial é experimental; estados `unavailable`
 e `stale` não equivalem a ausência de risco. Nenhum CAPTCHA, cookie ou login
 é contornado. Consulte a documentação de integração do período.
+
+
+### Epagri: novas integrações regionais (etapa 8)
+
+- **ArcGIS — Estações ativas atuais:** https://gis.epagri.sc.gov.br/arcgis/rest/services/Zoneamento/Potencial_estacoes/MapServer/1. Integração de **cadastro geográfico**, sem validação de operação recente ou acesso a leituras.
+- **Avisos meteorológicos Epagri/Ciram:** https://ciram.epagri.sc.gov.br/index.php/category/avisos-meteorologicos/feed/ e https://ciram.epagri.sc.gov.br/index.php/avisos-meteorologicos/. Publicações com períodos e regiões apresentados somente quando explícitos no RSS; jamais extrapolar avisos de região para município.
+- **INMET histórico anual:** https://portal.inmet.gov.br/dadoshistoricos. Além do catálogo automático, a identificação de estação pode vir do cabeçalho de CSV oficial dentro do próprio ZIP, desde que código e coordenadas sejam verificáveis.
+
+Acessibilidade externa comprovada documentalmente não substitui verificação de execução no GitHub Actions.

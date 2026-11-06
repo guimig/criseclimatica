@@ -19,7 +19,7 @@ from observatorio.config import load_locations
 from observatorio.inmet import nearby_catalog, normalize_catalog
 from observatorio.inmet_archive import (
     InmetArchiveError, collect_archive, nearby_station_codes, parse_annual_zip,
-    unavailable_archive,
+    station_metadata_from_zip, unavailable_archive,
 )
 from observatorio.defesa_civil_sc import collect, parse_public_page, parse_wp_json
 from build_site import build
@@ -113,10 +113,40 @@ class InmetAnnualArchiveTests(unittest.TestCase):
             second = collect_archive(LOCATIONS, CATALOG, next_time, previous=stale)
         self.assertIn(second["status"], ("cached", "stale"))
 
-    def test_no_catalog_means_no_large_archive_download(self):
-        with patch("observatorio.inmet_archive._download_year", side_effect=AssertionError("No stations")):
-            result = collect_archive(LOCATIONS, {"locations": []}, STAMP)
+    def test_no_catalog_recovers_station_metadata_from_zip(self):
+        result = collect_archive(LOCATIONS, {"locations": []}, STAMP, fixture_zip=archive_zip())
+        self.assertEqual(result["status"], "available")
+        self.assertIn("A001", [station["code"] for station in result["stations"]])
+        self.assertEqual(result["station_discovery_version"], 2)
+
+    def test_legacy_cached_catalog_missing_network_type(self):
+        old = nearby_catalog(LOCATIONS, STATIONS, STAMP)
+        for row in old["locations"]:
+            for station in row["stations"]:
+                station.pop("network_type", None)
+        self.assertIn("A001", nearby_station_codes(old))
+        result = collect_archive(LOCATIONS, old, STAMP, fixture_zip=archive_zip())
+        self.assertEqual(result["status"], "available")
+
+    def test_zip_header_rejects_unsupported_or_mismatched_station(self):
+        with zipfile.ZipFile(io.BytesIO(archive_zip()), "r") as archive:
+            headers = station_metadata_from_zip(archive, LOCATIONS)
+        self.assertEqual(list(headers), ["A001"])
+        self.assertEqual(headers["A001"]["metadata_source"], "inmet_annual_csv_header")
+        self.assertLess(headers["A001"]["distance_km"], 5)
+
+    def test_inmet_archive_no_local_stations_is_not_no_rain(self):
+        distant = [dict(LOCATIONS[0], latitude=0.0, longitude=0.0)]
+        result = collect_archive(distant, {"locations": []}, STAMP, fixture_zip=archive_zip())
         self.assertEqual(result["status"], "no_nearby_stations")
+        self.assertEqual(result["station_discovery_version"], 2)
+        self.assertNotIn("rain_total_complete_mm", str(result))
+
+    def test_retry_legacy_no_station_result_is_not_suppressed(self):
+        old = unavailable_archive(STAMP, "no_nearby_stations")
+        result = collect_archive(LOCATIONS, {"locations": []}, STAMP,
+                                 previous=old, fixture_zip=archive_zip())
+        self.assertEqual(result["status"], "available")
 
     def test_empty_unconfigured_archive_never_claims_zero_rainfall(self):
         result = unavailable_archive(STAMP)
