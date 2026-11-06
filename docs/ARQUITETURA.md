@@ -17,7 +17,7 @@ Open-Meteo (modelo) --HTTPS--> Python adapter
        --> Pages artifact --> static browser
 ```
 
-O build utiliza um diretorio temporario e apenas substitui a pasta de destino se houver ao menos um municipio valido. Se todas as consultas falharem, o workflow para antes da publicacao. Se somente parte falhar, o manifesto informa indisponibilidade por localidade.
+O build utiliza um diretorio temporario e apenas substitui a pasta de destino se houver ao menos um municipio valido. Se todas as consultas Open-Meteo falharem, o build segue para as fontes independentes e pode publicar parcialmente. Se todas as fontes operacionais falharem, o workflow para antes da publicação. Se somente parte falhar, o manifesto informa indisponibilidade por localidade.
 
 ## Camadas independentes adicionadas
 
@@ -67,3 +67,8 @@ Se um provedor alterar o esquema, o adaptador deve falhar de forma explicita, se
 ## Extensões opcionais: chuva medida e arquivo de avisos
 
 `observatorio.inmet_rain` acessa, somente quando autorizado e configurado, registros horários brutos de estações INMET, com seleção regional limitada, validação de ausência e indicação de cobertura. `observatorio.notice_archive` consolida a presença de avisos oficiais em arquivos pequenos de longa duração, mas **não** converte avisos em eventos ocorridos. O pipeline publica `data/rain_gauges.json` e `data/notice_history.json`. Os arquivos anteriores são consultados no Pages com tratamento estrito para falhas; não constituem backup permanente.
+
+
+## Confiabilidade e cobertura por localidade
+
+O build publica `data/coverage.json`, preserva os contratos existentes e adiciona janela/completude à previsão de chuva e diagnóstico municipal Cemaden. A interface reavalia a idade das referências. O manifesto marca `publication_status=partial` quando o modelo não cobre todas as localidades; uma publicação sem nenhum modelo exige outra fonte operacional disponível. O histórico diário marcado como previamente publicado não pode desaparecer silenciosamente. Consulte [Confiabilidade](CONFIABILIDADE.md). Armazenamento externo permanece adiado.
