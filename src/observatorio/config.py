@@ -17,6 +17,7 @@ def load_locations(path: Path) -> list[dict[str, Any]]:
         raise ValueError("Invalid locations configuration or version")
     result: list[dict[str, Any]] = []
     seen: set[str] = set()
+    ibge_seen: set[str] = set()
     for item in config["locations"]:
         if not isinstance(item, dict):
             raise ValueError("Each location must be an object")
@@ -31,11 +32,15 @@ def load_locations(path: Path) -> list[dict[str, Any]]:
                 or not -90 <= lat <= 90 or not isinstance(lon, (int, float))
                 or isinstance(lon, bool) or not -180 <= lon <= 180):
             raise ValueError(f"Invalid coordinates for {slug}")
+        ibge = item.get("ibge_code")
+        if not isinstance(ibge, str) or not re.fullmatch(r"\d{7}", ibge) or ibge in ibge_seen:
+            raise ValueError(f"Invalid or repeated IBGE code for {slug}")
+        ibge_seen.add(ibge)
         seen.add(slug)
         result.append({
             "id": slug, "name": name, "state": item.get("state", ""),
             "latitude": float(lat), "longitude": float(lon),
-            "featured": bool(item.get("featured", False)),
+            "featured": bool(item.get("featured", False)), "ibge_code": ibge,
         })
     if not result:
         raise ValueError("At least one location is required")

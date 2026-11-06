@@ -22,3 +22,29 @@
 .history-single{font-size:32px;font-family:var(--display);color:var(--bright);margin:0 0 8px}
 @media(max-width:800px){.analysis-grid{grid-template-columns:1fr}}
 @media(max-width:600px){.analysis-grid{margin-top:23px}.history-chart{height:190px}}
+
+/* Instrumental observations and official notices are intentionally separate from model cards. */
+.observed-panel { margin: 28px 0; }
+.observed-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin: 14px 0 18px; }
+.observed-heading strong { font-size: 1.05rem; }
+.observed-heading span { color: var(--muted, #7d93a7); font-size: .9rem; }
+.observed-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.observed-metric { background: rgba(129, 153, 178, .08); border: 1px solid rgba(129, 153, 178, .18); border-radius: 12px; padding: 16px 12px; }
+.observed-metric span { display: block; opacity: .8; font-size: .71rem; letter-spacing: .05em; margin-bottom: 8px; }
+.observed-metric strong { font-size: clamp(1rem, 2vw, 1.4rem); }
+.official-alerts { display: grid; gap: 10px; margin: 16px 0; }
+.alert-entry { border: 1px solid rgba(234, 180, 65, .38); background: rgba(234, 180, 65, .07); border-radius: 12px; padding: 13px 14px; }
+.alert-entry-heading { display: flex; flex-wrap: wrap; gap: 7px; align-items: baseline; justify-content: space-between; }
+.alert-entry-heading strong { font-size: 1rem; }
+.alert-severity { font-size: .8rem; font-weight: 700; }
+.alert-window, .alert-description, .alert-instructions { margin: 7px 0 0; font-size: .85rem; line-height: 1.5; }
+.alert-window { opacity: .75; }
+.alert-instructions { font-weight: 600; }
+.alert-empty, .alert-unknown { padding: 12px 14px; border-radius: 10px; margin: 0; font-size: .88rem; line-height: 1.5; }
+.alert-empty { background: rgba(129, 153, 178, .09); }
+.alert-unknown { background: rgba(234, 180, 65, .09); }
+@media (max-width: 520px) {
+  .observed-metrics { grid-template-columns: 1fr; }
+  .observed-metric { display: flex; align-items: center; justify-content: space-between; }
+  .observed-metric span { margin: 0; }
+}

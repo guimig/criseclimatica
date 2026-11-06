@@ -17,6 +17,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from observatorio.config import load_locations  # noqa: E402
+from observatorio.alerts import AlertSourceError, fetch_alerts, normalize_alerts, unavailable_alerts  # noqa: E402
+from observatorio.metar import MetarSourceError, fetch_metars, normalize_metars, unavailable_metars  # noqa: E402
 from observatorio.history import merge_daily_publications  # noqa: E402
 from observatorio.inmet import CatalogError, fetch_catalog, nearby_catalog, normalize_catalog, now_utc  # noqa: E402
 from observatorio.open_meteo import OpenMeteoClient, normalize  # noqa: E402
@@ -101,8 +103,10 @@ def station_catalog_for_build(locations: list[dict], previous: dict | None, fixt
 
 def build(
     output: Path, fixture: Path | None = None, *, previous_url: str | None = None,
-    station_fixture: Path | None = None,
+    station_fixture: Path | None = None, alerts_fixture: Path | None = None, metar_fixture: Path | None = None,
 ) -> tuple[int, int]:
+    if fixture is None and any(value is not None for value in (station_fixture, alerts_fixture, metar_fixture)):
+        raise ValueError("Provider fixtures can only be used in a synthetic offline build")
     locations = load_locations(ROOT / "config" / "locations.json")
     client = FixtureClient(fixture) if fixture is not None else OpenMeteoClient()
 
@@ -125,6 +129,24 @@ def build(
     if fixture is not None and station_fixture is None:
         station_fixture = ROOT / "tests" / "fixtures" / "inmet_catalog.json"
     stations = station_catalog_for_build(locations, previous_stations, station_fixture)
+    stamp = now_utc()
+    if fixture is not None:
+        alert_raw = json.loads((alerts_fixture or ROOT / "tests" / "fixtures" / "inmet_alerts.json").read_text(encoding="utf-8"))
+        metar_raw = json.loads((metar_fixture or ROOT / "tests" / "fixtures" / "metar.json").read_text(encoding="utf-8"))
+        alerts = normalize_alerts(alert_raw, locations, stamp)
+        observations = normalize_metars(metar_raw, locations, stamp)
+    else:
+        try:
+            alerts = normalize_alerts(fetch_alerts(), locations, stamp)
+        except (AlertSourceError, OSError, ValueError, TypeError) as exc:
+            print(f"INMET notices unavailable: {type(exc).__name__}", file=sys.stderr)
+            alerts = unavailable_alerts(locations, stamp)
+        try:
+            observations = normalize_metars(fetch_metars(), locations, stamp)
+        except (MetarSourceError, OSError, ValueError, TypeError) as exc:
+            print(f"Aviation METAR unavailable: {type(exc).__name__}", file=sys.stderr)
+            observations = unavailable_metars(locations, stamp)
+    manifest["official_alerts_integrated"] = alerts["status"] == "available"
     output = output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="observatorio-build-", dir=output.parent) as temp:
@@ -134,6 +156,8 @@ def build(
         write_json_atomic(data / "latest.json", manifest)
         write_json_atomic(data / "history.json", history)
         write_json_atomic(data / "stations.json", stations)
+        write_json_atomic(data / "alerts.json", alerts)
+        write_json_atomic(data / "observations.json", observations)
         for slug, record in details.items():
             write_json_atomic(data / "places" / (slug + ".json"), record)
         (staged / ".nojekyll").write_text("", encoding="utf-8")
@@ -149,9 +173,11 @@ def main() -> int:
     parser.add_argument("--fixture", type=Path, default=None, help="Offline synthetic provider response, never deploy")
     parser.add_argument("--stations-fixture", type=Path, default=None, help="Offline INMET catalog fixture")
     parser.add_argument("--previous-url", type=str, default=None, help="Prior GitHub Pages site for rolling history")
+    parser.add_argument("--alerts-fixture", type=Path, default=None, help="INMET alerts sample for offline build only")
+    parser.add_argument("--metar-fixture", type=Path, default=None, help="METAR sample for offline build only")
     args = parser.parse_args()
     try:
-        count, total = build(args.output, args.fixture, previous_url=args.previous_url, station_fixture=args.stations_fixture)
+        count, total = build(args.output, args.fixture, previous_url=args.previous_url, station_fixture=args.stations_fixture, alerts_fixture=args.alerts_fixture, metar_fixture=args.metar_fixture)
     except Exception as exc:
         print(f"BUILD FAILED: {exc}", file=sys.stderr)
         return 1

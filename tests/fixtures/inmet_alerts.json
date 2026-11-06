@@ -1,0 +1,24 @@
+{
+  "hoje": [
+    {
+      "id_aviso": 3100,
+      "id_sequencia": 1,
+      "descricao": "Chuvas Intensas",
+      "severidade": "Perigo",
+      "geocodes": "4201307,4209102,4216206",
+      "data_inicio": "2026-11-05T00:00:00.000Z",
+      "hora_inicio": "10:00",
+      "data_fim": "2026-11-06T00:00:00.000Z",
+      "hora_fim": "10:00",
+      "riscos": ["Possibilidade de chuva intensa e ventos fortes"],
+      "instrucoes": ["Acompanhe os comunicados da Defesa Civil"],
+      "encerrado": false
+    },
+    {"id_aviso": 3101, "descricao": "Ventos Costeiros", "geocodes": ["4208450", "4202057"], "severidade": "Perigo Potencial"},
+    {"id_aviso": 3102, "descricao": "Geada", "geocodes": "4106902", "severidade": "Perigo Potencial"},
+    {"id_aviso": 3103, "descricao": "Aviso encerrado", "geocodes": "4201307", "encerrado": true}
+  ],
+  "futuro": [
+    {"id_aviso": 3100, "id_sequencia": 2, "descricao": "Chuvas Intensas", "severidade": "Grande Perigo", "geocodes": "4201307,4209102,4216206", "hora_inicio": "13:00", "hora_fim": "19:00", "data_inicio": "2026-11-05T00:00:00.000Z", "data_fim": "2026-11-06T00:00:00.000Z"}
+  ]
+}

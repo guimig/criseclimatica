@@ -12,6 +12,8 @@ def validate(output: Path, *, fixture: bool = False) -> None:
     overview = json.loads((data / "latest.json").read_text(encoding="utf-8"))
     history = json.loads((data / "history.json").read_text(encoding="utf-8"))
     stations = json.loads((data / "stations.json").read_text(encoding="utf-8"))
+    alerts = json.loads((data / "alerts.json").read_text(encoding="utf-8"))
+    observations = json.loads((data / "observations.json").read_text(encoding="utf-8"))
     if overview.get("schema_version") != 1 or overview.get("fixture_mode", False) is not fixture:
         raise ValueError("Unexpected manifest schema or fixture mode")
     if not overview.get("available_locations") or not overview.get("locations"):
@@ -20,6 +22,20 @@ def validate(output: Path, *, fixture: bool = False) -> None:
         raise ValueError("History source classification invalid")
     if stations.get("kind") != "station_catalog_metadata_not_measurements":
         raise ValueError("INMET catalog source classification invalid")
+    if alerts.get("kind") != "inmet_official_notices_by_municipality" or alerts.get("status") not in ("available", "unavailable"):
+        raise ValueError("INMET alerts classification or status invalid")
+    if observations.get("kind") != "aerodrome_metar_observations_not_municipal_measurements" or observations.get("status") not in ("available", "no_recent_reports", "unavailable"):
+        raise ValueError("METAR observations classification or status invalid")
+    expected = {loc["id"] for loc in overview["locations"]}
+    for dataset in (alerts, observations):
+        if not isinstance(dataset.get("locations"), list) or {row.get("location_id") for row in dataset["locations"]} != expected:
+            raise ValueError("Incomplete or invalid regional provider coverage")
+    if alerts["status"] == "unavailable" and any(x.get("alerts") for x in alerts["locations"]):
+        raise ValueError("Cannot show official warnings from an unavailable source")
+    if observations["status"] == "unavailable" and any(x.get("observation") for x in observations["locations"]):
+        raise ValueError("Cannot show observations from an unavailable source")
+    if overview.get("official_alerts_integrated") is not (alerts["status"] == "available"):
+        raise ValueError("Overview official alert integration status mismatched")
     for loc in overview["locations"]:
         if loc["status"] == "available":
             detail = json.loads((data / "places" / (loc["id"] + ".json")).read_text(encoding="utf-8"))

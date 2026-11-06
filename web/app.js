@@ -1,6 +1,6 @@
 'use strict';
 
-const state = { overview: null, detail: null, stations: null, history: null, slug: null, metric: 'temperature_c', requestId: 0 };
+const state = { overview: null, detail: null, stations: null, history: null, alerts: null, observations: null, slug: null, metric: 'temperature_c', requestId: 0 };
 const $ = (id) => document.getElementById(id);
 const tz = 'America/Sao_Paulo';
 const units = { temperature_c: '\u00b0C', precipitation_mm: 'mm', gust_kmh: 'km/h' };
@@ -185,6 +185,74 @@ function renderHistory() {
   });
   target.append(root);
 }
+function renderObservations() {
+  const target = $('observed-data');
+  clear(target);
+  const feed = state.observations;
+  const record = feed?.locations?.find((item) => item.location_id === state.slug);
+  const observation = record?.status === 'available' ? record.observation : null;
+  const timestamp = observation?.observed_at ? Date.parse(observation.observed_at) : NaN;
+  const fresh = Number.isFinite(timestamp) && timestamp <= Date.now() + 10 * 60 * 1000 && Date.now() - timestamp <= 6 * 3600 * 1000;
+  if (feed?.status === 'unavailable' || !feed) {
+    target.append(child('p', 'loading-label', 'Consulta METAR indisponível. Não há medição confirmada para exibir.'));
+    $('observed-foot').textContent = 'Fonte: Aviation Weather Center (NOAA) · consulta indisponível';
+    return;
+  }
+  if (!observation || !fresh) {
+    target.append(child('p', 'loading-label', 'Nenhum boletim METAR recente de aeródromo próximo para esta localidade.'));
+    $('observed-foot').textContent = `Consulta aeronáutica: ${datetime(feed.retrieved_at)} · sem boletim recente aplicável`;
+    return;
+  }
+  const heading = child('div', 'observed-heading');
+  heading.append(child('strong', '', `${observation.name} (${observation.icao})`), child('span', '', `${value(record.distance_km, 1)} km em linha reta`));
+  target.append(heading);
+  const metrics = child('div', 'observed-metrics');
+  for (const [label, amount] of [
+    ['TEMPERATURA MEDIDA', Number.isFinite(observation.temperature_c) ? `${value(observation.temperature_c, 1)} °C` : '--'],
+    ['VENTO MEDIDO', Number.isFinite(observation.wind_kmh) ? `${value(observation.wind_kmh, 1)} km/h` : '--'],
+    ['RAJADA MEDIDA', Number.isFinite(observation.gust_kmh) ? `${value(observation.gust_kmh, 1)} km/h` : '--'],
+  ]) {
+    const tile = child('div', 'observed-metric');
+    tile.append(child('span', '', label), child('strong', '', amount));
+    metrics.append(tile);
+  }
+  target.append(metrics);
+  $('observed-foot').textContent = `Medição no aeródromo: ${datetime(observation.observed_at)} · boletim METAR (NOAA). Não equivale à condição de todo o município.`;
+}
+function renderOfficialAlerts() {
+  const target = $('official-alerts');
+  clear(target);
+  const feed = state.alerts;
+  const validTime = feed?.retrieved_at && Number.isFinite(Date.parse(feed.retrieved_at));
+  const fresh = validTime && Date.now() - Date.parse(feed.retrieved_at) >= -10 * 60000 && Date.now() - Date.parse(feed.retrieved_at) <= 6 * 3600000;
+  if (!feed || feed.status !== 'available' || !fresh) {
+    target.append(child('p', 'alert-unknown', 'Não foi possível confirmar a situação atual dos avisos do INMET. Verifique o portal oficial e a Defesa Civil.'));
+    $('alert-updated').textContent = 'Situação de avisos não confirmada nesta publicação.';
+    return;
+  }
+  const place = feed.locations?.find((item) => item.location_id === state.slug);
+  if (!place || !Array.isArray(place.alerts)) {
+    target.append(child('p', 'alert-unknown', 'Não foi possível verificar os avisos deste município.'));
+    $('alert-updated').textContent = 'Cobertura municipal não confirmada.';
+    return;
+  }
+  $('alert-updated').textContent = `Consulta INMET: ${datetime(feed.retrieved_at)} · vigência e fuso: conforme a fonte original.`;
+  if (!place.alerts.length) {
+    target.append(child('p', 'alert-empty', 'Nenhum aviso municipal retornado pelo INMET nesta consulta. Isso não exclui outros alertas ou riscos locais.'));
+    return;
+  }
+  for (const alert of place.alerts) {
+    const card = child('section', 'alert-entry');
+    const head = child('div', 'alert-entry-heading');
+    head.append(child('strong', '', alert.type || 'Aviso meteorológico'), child('span', 'alert-severity', alert.severity || 'Não informada'));
+    card.append(head, child('p', 'alert-window', alert.window_as_reported || 'Período não informado'));
+    const risk = Array.isArray(alert.risks) ? alert.risks.filter((text) => typeof text === 'string').slice(0, 2) : [];
+    const recommendations = Array.isArray(alert.instructions) ? alert.instructions.filter((text) => typeof text === 'string').slice(0, 2) : [];
+    if (risk.length) card.append(child('p', 'alert-description', risk.join(' · ')));
+    if (recommendations.length) card.append(child('p', 'alert-instructions', `Orientação INMET: ${recommendations.join(' · ')}`));
+    target.append(card);
+  }
+}
 function clearDetails() {
   for (const id of ['temp', 'feels', 'humidity', 'wind', 'rain-24', 'rain-now', 'gust-now', 'pressure', 'model-time', 'coordinates', 'source-time']) $(id).textContent = '--';
   $('weather').textContent = 'Dados indispon\u00edveis';
@@ -224,6 +292,8 @@ async function selectLocation(slug) {
   renderTerritory();
   renderStations();
   renderHistory();
+  renderObservations();
+  renderOfficialAlerts();
   clearDetails();
   if (place.status !== 'available') return;
   try {
@@ -244,12 +314,16 @@ async function boot() {
     const overview = await readJson('./data/latest.json');
     if (!Array.isArray(overview.locations) || overview.schema_version !== 1 || overview.fixture_mode) throw new Error('Invalid or test dataset');
     state.overview = overview;
-    const [stations, history] = await Promise.all([
+    const [stations, history, alerts, observations] = await Promise.all([
       readJson('./data/stations.json').catch(() => null),
       readJson('./data/history.json').catch(() => null),
+      readJson('./data/alerts.json').catch(() => null),
+      readJson('./data/observations.json').catch(() => null),
     ]);
     state.stations = stations?.schema_version === 1 && stations?.kind === 'station_catalog_metadata_not_measurements' ? stations : null;
     state.history = history?.schema_version === 1 && history?.kind === 'daily_last_model_publication_not_station_observation' ? history : null;
+    state.alerts = alerts?.schema_version === 1 && alerts?.kind === 'inmet_official_notices_by_municipality' ? alerts : null;
+    state.observations = observations?.schema_version === 1 && observations?.kind === 'aerodrome_metar_observations_not_municipal_measurements' ? observations : null;
     const select = $('location-select');
     clear(select);
     for (const loc of overview.locations) {
