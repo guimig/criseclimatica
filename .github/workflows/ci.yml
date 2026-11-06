@@ -27,3 +27,7 @@ jobs:
         run: python scripts/build_site.py --fixture tests/fixtures/open_meteo.json --stations-fixture tests/fixtures/inmet_catalog.json --output dist
       - name: Validate generated datasets
         run: python scripts/validate_site.py --output dist --fixture
+      - name: Probe official endpoints from GitHub runner (informational)
+        continue-on-error: true
+        timeout-minutes: 3
+        run: python scripts/probe_sources.py

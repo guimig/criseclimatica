@@ -118,3 +118,28 @@ Esta etapa **não altera o armazenamento histórico**. Foram acrescentados:
 - Referências diretas às páginas oficiais de [Defesa Civil de Araquari](https://araquari.atende.net/subportal/secretaria-de-seguranca-publica-e-defesa-civil), [Defesa Civil SC](https://www.defesacivil.sc.gov.br/), [Epagri/Ciram](https://ciram.epagri.sc.gov.br/agroconnect/), [catálogo automático](https://portal.inmet.gov.br/paginas/catalogoaut), [catálogo convencional](https://portal.inmet.gov.br/paginas/catalogoman) e [BDMEP](https://bdmep.inmet.gov.br/).
 
 Os arquivos `data/cptec.json` e `data/defesa_civil_sc.json` são gerados por execução. A publicação valida os formatos e impede a divulgação de amostras sintéticas como se fossem dados reais. Consulte [documentação técnica](docs/INMET_DEFESA_CIVIL_CPTEC.md) para limitações e testes.
+
+
+## INMET observado com atraso e diagnóstico Defesa Civil SC (atualização)
+
+O projeto agora consegue **tentar** recuperar o arquivo ZIP anual de medições
+instrumentais das automáticas do INMET, sem token. A consulta de arquivo é
+separada do painel de chuva em tempo real (ainda não configurado), consulta
+no máximo semanalmente em caso de sucesso e mostra apenas séries compactas
+de até 14 dias em torno da última observação disponível, com data e cobertura.
+Um dia com menos de 24 leituras nunca aparece como total diário completo.
+**A publicação do ano de 2026 estava anunciada até 31/10/2026 em 05/11/2026**;
+nenhum dado do arquivo deve ser interpretado como precipitação atual.
+
+Para a Defesa Civil SC foi incluído diagnóstico de falhas, correção de horário
+de publicações, tentativa em página oficial além do WordPress/RSS e uso
+marcado como **desatualizado** de publicações anteriormente verificadas quando
+as interfaces forem temporariamente inacessíveis. Essas publicações não têm
+vigência oficial automaticamente inferida.
+
+O painel CPTEC/INPE também mostra a diferença de temperatura máxima em relação
+à previsão Open-Meteo, quando ambas são referentes ao mesmo dia. **Não se
+trata de medição instrumental.**
+
+Documentação detalhada: [INMET anual e Defesa Civil](docs/INMET_ARQUIVO_E_DEFESA_2026.md).
+Não houve integração com o Google Drive nem criação de nova cópia histórica.
