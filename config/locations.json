@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "geographic_reference": "Approximate central coordinates for model sampling; not weather stations or municipal boundaries.",
+  "geographic_reference": "Curated approximate municipal sampling points shared by all source queries; not official centroids, municipal polygons or climatologically homogeneous areas.",
   "locations": [
     {
       "id": "araquari",
@@ -9,7 +9,8 @@
       "latitude": -26.375,
       "longitude": -48.721,
       "featured": true,
-      "ibge_code": "4201307"
+      "ibge_code": "4201307",
+      "territorial_group": "norte-sc"
     },
     {
       "id": "joinville",
@@ -17,7 +18,8 @@
       "state": "SC",
       "latitude": -26.3044,
       "longitude": -48.8487,
-      "ibge_code": "4209102"
+      "ibge_code": "4209102",
+      "territorial_group": "norte-sc"
     },
     {
       "id": "blumenau",
@@ -25,7 +27,8 @@
       "state": "SC",
       "latitude": -26.9194,
       "longitude": -49.0661,
-      "ibge_code": "4202404"
+      "ibge_code": "4202404",
+      "territorial_group": "vale-itajai"
     },
     {
       "id": "itajai",
@@ -33,7 +36,8 @@
       "state": "SC",
       "latitude": -26.9101,
       "longitude": -48.6705,
-      "ibge_code": "4208203"
+      "ibge_code": "4208203",
+      "territorial_group": "vale-itajai"
     },
     {
       "id": "jaragua-do-sul",
@@ -41,7 +45,8 @@
       "state": "SC",
       "latitude": -26.4851,
       "longitude": -49.071,
-      "ibge_code": "4208906"
+      "ibge_code": "4208906",
+      "territorial_group": "norte-sc"
     },
     {
       "id": "sao-francisco-do-sul",
@@ -49,7 +54,8 @@
       "state": "SC",
       "latitude": -26.2433,
       "longitude": -48.6381,
-      "ibge_code": "4216206"
+      "ibge_code": "4216206",
+      "territorial_group": "norte-sc"
     },
     {
       "id": "itapoa",
@@ -57,7 +63,8 @@
       "state": "SC",
       "latitude": -26.1156,
       "longitude": -48.618,
-      "ibge_code": "4208450"
+      "ibge_code": "4208450",
+      "territorial_group": "norte-sc"
     },
     {
       "id": "garuva",
@@ -65,7 +72,8 @@
       "state": "SC",
       "latitude": -26.0272,
       "longitude": -48.8542,
-      "ibge_code": "4205803"
+      "ibge_code": "4205803",
+      "territorial_group": "norte-sc"
     },
     {
       "id": "balneario-barra-do-sul",
@@ -73,7 +81,8 @@
       "state": "SC",
       "latitude": -26.4575,
       "longitude": -48.6114,
-      "ibge_code": "4202057"
+      "ibge_code": "4202057",
+      "territorial_group": "norte-sc"
     },
     {
       "id": "barra-velha",
@@ -81,7 +90,104 @@
       "state": "SC",
       "latitude": -26.6328,
       "longitude": -48.684,
-      "ibge_code": "4202107"
+      "ibge_code": "4202107",
+      "territorial_group": "norte-sc"
+    },
+    {
+      "id": "navegantes",
+      "name": "Navegantes",
+      "state": "SC",
+      "latitude": -26.8986,
+      "longitude": -48.6542,
+      "ibge_code": "4211306",
+      "territorial_group": "vale-itajai"
+    },
+    {
+      "id": "penha",
+      "name": "Penha",
+      "state": "SC",
+      "latitude": -26.7694,
+      "longitude": -48.6458,
+      "ibge_code": "4212502",
+      "territorial_group": "vale-itajai"
+    },
+    {
+      "id": "balneario-picarras",
+      "name": "Balneário Piçarras",
+      "state": "SC",
+      "latitude": -26.7639,
+      "longitude": -48.6717,
+      "ibge_code": "4212809",
+      "territorial_group": "vale-itajai"
+    },
+    {
+      "id": "guaramirim",
+      "name": "Guaramirim",
+      "state": "SC",
+      "latitude": -26.4731,
+      "longitude": -49.0028,
+      "ibge_code": "4206504",
+      "territorial_group": "norte-sc"
+    },
+    {
+      "id": "gaspar",
+      "name": "Gaspar",
+      "state": "SC",
+      "latitude": -26.9314,
+      "longitude": -48.9589,
+      "ibge_code": "4205902",
+      "territorial_group": "vale-itajai"
+    },
+    {
+      "id": "pomerode",
+      "name": "Pomerode",
+      "state": "SC",
+      "latitude": -26.7406,
+      "longitude": -49.1769,
+      "ibge_code": "4213203",
+      "territorial_group": "vale-itajai"
+    },
+    {
+      "id": "florianopolis",
+      "name": "Florianópolis",
+      "state": "SC",
+      "latitude": -27.5954,
+      "longitude": -48.548,
+      "ibge_code": "4205407",
+      "territorial_group": "grande-florianopolis"
+    },
+    {
+      "id": "sao-jose",
+      "name": "São José",
+      "state": "SC",
+      "latitude": -27.6136,
+      "longitude": -48.6366,
+      "ibge_code": "4216602",
+      "territorial_group": "grande-florianopolis"
+    },
+    {
+      "id": "curitiba",
+      "name": "Curitiba",
+      "state": "PR",
+      "latitude": -25.4284,
+      "longitude": -49.2733,
+      "ibge_code": "4106902",
+      "territorial_group": "curitiba-planalto"
+    },
+    {
+      "id": "sao-jose-dos-pinhais",
+      "name": "São José dos Pinhais",
+      "state": "PR",
+      "latitude": -25.5347,
+      "longitude": -49.2064,
+      "ibge_code": "4125506",
+      "territorial_group": "curitiba-planalto"
     }
-  ]
+  ],
+  "territorial_groups": {
+    "norte-sc": "Norte de Santa Catarina",
+    "vale-itajai": "Vale e foz do Itajaí",
+    "grande-florianopolis": "Grande Florianópolis",
+    "curitiba-planalto": "Curitiba e planalto próximo"
+  }
 }

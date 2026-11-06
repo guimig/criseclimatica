@@ -148,10 +148,11 @@ class TestStationCatalogs(unittest.TestCase):
             a = json.loads((output / "data/cptec.json").read_text())
             b = json.loads((output / "data/defesa_civil_sc.json").read_text())
             c = json.loads((output / "data/stations.json").read_text())
-            self.assertEqual(a["status"], "available")
+            self.assertEqual(a["status"], "partial")  # SC-only fixture cannot represent the new PR points.
             self.assertEqual(b["status"], "available")
             self.assertEqual(c["conventional_catalog_status"], "available")
 
 
 if __name__ == "__main__":
     unittest.main()
+

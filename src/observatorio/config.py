@@ -41,7 +41,9 @@ def load_locations(path: Path) -> list[dict[str, Any]]:
             "id": slug, "name": name, "state": item.get("state", ""),
             "latitude": float(lat), "longitude": float(lon),
             "featured": bool(item.get("featured", False)), "ibge_code": ibge,
+            "territorial_group": item.get("territorial_group", "unassigned"),
         })
     if not result:
         raise ValueError("At least one location is required")
     return result
+

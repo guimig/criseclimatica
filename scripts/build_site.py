@@ -17,6 +17,7 @@ from urllib.request import Request, urlopen
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from observatorio.territorial_alignment import summarize as summarize_alignment
 from observatorio.coverage import summarize as summarize_coverage
 from observatorio.config import load_locations  # noqa: E402
 from observatorio.alerts import AlertSourceError, fetch_alerts, normalize_alerts, unavailable_alerts  # noqa: E402
@@ -298,12 +299,17 @@ def build(
           f"cemaden_sensors_selected={sum(len(row.get('stations', [])) for row in cemaden_sensors.get('locations', []))} "
           f"metar={len(observations.get('stations', []))}/{len(observations.get('queried_stations', []))} "
           f"metar_codes={metar_codes or 'none'}")
+    alignment = summarize_alignment(locations, details, cemaden, cemaden_sensors, observations, stamp)
+    print(f"Territorial alignment: municipalities={len(locations)} "
+          f"three_sources_nearby={sum(row['coverage_status'] == 'three_sources_nearby' for row in alignment['locations'])} "
+          f"potential_temperature_triads={sum(bool(item['potential_common_variables']) for row in alignment['locations'] for item in row['candidate_triads'])}")
     output = output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="observatorio-build-", dir=output.parent) as temp:
         staged = Path(temp) / "site"
         shutil.copytree(ROOT / "web", staged)
         data = staged / "data"
+        write_json_atomic(data / "territorial_alignment.json", alignment)
         write_json_atomic(data / "coverage.json", coverage)
         write_json_atomic(data / "latest.json", manifest)
         write_json_atomic(data / "history.json", history)

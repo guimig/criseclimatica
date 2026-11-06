@@ -18,7 +18,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from observatorio.config import load_locations
 from observatorio.cemaden_auth import SgaaSession
 from observatorio.cemaden_sensors import (
-    KIND, SensorSourceError, collect, fetch_recent, fetch_sensor_types,
+    KIND, MAX_RECORDS, SensorSourceError, collect, fetch_recent, fetch_sensor_types,
     normalize_recent, normalize_types, unavailable,
 )
 from observatorio.cemaden_rate import PedRateLimiter
@@ -67,8 +67,8 @@ class RateLimitTests(unittest.TestCase):
 
 
 class SensorFeedTests(unittest.TestCase):
-    def test_requested_ten_municipalities_with_official_ibge_codes(self):
-        self.assertEqual(len(LOCATIONS), 10)
+    def test_requested_twenty_municipalities_with_official_ibge_codes(self):
+        self.assertEqual(len(LOCATIONS), 20)
         index = {loc["id"]:loc["ibge_code"] for loc in LOCATIONS}
         self.assertEqual(index["araquari"], "4201307")
         self.assertEqual(index["blumenau"], "4202404")
@@ -109,13 +109,13 @@ class SensorFeedTests(unittest.TestCase):
     def test_stale_future_foreign_and_invalid_values_never_published(self):
         raw = [make_row(hours_ago=4), make_row(hours_ago=-1),
                make_row(val=-999), make_row(val=9999), make_row(val=float("nan")),
-               make_row(uf="PR"), make_row(latitude=-10, longitude=-65)]
+               make_row(uf="RS"), make_row(latitude=-10, longitude=-65)]
         result = normalize_recent(raw, {}, LOCATIONS, STAMP, now=NOW)
         self.assertEqual(result["status"], "no_recent_data")
         self.assertFalse(result["stations"])
 
     def test_incomplete_or_malformed_payload_is_error_not_zero(self):
-        for data in (None, {}, [42] * 30001):
+        for data in (None, {}, [42] * (MAX_RECORDS + 1)):
             with self.subTest(data=type(data).__name__), self.assertRaises(SensorSourceError):
                 normalize_recent(data, {}, LOCATIONS, STAMP, now=NOW)
 
@@ -195,8 +195,8 @@ class SensorFeedTests(unittest.TestCase):
         seen=[]
         result=collect_rain(LOCATIONS,STAMP,token='FAKE',now=NOW,
                             on_request=lambda:seen.append('request'),fetcher=lambda *_:[])
-        self.assertEqual(len(seen),10)
-        self.assertEqual(result['municipalities_checked'],10)
+        self.assertEqual(len(seen),20)
+        self.assertEqual(result['municipalities_checked'],20)
 
     def test_build_renders_and_validates_synthetic_sensor_block(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -205,7 +205,7 @@ class SensorFeedTests(unittest.TestCase):
             validate(target,fixture=True)
             data=json.loads((target/'data/cemaden_sensors.json').read_text())
             self.assertEqual(data['status'],'fixture_mode')
-            self.assertEqual(len(data['locations']),10)
+            self.assertEqual(len(data['locations']),20)
             self.assertFalse(data['stations'])
             with self.assertRaises(ValueError):validate(target,fixture=False)
 
@@ -237,7 +237,8 @@ class ArchiveCoverageTests(unittest.TestCase):
                    side_effect=AssertionError('Annual ZIP must not be downloaded for cache reindexing')):
             out=collect_archive(LOCATIONS, {}, STAMP, previous=previous)
         self.assertEqual(out['status'],'cached')
-        self.assertEqual(len(out['locations']), 10)
+        self.assertEqual(len(out['locations']), 20)
         cities={row['location_id']:row['stations'] for row in out['locations']}
         self.assertTrue(cities['itajai'])
         self.assertEqual(cities['itajai'][0]['distance_km'], 0.0)
+

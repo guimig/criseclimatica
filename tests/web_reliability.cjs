@@ -81,4 +81,19 @@ run(`appendStationCards(document.getElementById('expanded-test'),
 Array.from({length:25}, (_, i)=>child('article','', 'Estação '+i)));`);
 assert.match(text('expanded-test'), /Estação 24/);
 assert.match(text('expanded-test'), /Ver mais 19 estações/);
+clock = Date.parse('2026-11-06T12:30:00Z');
+run(`state.alignment={checked_at:'2026-11-06T12:00:00Z',spatial_radius_km:25,groups:{'norte-sc':'Norte de SC'},locations:[
+{location_id:'araquari',territorial_group:'norte-sc',sample_point:{latitude:-26.375,longitude:-48.721},
+model:{reference_at:'2026-11-06T12:00:00Z'},cemaden_local_rain:{station_count:4},cemaden_nearby_count:5,metar_nearby_count:1,
+cemaden_candidates:[{code:'12345',sample_distance_km:2,reference_at:'2026-11-06T12:00:00Z'}],
+metar_candidates:[{code:'SBJV',sample_distance_km:20,reference_at:'2026-11-06T12:00:00Z'}],
+candidate_triads:[{cemaden_code:'12345',metar_code:'SBJV',station_distance_km:18,time_gap_minutes:0,
+time_window_aligned:true,model_grid_proximity_verified:false,potential_common_variables:[],comparison_ready:false}]}]};
+renderTerritorialAlignment();`);
+assert.match(text('alignment-data'), /Ainda não há variável comum confirmada/);
+assert.match(text('alignment-data'), /Não é uma comparação de precisão/);
+assert.match(text('alignment-data'), /grade do modelo ainda não confirmada/);
+clock = Date.parse('2026-11-07T12:30:00Z');
+run('renderTerritorialAlignment();');
+assert.match(text('alignment-data'), /referências vencidas/);
 console.log('Browser reliability scenarios passed: freshness, municipal failure, expired readings, partial publication.');

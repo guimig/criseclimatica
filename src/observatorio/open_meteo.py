@@ -117,6 +117,12 @@ def normalize(location: dict[str, Any], payload: dict[str, Any], collected_at: s
     return {
         "schema_version": 1,
         "location": location,
+        "grid_point": {
+            "latitude": number(payload.get("latitude")),
+            "longitude": number(payload.get("longitude")),
+            "elevation_m": number(payload.get("elevation")),
+            "kind": "provider_grid_reference_not_station_location",
+        },
         "source": {"id": "open-meteo", "name": "Open-Meteo", "url": SOURCE_URL,
                    "kind": "numerical_model", "license": "Free non-commercial use with attribution"},
         "measurement_status": "estimated_model_not_station_observation",
@@ -161,3 +167,4 @@ class OpenMeteoClient:
                 if attempt + 1 < self.attempts:
                     time.sleep(1 + attempt)
         raise ProviderError(f"Open-Meteo request failed for {location['id']}: {type(last_error).__name__}") from last_error
+
