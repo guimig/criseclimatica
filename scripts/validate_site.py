@@ -100,6 +100,20 @@ def validate(output: Path, *, fixture: bool = False) -> None:
         raise ValueError("INMET alerts classification or status invalid")
     if observations.get("kind") != "aerodrome_metar_observations_not_municipal_measurements" or observations.get("status") not in ("available", "no_recent_reports", "unavailable"):
         raise ValueError("METAR observations classification or status invalid")
+    alignment = json.loads((data / "territorial_alignment.json").read_text(encoding="utf-8"))
+    if (alignment.get("kind") != "territorial_source_alignment_not_model_validation"
+            or alignment.get("schema_version") != 1
+            or {row.get("location_id") for row in alignment.get("locations", [])} != {row["id"] for row in overview["locations"]}):
+        raise ValueError("Invalid common territorial coverage")
+    for local in alignment["locations"]:
+        sensors = {row["code"] for row in local.get("cemaden_candidates", [])}
+        aerodromes = {row["code"] for row in local.get("metar_candidates", [])}
+        for triad in local.get("candidate_triads", []):
+            if (triad.get("cemaden_code") not in sensors or triad.get("metar_code") not in aerodromes
+                    or triad.get("comparison_ready") is not False
+                    or not isinstance(triad.get("station_distance_km"), (int,float))
+                    or not 0 <= triad["station_distance_km"] <= 25.01):
+                raise ValueError("Territorial candidate cannot claim scientific comparison readiness")
     metar_codes = {row["icao"] for row in observations.get("stations", [])}
     for local in observations.get("locations", []):
         refs = local.get("stations", [])

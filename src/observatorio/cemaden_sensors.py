@@ -26,7 +26,8 @@ SOURCE = "https://sws.cemaden.gov.br/PED/api/ui/"
 KIND = "cemaden_recent_instrumental_sensor_readings_not_model_forecast"
 STATION_CODE = re.compile(r"[A-Za-z0-9-]{4,25}")
 MAX_BODY_BYTES = 12_000_000
-MAX_RECORDS = 30_000
+MAX_STATE_RECORDS = 30_000
+MAX_RECORDS = 2 * MAX_STATE_RECORDS
 MAX_NEARBY_KM = 130.0
 MAX_STATIONS_PER_PLACE = 24
 MAX_READINGS_PER_STATION = 12
@@ -74,8 +75,10 @@ def _request_json(path: str, token: str, params: dict[str, str], *, max_bytes: i
         raise SensorSourceError("service_unavailable") from None
 
 
-def fetch_recent(token: str) -> Any:
-    return _request_json(RECENT_API, token, {"rede": "11", "uf": "SC", "formato": "JSON"},
+def fetch_recent(token: str, *, uf: str = "SC") -> Any:
+    if uf not in ("SC", "PR"):
+        raise SensorSourceError("invalid_state")
+    return _request_json(RECENT_API, token, {"rede": "11", "uf": uf, "formato": "JSON"},
                          max_bytes=MAX_BODY_BYTES)
 
 
@@ -143,11 +146,12 @@ def normalize_recent(payload: Any, sensor_labels: dict[int, str], locations: lis
     if not isinstance(payload, list) or len(payload) > MAX_RECORDS:
         raise SensorSourceError("invalid_recent_response")
     now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    allowed_states = {loc.get("state", "SC") for loc in locations} & {"SC", "PR"}
     by_station: dict[str, dict] = {}
     by_sensor: dict[tuple[str, int], dict] = {}
     ambiguous: set[tuple[str, int]] = set()
     for item in payload:
-        if not isinstance(item, dict) or str(item.get("uf", "")).upper() != "SC":
+        if not isinstance(item, dict) or str(item.get("uf", "")).upper() not in allowed_states:
             continue
         code = item.get("codestacao")
         if not isinstance(code, str) or not STATION_CODE.fullmatch(code):
@@ -170,6 +174,7 @@ def normalize_recent(payload: Any, sensor_labels: dict[int, str], locations: lis
         station = by_station.setdefault(code, {
             "code": code, "name": str(item.get("nome") or code)[:100],
             "municipality": str(item.get("cidade") or "Não informado")[:100],
+            "state": str(item.get("uf", "")).upper(),
             "latitude": lat, "longitude": lon, "readings": []})
         # Conflicting coordinate metadata for one code is not merged into an
         # apparently precise station position.
@@ -216,7 +221,7 @@ def normalize_recent(payload: Any, sensor_labels: dict[int, str], locations: lis
         "source": {"id": "cemaden", "name": "Cemaden PED — sensores recentes",
                    "url": SOURCE, "attribution": "DADOS DA REDE OBSERVACIONAL DO CEMADEN/MCTIC"},
         "station_data_kind": "raw_station_sensor_values_last_three_hours_not_local_forecast",
-        "geography": "SC; leitura de uma estação próxima não representa o município inteiro",
+        "geography": "SC/PR; leitura de uma estação próxima não representa o município inteiro",
         "catalog_status": "available" if sensor_labels else "unavailable",
         "selection": {"radius_km": MAX_NEARBY_KM, "max_stations_per_location": MAX_STATIONS_PER_PLACE,
                       "regional_station_count": len(stations)},
@@ -232,7 +237,7 @@ def unavailable(locations: list[dict], stamp: str, status: str, *, reason: str |
 
 def collect(locations: list[dict], stamp: str, *, session: SgaaSession | None = None,
             token: str | None = None, on_request: Callable[[], None] | None = None,
-            recent_fetcher: Callable[[str], Any] = fetch_recent,
+            recent_fetcher: Callable[[str], Any] | None = None,
             sensor_fetcher: Callable[[str], Any] = fetch_sensor_types) -> dict:
     """Fetch regional sensor observations with a common, rate-limited SGAA JWT."""
     if token is None:
@@ -273,8 +278,31 @@ def collect(locations: list[dict], stamp: str, *, session: SgaaSession | None = 
         except (SensorSourceError, SgaaAuthError, ValueError):
             sensor_labels = {}
             catalog_status = "unavailable"
-        rows = guarded_fetch(recent_fetcher)
+        states = sorted({loc.get("state", "SC") for loc in locations} & {"SC", "PR"})
+        state_status = {}
+        rows = []
+        if recent_fetcher is not None:
+            rows = guarded_fetch(recent_fetcher)
+        else:
+            for uf in states:
+                try:
+                    part = guarded_fetch(lambda jwt, uf=uf: fetch_recent(jwt, uf=uf))
+                    if not isinstance(part, list) or len(part) > MAX_STATE_RECORDS:
+                        raise SensorSourceError("invalid_recent_response")
+                    rows.extend(row for row in part if isinstance(row, dict) and str(row.get("uf", "")).upper() == uf)
+                    state_status[uf] = "available"
+                except (SensorSourceError, SgaaAuthError) as exc:
+                    state_status[uf] = exc.reason
+            if not any(status == "available" for status in state_status.values()):
+                result = unavailable(locations, stamp, "unavailable", reason="all_state_queries_failed")
+                result["state_queries"] = state_status
+                return result
         result = normalize_recent(rows, sensor_labels, locations, stamp)
+        result["state_queries"] = state_status
+        if any(status != "available" for status in state_status.values()):
+            result["diagnostic"] = "partial_state_coverage"
+            if result["status"] == "no_recent_data":
+                result["status"] = "unavailable"
         result["catalog_status"] = catalog_status
         return result
     except (SgaaAuthError, SensorSourceError) as exc:

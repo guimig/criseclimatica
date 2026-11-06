@@ -1,20 +1,22 @@
 # Observatório do Tempo e Clima
 
-Portal meteorológico aberto com prioridade em Araquari e cobertura de dez municípios de Santa Catarina. Python coleta e processa dados no GitHub Actions; GitHub Pages publica HTML, CSS, JavaScript e JSON. Sem banco pago, Google Sheets, backend no navegador ou credenciais públicas.
+Portal meteorológico aberto com prioridade em Araquari e cobertura de vinte municípios de Santa Catarina e Paraná. Python coleta e processa dados no GitHub Actions; GitHub Pages publica HTML, CSS, JavaScript e JSON. Sem banco pago, Google Sheets, backend no navegador ou credenciais públicas.
 
 ## O que está implementado
 
 - Open-Meteo: estimativas atuais e previsão horária/diária, com identificação explícita de modelo.
 - Avisos INMET por código municipal IBGE e arquivo progressivo de avisos; não são registros de desastres confirmados.
 - METAR/NOAA: consulta conjunta de Joinville (SBJV), Navegantes (SBNF), Blumenau (SSBL), Florianópolis (SBFL), Afonso Pena (SBCT) e Bacacheri (SBBI). Exibe todos os boletins válidos até 180 km, distinguindo contexto regional acima de 100 km e mantendo a observação principal dentro de 100 km.
-- Cemaden PED: acumulados de 1–120h por estação e consulta regional de sensores recentes, com SGAA e limite compartilhado de requisições. Sensores: até 24 estações por localidade em um raio de 130 km; acumulados municipais: todas as estações retornadas, sem o antigo corte de seis na interface.
+- Cemaden PED: acumulados de 1–120h por estação e consulta regional SC/PR de sensores recentes, com SGAA e limite compartilhado de requisições. Sensores: até 24 estações por localidade em um raio de 130 km; acumulados municipais: todas as estações retornadas, sem o antigo corte de seis na interface.
 - INMET: catálogos automático/convencional, arquivo anual observado com atraso e adaptador de precipitação recente condicionado a acesso autorizado.
 - Epagri: cadastro de estações, avisos meteorológicos e boletins editoriais; cadastro não é telemetria.
 - CPTEC: previsão independente para a localidade de referência; NASA POWER: estimativas diárias em grade para Araquari.
 - Defesa Civil SC: coletor experimental de publicações, com indisponibilidade explícita quando os canais não respondem.
 - Cobertura por localidade, fonte, variável e horário em `data/coverage.json` e na interface.
 
-Os pontos de amostragem são Araquari, Joinville, São Francisco do Sul, Itapoá, Garuva, Balneário Barra do Sul, Barra Velha, Blumenau, Itajaí e Jaraguá do Sul. Coordenadas aproximadas não representam polígonos municipais nem estações.
+A cobertura usa vinte pontos municipais, em quatro núcleos: Norte de SC, Vale e foz do Itajaí, Grande Florianópolis e Curitiba/planalto. Os dez pontos originais são preservados; entram Navegantes, Penha, Balneário Piçarras, Guaramirim, Gaspar, Pomerode, Florianópolis, São José (SC), Curitiba e São José dos Pinhais. Os pontos são aproximações de amostragem selecionadas para o projeto, não centroides oficiais nem polígonos municipais. Núcleos são agrupamentos operacionais, não regiões climaticamente homogêneas.
+
+`data/territorial_alignment.json` e o painel de áreas comuns indicam proximidade entre modelo e estações, distância entre as estações, diferença temporal, referência da grade devolvida pelo Open-Meteo e variáveis potencialmente comuns. O raio exploratório é 25 km, com prioridade geométrica a 10 km; são parâmetros de triagem, não padrões de equivalência meteorológica. Altitude, relevo e protocolos ainda precisam de verificação. Não se calcula precisão, viés ou erro de previsão. Veja [áreas comuns](docs/ALINHAMENTO_TERRITORIAL.md).
 
 ## Confiabilidade e limites
 

@@ -117,7 +117,7 @@ class TestNoticeArchive(unittest.TestCase):
     def test_archives_official_notices_without_claiming_confirmed_disaster(self):
         archive = merge_notice_archive(None, WARNINGS, now=NOW)
         self.assertEqual(archive['kind'], 'archive_of_inmet_notices_not_confirmed_weather_events')
-        self.assertEqual(len(archive['records']), 2)
+        self.assertEqual(len(archive['records']), 3)
         record = next(x for x in archive['records'] if x['id'] == '3100')
         self.assertIn('araquari', record['municipality_ids'])
         self.assertTrue(record['present_in_latest_successful_feed'])
@@ -184,3 +184,4 @@ class TestNoticeArchive(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

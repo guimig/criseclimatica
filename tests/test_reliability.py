@@ -156,7 +156,7 @@ class IndependentPublicationTests(unittest.TestCase):
                 self._patch_sources(stack, feeds)
                 count, total = build(target)
             self.assertEqual(count, 0)
-            self.assertEqual(total, 10)
+            self.assertEqual(total, 20)
             validate(target)
             overview = json.loads((target/"data/latest.json").read_text())
             self.assertEqual(overview["publication_status"], "partial")

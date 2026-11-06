@@ -66,3 +66,17 @@ Documentos anteriores em `docs/` registram o desenvolvimento e as limitações d
 - [ ] Confirmar contagens reais no runner após integração; código consultado não significa boletim disponível.
 
 Ver [Ampliação das estações](AMPLIACAO_ESTACOES.md).
+
+## Alinhamento territorial das três fontes
+
+- [x] Cadastro compartilhado ampliado para vinte municípios SC/PR em quatro núcleos operacionais, preservando os dez anteriores.
+- [x] Open-Meteo e consultas municipais Cemaden usam os mesmos pontos/códigos; sensores Cemaden consultam SC e PR, com falha por UF explícita.
+- [x] METAR mantém os seis aeródromos e associações por distância aos vinte pontos. Município não implica estação disponível.
+- [x] Inventário de proximidade até 25 km, distância entre estações, janela temporal de 60 min e referência de grade do modelo.
+- [x] Variável potencial comum somente quando unidade/campo confirmados; sem chuva METAR inventada e sem métrica de precisão.
+- [x] Histórico de modelo continua limitado a 366 dias, com limite de registros compatível com vinte pontos e proteção contra perda.
+- [ ] Conferir cobertura real, candidatos por núcleo e unidades após a primeira publicação.
+- [ ] Obter coordenadas/altitudes verificadas de todos os pluviômetros e metadados dos sensores antes de comparação científica.
+- [ ] Planejar previsões com emissão/horizonte preservados e observações com mesma janela antes de validar desempenho.
+
+Os núcleos não certificam semelhança climática. Ver [Alinhamento territorial](ALINHAMENTO_TERRITORIAL.md).

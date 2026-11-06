@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 
 TIMEZONE = ZoneInfo("America/Sao_Paulo")
 MAX_SAVED_DAYS = 400
-MAX_PREVIOUS_RECORDS = 6000
+MAX_PREVIOUS_RECORDS = 12000
 _KIND = "daily_last_model_publication_not_station_observation"
 
 
@@ -106,3 +106,4 @@ def merge_daily_publications(
         "note": "Ultima estimativa de modelo publicada no dia; nao representa maxima, media ou chuva medida.",
         "records": [records[key] for key in sorted(records)],
     }
+

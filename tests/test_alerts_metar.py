@@ -42,7 +42,7 @@ class TestOfficialNotices(unittest.TestCase):
         self.assertEqual(araquari["alerts"][0]["revision"], 2)
         self.assertEqual(araquari["alerts"][0]["severity"], "Grande Perigo")
         self.assertEqual(araquari["alerts"][0]["phases"], ["futuro", "hoje"])
-        self.assertEqual(result["regional_distinct_notices"], 2)
+        self.assertEqual(result["regional_distinct_notices"], 3)
         garuva = next(x for x in result["locations"] if x["location_id"] == "garuva")
         self.assertEqual(garuva["alerts"], [])
 
@@ -167,3 +167,4 @@ class TestStaticBuild(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -1,6 +1,6 @@
 'use strict';
 
-const state = { coverage: null, bootId: 0, overview: null, detail: null, stations: null, history: null, alerts: null, observations: null, rain: null, nasa: null, cemaden: null, cemadenSensors: null, cptec: null, defesa: null, archive: null, noticeArchive: null, epagriGeo: null, epagriNotices: null, epagriBulletins: null, regionalQuality: null, slug: null, metric: 'temperature_c', requestId: 0 };
+const state = { alignment: null, coverage: null, bootId: 0, overview: null, detail: null, stations: null, history: null, alerts: null, observations: null, rain: null, nasa: null, cemaden: null, cemadenSensors: null, cptec: null, defesa: null, archive: null, noticeArchive: null, epagriGeo: null, epagriNotices: null, epagriBulletins: null, regionalQuality: null, slug: null, metric: 'temperature_c', requestId: 0 };
 const $ = (id) => document.getElementById(id);
 const tz = 'America/Sao_Paulo';
 const units = { temperature_c: '\u00b0C', precipitation_mm: 'mm', gust_kmh: 'km/h' };
@@ -86,6 +86,8 @@ function renderTerritory() {
     top.append(child('span', '', place.name), child('span', '', weatherInfo(place.current?.weather_code).symbol));
     const reading = child('div', 'territory-reading', place.current ? value(place.current.temperature_c) + '\u00b0' : '--');
     const foot = child('div', 'territory-foot', place.status === 'available' ? (freshAt(place.current?.time, 8) ? 'Modelo Open-Meteo' : 'Modelo desatualizado') : 'Dados indispon\u00edveis');
+    const group = state.alignment?.groups?.[place.territorial_group];
+    if (group) foot.append(child('span', 'territory-group', ' · ' + group));
     btn.append(top, reading, foot);
     btn.addEventListener('click', () => selectLocation(place.id));
     container.append(btn);
@@ -697,7 +699,7 @@ function renderSourceHealth() {
     ['INMET · pluviometria', state.rain?.status || 'unavailable'],
     ['INMET · arquivo anual', state.archive?.status || 'unavailable'],
     ['Cemaden · pluviometria', cemadenLocal?.status || state.cemaden?.status || 'unavailable'],
-    ['Cemaden · sensores recentes', state.cemadenSensors?.status || 'unavailable'],
+    ['Cemaden · sensores recentes', state.cemadenSensors?.diagnostic === 'partial_state_coverage' ? 'partial' : state.cemadenSensors?.status || 'unavailable'],
     ['NASA POWER · grade', state.nasa?.status || 'unavailable'],
     ['CPTEC/INPE · previsão', state.cptec?.status || 'unavailable'],
     ['Defesa Civil SC · publicações', state.defesa?.status || 'unavailable'],
@@ -755,6 +757,38 @@ function renderCoverage() {
     card.append(child('p', 'analysis-foot', `Referência mais recente: ${datetime(product.reference_at)} · consulta: ${datetime(product.checked_at)}. A idade varia por leitura; confira os painéis abaixo.`));
     target.append(card);
   }
+}
+function renderTerritorialAlignment() {
+  const target = $('alignment-data');
+  clear(target);
+  const dataset = state.alignment;
+  const local = dataset?.locations?.find((row) => row.location_id === state.slug);
+  if (!local) { target.append(child('p', 'loading-label', 'Alinhamento territorial indisponível nesta publicação.')); return; }
+  const group = dataset.groups?.[local.territorial_group] || 'Área sem núcleo definido';
+  target.append(child('p', '', `${group} · ponto municipal: ${value(local.sample_point.latitude, 4)}, ${value(local.sample_point.longitude, 4)}`));
+  const fresh = freshAt(dataset.checked_at, 6);
+  target.append(child('p', fresh ? 'analysis-foot' : 'alert-unknown',
+    `${local.cemaden_nearby_count} estação(ões) Cemaden e ${local.metar_nearby_count} aeródromo(s) na coleta a até ${dataset.spatial_radius_km} km do ponto municipal. Referência: ${datetime(dataset.checked_at)}${fresh ? '' : ' · levantamento desatualizado'}.`));
+  target.append(child('p', 'analysis-foot', `Pluviômetros consultados pelo IBGE municipal: ${local.cemaden_local_rain.station_count}. Essa associação não confirma proximidade física da estação.`));
+  if (local.cemaden_state_query_status && local.cemaden_state_query_status !== 'available') target.append(child('p', 'alert-unknown', 'A consulta Cemaden desta UF falhou. A cobertura territorial está incompleta.'));
+  const cards = [];
+  for (const candidate of local.candidate_triads || []) {
+    const card = child('article', 'coverage-card');
+    const sensor = local.cemaden_candidates.find((row) => row.code === candidate.cemaden_code);
+    const metar = local.metar_candidates.find((row) => row.code === candidate.metar_code);
+    const current = fresh && freshAt(local.model.reference_at, 8) && freshAt(sensor?.reference_at, 3+20/60) && freshAt(metar?.reference_at);
+    card.append(child('strong', '', `Open-Meteo · Cemaden ${candidate.cemaden_code} · METAR ${candidate.metar_code}`));
+    card.append(child('p', '', `Cemaden ao ponto municipal: ${value(sensor?.sample_distance_km, 1)} km · METAR: ${value(metar?.sample_distance_km, 1)} km · entre estações: ${value(candidate.station_distance_km, 1)} km.`));
+    if (candidate.model_grid_proximity_verified) card.append(child('p', 'analysis-foot', `Distâncias à referência de grade retornada: Cemaden ${value(sensor?.model_grid_distance_km, 1)} km; METAR ${value(metar?.model_grid_distance_km, 1)} km.`));
+    else card.append(child('p', 'analysis-foot', 'Proximidade da grade do modelo ainda não confirmada.'));
+    const common = candidate.potential_common_variables.includes('temperature_c') ? 'Temperatura em °C é uma variável potencialmente comum.' : 'Ainda não há variável comum confirmada nas três fontes.';
+    card.append(child('p', '', common));
+    card.append(child('p', 'analysis-foot', `Diferença entre referências: ${value(candidate.time_gap_minutes)} min · ${candidate.time_window_aligned ? 'até 60 min' : 'exige alinhamento temporal'}.`));
+    card.append(child('p', 'alert-unknown', `${current ? 'Candidato geográfico para estudo futuro.' : 'Candidato do levantamento anterior; referências vencidas.'} Altitude das estações, relevo, altura dos sensores e intervalos de medição ainda não foram conciliados. Não é uma comparação de precisão.`));
+    cards.push(card);
+  }
+  if (!cards.length) target.append(child('p', 'loading-label', 'Não foi encontrado um conjunto das três fontes suficientemente próximo e com modelo recente nesta coleta. As fontes continuam disponíveis nos painéis individuais.'));
+  appendStationCards(target, cards, 3);
 }
 function renderNoticeArchive() {
   const target = $('notice-archive-list');
@@ -844,6 +878,7 @@ async function selectLocation(slug) {
   renderRegionalQuality();
   renderSourceHealth();
   renderCoverage();
+  renderTerritorialAlignment();
   renderNoticeArchive();
   clearDetails();
   if (place.status !== 'available') return;
@@ -869,7 +904,7 @@ async function boot() {
     if (!Array.isArray(overview.locations) || overview.schema_version !== 1 || overview.fixture_mode) throw new Error('Invalid or test dataset');
     if (bootId !== state.bootId) return;
     state.overview = overview;
-    const [stations, history, alerts, observations, rain, noticeArchive, nasa, cemaden, cemadenSensors, cptec, defesa, archive, epagriGeo, epagriNotices, epagriBulletins, regionalQuality, coverage] = await Promise.all([
+    const [stations, history, alerts, observations, rain, noticeArchive, nasa, cemaden, cemadenSensors, cptec, defesa, archive, epagriGeo, epagriNotices, epagriBulletins, regionalQuality, coverage, alignment] = await Promise.all([
       readJson('./data/stations.json').catch(() => null),
       readJson('./data/history.json').catch(() => null),
       readJson('./data/alerts.json').catch(() => null),
@@ -887,8 +922,10 @@ async function boot() {
       readJson('./data/epagri_bulletins.json').catch(() => null),
       readJson('./data/regional_quality.json').catch(() => null),
       readJson('./data/coverage.json').catch(() => null),
+      readJson('./data/territorial_alignment.json').catch(() => null),
     ]);
     if (bootId !== state.bootId) return;
+    state.alignment = alignment?.kind === 'territorial_source_alignment_not_model_validation' && alignment?.schema_version === 1 ? alignment : null;
     state.coverage = coverage?.kind === 'local_source_coverage_not_municipal_weather_measurement' && coverage?.schema_version === 1 ? coverage : null;
     state.stations = stations?.schema_version === 1 && stations?.kind === 'station_catalog_metadata_not_measurements' ? stations : null;
     state.history = history?.schema_version === 1 && history?.kind === 'daily_last_model_publication_not_station_observation' ? history : null;
@@ -950,6 +987,7 @@ function refreshAges() {
   renderCemadenSensors();
   renderSourceHealth();
   renderCoverage();
+  renderTerritorialAlignment();
   renderCptec();
 }
 setInterval(refreshAges, 60000);

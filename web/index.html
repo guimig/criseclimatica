@@ -50,6 +50,12 @@
       <div id="coverage-data" class="coverage-grid" aria-live="polite"></div>
     </section>
 
+    <section class="panel alignment-panel" aria-labelledby="alignment-title">
+      <div class="panel-top"><div><span class="section-kicker">ÁREAS COMUNS / ESTUDO FUTURO</span><h3 id="alignment-title">Proximidade entre as três fontes</h3></div></div>
+      <p class="analysis-explainer">Open-Meteo fornece estimativas e previsões; Cemaden e METAR fornecem observações pontuais. Os conjuntos abaixo indicam proximidade geográfica e temporal. <strong>Não demonstram equivalência climática nem precisão dos modelos.</strong> Litoral, vale e planalto permanecem separados por núcleo.</p>
+      <div id="alignment-data" aria-live="polite"></div>
+    </section>
+
     <section class="metrics" aria-label="Indicadores meteorologicos atuais">
       <article class="metric metric-primary"><div class="metric-label">TEMPERATURA ESTIMADA <span aria-hidden="true">↗</span></div><div class="metric-number" id="temp">--</div><div class="metric-detail" id="weather">Sem informa&ccedil;&atilde;o</div></article>
       <article class="metric"><div class="metric-label">SENSA&Ccedil;&Atilde;O T&Eacute;RMICA</div><div class="metric-number" id="feels">--</div><div class="metric-detail">Estimativa &agrave; superf&iacute;cie</div></article>
@@ -79,7 +85,7 @@
       <p class="analysis-foot" id="cptec-updated"><a href="https://servicos.cptec.inpe.br/XML/" rel="noopener noreferrer" target="_blank">Serviço XML CPTEC/INPE</a></p>
     </section>
 
-    <section class="territory-section" aria-labelledby="territory-title"><div class="section-heading"><div><span class="section-kicker">VIS&Atilde;O DO TERRIT&Oacute;RIO</span><h2 id="territory-title">Litoral Norte de Santa Catarina</h2><p>Uma leitura comparativa de dez pontos de refer&ecirc;ncia regionais.</p></div><span class="helper-label" id="territory-count">-- localidades</span></div><div class="territory-grid" id="territory-grid"></div></section>
+    <section class="territory-section" aria-labelledby="territory-title"><div class="section-heading"><div><span class="section-kicker">VIS&Atilde;O DO TERRIT&Oacute;RIO</span><h2 id="territory-title">Núcleos de Santa Catarina e Paraná</h2><p>Vinte pontos municipais comuns às consultas, organizados em quatro núcleos territoriais.</p></div><span class="helper-label" id="territory-count">-- localidades</span></div><div class="territory-grid" id="territory-grid"></div></section>
 
     <section class="analysis-grid" aria-label="Redes observacionais e historico">
       <article class="panel station-panel" aria-labelledby="stations-title">

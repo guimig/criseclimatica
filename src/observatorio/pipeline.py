@@ -95,7 +95,7 @@ def collect(locations: list[dict[str, Any]], client: ForecastClient, now: dateti
             items.append({
                 "id": location["id"], "name": location["name"], "state": location["state"],
                 "latitude": location["latitude"], "longitude": location["longitude"],
-                "featured": location["featured"], "status": "available",
+                "featured": location["featured"], "territorial_group": location.get("territorial_group", "unassigned"), "status": "available",
                 "current": current, "collected_at": detail["collected_at"],
                 "rain_next_24h_mm": window["total_mm"], "rain_window": window,
             })
@@ -104,7 +104,7 @@ def collect(locations: list[dict[str, Any]], client: ForecastClient, now: dateti
             items.append({
                 "id": location["id"], "name": location["name"], "state": location["state"],
                 "latitude": location["latitude"], "longitude": location["longitude"],
-                "featured": location["featured"], "status": "unavailable",
+                "featured": location["featured"], "territorial_group": location.get("territorial_group", "unassigned"), "status": "unavailable",
                 "current": None, "collected_at": None, "rain_next_24h_mm": None,
             })
     if not records and not allow_empty:
@@ -114,7 +114,7 @@ def collect(locations: list[dict[str, Any]], client: ForecastClient, now: dateti
         "provider": "Open-Meteo", "provider_url": "https://open-meteo.com/en/docs",
         "data_kind": "model_estimates_and_forecasts_not_station_observations",
         "official_alerts_integrated": False,
-        "geography_scope": "Litoral Norte de Santa Catarina, Brazil",
+        "geography_scope": "Shared municipal sampling points in Santa Catarina and Paraná, Brazil",
         "total_locations": len(locations), "available_locations": len(records),
         "locations": items, "errors": errors,
     }
