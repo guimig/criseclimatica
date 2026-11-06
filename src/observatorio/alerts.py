@@ -65,6 +65,15 @@ def _source_window(record: dict[str, Any]) -> str:
     return " — ".join(parts)
 
 
+def _explicit_time(value: Any) -> str | None:
+    """Only preserve instants whose offset is explicitly supplied by the source."""
+    try:
+        moment = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return moment.astimezone(timezone.utc).isoformat().replace("+00:00", "Z") if moment.tzinfo else None
+    except (ValueError, TypeError, AttributeError):
+        return None
+
+
 def _sequence(value: Any) -> int:
     try:
         number = int(value)
@@ -119,6 +128,8 @@ def normalize_alerts(payload: Any, locations: list[dict[str, Any]], collected_at
                 "id": identifier, "revision": seq, "type": _text(raw.get("descricao"), 140) or "Aviso meteorológico",
                 "severity": _text(raw.get("severidade"), 80) or "Não informada",
                 "window_as_reported": _source_window(raw),
+                "start_at": _explicit_time(raw.get("data_inicio")),
+                "end_at": _explicit_time(raw.get("data_fim")),
                 "risks": _lines(raw.get("riscos")),
                 "instructions": _lines(raw.get("instrucoes")),
                 "phases": sorted(source_blocks),

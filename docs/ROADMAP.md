@@ -80,3 +80,20 @@ Ver [Ampliação das estações](AMPLIACAO_ESTACOES.md).
 - [ ] Planejar previsões com emissão/horizonte preservados e observações com mesma janela antes de validar desempenho.
 
 Os núcleos não certificam semelhança climática. Ver [Alinhamento territorial](ALINHAMENTO_TERRITORIAL.md).
+
+
+## Síntese consultiva — Araquari como foco do IFC
+
+- [x] Relógio injetável nos testes do coletor Cemaden, preservando expiração real em produção.
+- [x] Intervalo da precipitação atual preservado e unidades horárias/diárias validadas.
+- [x] Síntese principal fixa em Araquari; outros municípios em contexto complementar.
+- [x] Antecedentes por estação, maiores janelas de chuva 3/6 h, máximos de vento/rajada e referências consecutivas de calor.
+- [x] Avisos por IBGE, com coincidência temporal somente quando fuso e validade forem explícitos.
+- [x] Sugestões rastreáveis e consultivas, retiradas após vencimento.
+- [x] Contexto exploratório de temperatura por pares, sem estatística de erro de previsão.
+- [x] Registro limitado da última previsão publicada e comparação das mesmas horas futuras.
+- [x] Comparação diária CPTEC/Open-Meteo sem diferença numérica até conciliação de limites do dia.
+- [ ] Validar institucionalmente ambiguidades do protocolo e critérios de calor, antes de classes automáticas.
+- [ ] Avaliar desempenho de previsões somente com emissão, horizonte e observações correspondentes preservados.
+
+Detalhamento: [síntese consultiva](SINTESE_CONSULTIVA_ARAQUARI.md).

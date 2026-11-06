@@ -1,6 +1,6 @@
 'use strict';
 
-const state = { alignment: null, coverage: null, bootId: 0, overview: null, detail: null, stations: null, history: null, alerts: null, observations: null, rain: null, nasa: null, cemaden: null, cemadenSensors: null, cptec: null, defesa: null, archive: null, noticeArchive: null, epagriGeo: null, epagriNotices: null, epagriBulletins: null, regionalQuality: null, slug: null, metric: 'temperature_c', requestId: 0 };
+const state = { analysis: null, alignment: null, coverage: null, bootId: 0, overview: null, detail: null, stations: null, history: null, alerts: null, observations: null, rain: null, nasa: null, cemaden: null, cemadenSensors: null, cptec: null, defesa: null, archive: null, noticeArchive: null, epagriGeo: null, epagriNotices: null, epagriBulletins: null, regionalQuality: null, slug: null, metric: 'temperature_c', requestId: 0 };
 const $ = (id) => document.getElementById(id);
 const tz = 'America/Sao_Paulo';
 const units = { temperature_c: '\u00b0C', precipitation_mm: 'mm', gust_kmh: 'km/h' };
@@ -74,6 +74,116 @@ async function readJson(url) {
 function setStatus(message, kind) {
   $('system-status').textContent = message;
   $('signal').className = 'signal' + (kind ? ' ' + kind : '');
+}
+function synthesisCurrent(row, feed = state.analysis) {
+  return Boolean(row && freshAt(feed?.generated_at, 3) && Number.isFinite(Date.parse(row.valid_until)) && Date.now() < Date.parse(row.valid_until));
+}
+function rainDescription(row) {
+  const rain = row?.forecast?.rain;
+  return row?.forecast?.status === 'available' && rain?.status === 'complete'
+    ? `${value(rain.total_mm, 1)} mm previstos · ${datetime(rain.start_at)} a ${datetime(rain.end_at)}`
+    : `Previsão de chuva ${row?.forecast?.status === 'stale' ? 'desatualizada' : 'incompleta ou indisponível'}`;
+}
+function renderSynthesis() {
+  const target = $('synthesis-data'), regional = $('regional-synthesis');
+  clear(target); clear(regional);
+  const feed = state.analysis;
+  const primary = feed?.locations?.find(row => row.location_id === 'araquari' && row.role === 'primary_ifc_reference');
+  if (!primary) {
+    $('synthesis-status').textContent = 'Síntese indisponível';
+    target.append(child('p', 'alert-unknown', 'Não há síntese verificável de Araquari nesta publicação. Consulte os dados detalhados e os canais oficiais; dados de outros municípios não substituem essa ausência.'));
+    $('synthesis-updated').textContent = 'Sugestões indisponíveis. Ausência de informação não comprova ausência de condições adversas.';
+    return;
+  }
+  const current = synthesisCurrent(primary);
+  $('synthesis-status').textContent = !current ? 'Referências vencidas · reavaliar' : primary.status === 'insufficient_evidence' ? 'Evidências insuficientes' : 'Leitura consultiva';
+  if (!current) {
+    target.append(child('p', 'alert-unknown', 'As referências desta síntese perderam validade. As sugestões foram retiradas; consulte novas atualizações e os canais oficiais. Isso não indica melhora das condições.'));
+  } else {
+    const grid = child('div', 'synthesis-grid');
+    const antecedent = child('article', 'synthesis-card observed-evidence');
+    antecedent.append(child('span', 'section-kicker', 'OBSERVAÇÃO · ANTECEDENTES'), child('h3', '', 'Chuva medida em Araquari'));
+    const gauges = primary.observed_rain?.stations || [];
+    if (primary.observed_rain?.status === 'available' && gauges.length) {
+      const with24 = gauges.filter(s => Number.isFinite(s.rain_24h_mm));
+      const nonzero = with24.filter(s => s.rain_24h_mm > 0).length;
+      antecedent.append(child('p', '', `${gauges.length} estação(ões) com acumulados válidos. ${with24.length ? `${nonzero} de ${with24.length} com chuva medida na janela de 24 h.` : 'Janela de 24 h não disponível.'}`));
+      antecedent.append(child('small', '', 'Acumulados por estação, sem soma entre janelas ou média municipal.'));
+    } else {
+      const status = primary.observed_rain?.status;
+      antecedent.append(child('p', '', status === 'stale' ? 'Acumulados desatualizados.' : ['no_recent_data', 'no_valid_recent_readings'].includes(status) ? 'Sem leitura recente válida.' : 'Fonte local indisponível ou sem acesso nesta publicação.'));
+      antecedent.append(child('small', '', 'Isso não significa chuva zero.'));
+    }
+    const forecast = child('article', 'synthesis-card forecast-evidence');
+    forecast.append(child('span', 'section-kicker', 'PREVISÃO · OPEN-METEO'), child('h3', '', 'Próximas 24 horas'), child('p', '', rainDescription(primary)));
+    const peak = primary.forecast?.rain_peaks?.find(row => row.hours === 3);
+    if (peak) forecast.append(child('p', '', `Maior janela de 3 h: ${value(peak.total_mm, 1)} mm · ${datetime(peak.start_at)} a ${datetime(peak.end_at)}.`));
+    const gust = primary.forecast?.wind?.gust_kmh;
+    if (Number.isFinite(gust?.maximum)) forecast.append(child('p', '', `Maior rajada prevista: ${value(gust.maximum, 1)} km/h · ${datetime(gust.at)}.`));
+    const notices = child('article', 'synthesis-card official-evidence');
+    notices.append(child('span', 'section-kicker', 'AVISO OFICIAL · INMET'), child('h3', '', 'Referência municipal'));
+    const official = primary.official_notices;
+    if (official?.status === 'available') {
+      notices.append(child('p', '', official.notices?.length ? `${official.notices.length} aviso(s) retornado(s) para Araquari.` : 'Nenhum aviso retornado na consulta; isso não comprova ausência de condições adversas.'));
+      for (const notice of (official.notices || []).slice(0, 2)) notices.append(child('p', '', `${notice.type} · ${notice.severity} · ${notice.window_as_reported || 'validade não informada'}. ${notice.temporal_relation === 'overlaps_forecast' ? 'Janela informada coincide com a previsão.' : notice.temporal_relation === 'outside_forecast_window' ? 'Janela informada fora das 24 h analisadas.' : 'Coincidência temporal não verificada.'}`));
+    } else notices.append(child('p', '', 'Avisos indisponíveis ou desatualizados. Consulte o INMET e a Defesa Civil.'));
+    grid.append(antecedent, forecast, notices); target.append(grid);
+    const suggestions = child('div', 'synthesis-suggestions');
+    suggestions.append(child('h3', '', 'Possibilidades para avaliação'));
+    const list = primary.suggestions || [];
+    if (!list.length) suggestions.append(child('p', '', 'As informações disponíveis não sustentam uma sugestão específica. Isso não equivale a uma indicação de segurança.'));
+    const ordered = [...list].sort((a, b) => (a.id === 'official_notice' ? -1 : 0) - (b.id === 'official_notice' ? -1 : 0));
+    const appendSuggestion = (entry, host) => {
+      const item = child('p', 'synthesis-suggestion', entry.text);
+      item.append(child('small', '', `${entry.limitation} · Evidência: ${entry.evidence} · ${entry.scope}.`)); host.append(item);
+    };
+    ordered.slice(0, 3).forEach(s => appendSuggestion(s, suggestions));
+    if (ordered.length > 3) {
+      const more = child('details', 'synthesis-evidence'); more.append(child('summary', '', 'Outras possibilidades fundamentadas'));
+      ordered.slice(3).forEach(s => appendSuggestion(s, more)); suggestions.append(more);
+    }
+    target.append(suggestions);
+  }
+  const evidence = child('details', 'synthesis-evidence');
+  evidence.append(child('summary', '', 'Evidências, períodos e limitações de Araquari'));
+  const rain = primary.observed_rain;
+  evidence.append(child('p', 'analysis-foot', `Consulta Cemaden: ${datetime(rain?.checked_at)} · ${rain?.status || 'indisponível'}. Dados abaixo são referências da publicação, sem garantia de atualidade após o vencimento.`));
+  for (const gauge of rain?.stations || []) {
+    const readings = [1, 3, 6, 12, 24, 48, 72].filter(h => Number.isFinite(gauge[`rain_${h}h_mm`])).map(h => `${h} h: ${value(gauge[`rain_${h}h_mm`], 1)} mm`).join(' · ');
+    evidence.append(child('p', '', `Cemaden ${gauge.code} · ${datetime(gauge.observed_at)} · ${readings}.`));
+  }
+  for (const observation of primary.recent_observations || []) {
+    const valid = Date.now() < Date.parse(observation.valid_until);
+    evidence.append(child('p', '', `${observation.source} ${observation.code} · ${observation.name || ''} · ${value(observation.distance_km, 1)} km do ponto municipal · ${datetime(observation.observed_at)} · ${valid ? 'referência recente' : 'referência vencida'} · temperatura ${value(observation.temperature_c, 1)} °C; vento ${value(observation.wind_kmh, 1)} km/h; rajada ${value(observation.gust_kmh, 1)} km/h.`));
+  }
+  evidence.append(child('p', 'analysis-foot', `Modelo coletado: ${datetime(primary.forecast?.collected_at)} · referência: ${datetime(primary.forecast?.reference_at)}. A referência municipal não é a localização exata do campus.`));
+  for (const peak of primary.forecast?.rain_peaks || []) evidence.append(child('p', '', `Open-Meteo · maior janela de ${peak.hours} h: ${value(peak.total_mm, 1)} mm · ${datetime(peak.start_at)} a ${datetime(peak.end_at)}.`));
+  const wind = primary.forecast?.wind?.wind_kmh;
+  if (Number.isFinite(wind?.maximum)) evidence.append(child('p', '', `Open-Meteo · maior vento previsto: ${value(wind.maximum, 1)} km/h · ${datetime(wind.at)}. Vento e rajada são variáveis distintas.`));
+  const heat = primary.forecast?.heat;
+  if (heat?.status === 'complete') evidence.append(child('p', '', `Open-Meteo · temperatura máxima: ${value(heat.maximum_c, 1)} °C; ${heat.hours_at_or_above} referências horárias ≥ ${heat.reference_c} °C; maior sequência: ${heat.longest_sequence_hours} referências consecutivas${heat.start_at ? `, de ${datetime(heat.start_at)} a ${datetime(heat.end_at)}` : ''}. Referência descritiva, sem classificação oficial de perigo; não é sensação térmica nem medição contínua.`));
+  const overlap = primary.forecast?.rain_wind_overlap;
+  if (overlap) evidence.append(child('p', '', `Contexto horário Open-Meteo: rajada máxima às ${datetime(overlap.gust_at)}, com ${value(overlap.rain_mm, 1)} mm de chuva prevista entre ${datetime(overlap.rain_start_at)} e ${datetime(overlap.rain_end_at)}. Não é probabilidade de evento conjunto.`));
+  const rev = primary.revision;
+  if (rev?.status === 'comparable_publications') evidence.append(child('p', '', `Revisão Open-Meteo: publicação anterior de ${datetime(rev.previous_published_at)}. Para o mesmo período de ${datetime(rev.start_at)} a ${datetime(rev.end_at)}, o total passou de ${value(rev.previous_rain_mm, 1)} para ${value(rev.current_rain_mm, 1)} mm (${rev.rain_change_mm > 0 ? '+' : ''}${value(rev.rain_change_mm, 1)} mm). Uma redução prevista não confirma deslocamento seguro. Horário de coleta não é emissão do modelo.`));
+  for (const pair of primary.temperature_context?.pairs || []) evidence.append(child('p', '', `Contexto exploratório: Open-Meteo ${value(pair.model_c, 1)} °C (${datetime(pair.model_at)}); METAR ${pair.icao} ${value(pair.observed_c, 1)} °C (${datetime(pair.observed_at)}), a ${value(pair.distance_km, 1)} km e ${pair.gap_minutes} min entre referências. Altitude e protocolos não conciliados; sem cálculo de erro do modelo.`));
+  evidence.append(child('p', 'analysis-foot', 'CPTEC e Open-Meteo: os limites dos dias não estão conciliados. NASA POWER e arquivos INMET têm referências históricas ou atrasadas; boletins Epagri são contexto editorial, e catálogos não comprovam medições. Consulte os painéis de cada produto.'));
+  for (const limitation of primary.limitations || []) evidence.append(child('p', 'analysis-foot', limitation));
+  evidence.append(child('p', 'analysis-foot', 'Protocolo proposto: A — acumulado de chuva; B — chuva intensa; C — temporal ou tempestade; D — vento. Faixas com ambiguidades e critérios de calor aguardam validação; nenhuma classificação institucional automática foi aplicada. O fim de um aviso não autoriza retomada de atividades.'));
+  target.append(evidence);
+  const table = child('table', 'synthesis-table');
+  const header = child('tr'); ['Município complementar', 'Chuva prevista · janela identificada', 'Avisos na consulta'].forEach(label => header.append(child('th', '', label)));
+  const head = child('thead'); head.append(header); table.append(head);
+  const body = child('tbody');
+  for (const row of feed.locations.filter(row => row.location_id !== 'araquari')) {
+    const tr = child('tr');
+    const cell = child('td'); const button = child('button', 'regional-link', row.name);
+    button.type = 'button'; button.addEventListener('click', () => selectLocation(row.location_id)); cell.append(button);
+    tr.append(cell, child('td', '', synthesisCurrent(row, feed) ? rainDescription(row) : 'Referências vencidas · sem conclusão atual'), child('td', '', synthesisCurrent(row, feed) && row.official_notices?.status === 'available' ? String(row.official_notices.notices.length) : 'Não verificáveis'));
+    body.append(tr);
+  }
+  table.append(body); regional.append(table);
+  $('synthesis-updated').textContent = `Publicada: ${datetime(feed.generated_at)} · reavaliação necessária até ${datetime(primary.valid_until)}, ou antes se o cenário mudar. Sugestões consultivas; não determinam decisões do IFC.`;
 }
 function renderTerritory() {
   const container = $('territory-grid');
@@ -326,8 +436,7 @@ function renderCptec() {
     item.append(dt, temp, uv);
     const model = state.detail?.daily?.find((row) => row.time === day.day);
     if (model && Number.isFinite(model.temp_max_c) && Number.isFinite(day.maximum_c) && record.status === 'available' && freshAt(state.detail?.collected_at, 8) && freshAt(state.detail?.current?.time, 8)) {
-      const delta = day.maximum_c - model.temp_max_c;
-      item.append(child('span', 'model-difference', `Diferença máx. CPTEC − Open-Meteo: ${delta > 0 ? '+' : ''}${value(delta, 1)}°C`));
+      item.append(child('span', 'model-difference', `Open-Meteo: máx. ${value(model.temp_max_c, 1)}°C no dia UTC. Limites do dia CPTEC não conciliados; valores apenas lado a lado.`));
     }
     target.append(item);
   }
@@ -818,6 +927,7 @@ function renderNoticeArchive() {
 function clearDetails() {
   for (const id of ['temp', 'feels', 'humidity', 'wind', 'rain-24', 'rain-now', 'gust-now', 'pressure', 'model-time', 'coordinates', 'source-time']) $(id).textContent = '--';
   $('rain-coverage').textContent = 'Sem janela completa publicada';
+  $('rain-interval').textContent = 'Intervalo não informado';
   $('weather').textContent = 'Dados indispon\u00edveis';
   renderDaily([]);
   clear($('chart'));
@@ -843,6 +953,7 @@ function renderDetail() {
   $('rain-24').textContent = window?.status === 'complete' ? value(place?.rain_next_24h_mm, 1) + ' mm' : 'Incompleto';
   $('rain-coverage').textContent = window ? `${window.valid_hours}/24 h válidas · ${datetime(window.start_at)} a ${datetime(window.end_at)}${window.status !== 'complete' && Number.isFinite(window.partial_sum_mm) ? ` · soma parcial: ${value(window.partial_sum_mm, 1)} mm` : ''}` : 'Cobertura não informada';
   $('rain-now').textContent = value(current.precipitation_mm, 1) + ' mm';
+  $('rain-interval').textContent = Number.isFinite(current.interval_seconds) ? `Intervalo informado: ${value(current.interval_seconds / 60, 1)} min` : 'Intervalo não informado pela fonte';
   $('gust-now').textContent = value(current.gust_kmh, 1) + ' km/h';
   $('pressure').textContent = value(current.pressure_hpa) + ' hPa';
   $('model-time').textContent = 'Modelo: ' + datetime(current.time);
@@ -858,8 +969,9 @@ async function selectLocation(slug) {
   const requestId = ++state.requestId;
   const place = state.overview.locations.find((item) => item.id === slug);
   $('place-title').textContent = place.name + ' / ' + place.state;
-  $('place-subtitle').textContent = 'Ponto de refer\u00eancia para o modelo meteorol\u00f3gico';
+  $('place-subtitle').textContent = slug === 'araquari' ? 'Referência principal · município do IFC Campus Araquari' : 'Consulta complementar · a síntese do IFC permanece em Araquari';
   $('location-select').value = slug;
+  renderSynthesis();
   renderTerritory();
   renderStations();
   renderEpagriStations();
@@ -904,7 +1016,7 @@ async function boot() {
     if (!Array.isArray(overview.locations) || overview.schema_version !== 1 || overview.fixture_mode) throw new Error('Invalid or test dataset');
     if (bootId !== state.bootId) return;
     state.overview = overview;
-    const [stations, history, alerts, observations, rain, noticeArchive, nasa, cemaden, cemadenSensors, cptec, defesa, archive, epagriGeo, epagriNotices, epagriBulletins, regionalQuality, coverage, alignment] = await Promise.all([
+    const [stations, history, alerts, observations, rain, noticeArchive, nasa, cemaden, cemadenSensors, cptec, defesa, archive, epagriGeo, epagriNotices, epagriBulletins, regionalQuality, coverage, alignment, analysis] = await Promise.all([
       readJson('./data/stations.json').catch(() => null),
       readJson('./data/history.json').catch(() => null),
       readJson('./data/alerts.json').catch(() => null),
@@ -923,8 +1035,11 @@ async function boot() {
       readJson('./data/regional_quality.json').catch(() => null),
       readJson('./data/coverage.json').catch(() => null),
       readJson('./data/territorial_alignment.json').catch(() => null),
+      readJson('./data/analysis.json').catch(() => null),
     ]);
     if (bootId !== state.bootId) return;
+    state.analysis = analysis?.schema_version === 1 && analysis?.kind === 'meteorological_evidence_and_advisory_not_institutional_decision' && analysis?.primary_location_id === 'araquari' && analysis?.generated_at === overview.generated_at && !analysis?.fixture_mode && analysis?.institutional_decisions_automated === false ? analysis : null;
+    renderSynthesis();
     state.alignment = alignment?.kind === 'territorial_source_alignment_not_model_validation' && alignment?.schema_version === 1 ? alignment : null;
     state.coverage = coverage?.kind === 'local_source_coverage_not_municipal_weather_measurement' && coverage?.schema_version === 1 ? coverage : null;
     state.stations = stations?.schema_version === 1 && stations?.kind === 'station_catalog_metadata_not_measurements' ? stations : null;
@@ -953,11 +1068,13 @@ async function boot() {
     select.disabled = false;
     refreshPublicationStatus();
     $('updated-at').textContent = 'Atualizado: ' + datetime(overview.generated_at);
-    const featured = overview.locations.find((loc) => loc.id === state.slug && loc.status === 'available') || overview.locations.find((loc) => loc.featured && loc.status === 'available') || overview.locations.find((loc) => loc.status === 'available') || overview.locations[0];
+    const featured = overview.locations.find((loc) => loc.id === state.slug) || overview.locations.find((loc) => loc.id === 'araquari') || overview.locations.find((loc) => loc.featured && loc.status === 'available') || overview.locations.find((loc) => loc.status === 'available') || overview.locations[0];
     await selectLocation(featured.id);
   } catch (err) {
     if (bootId !== state.bootId) return;
     console.error('Failed to initialize observatory:', err);
+    state.analysis = null;
+    renderSynthesis();
     setStatus('N\u00e3o foi poss\u00edvel carregar os dados do observat\u00f3rio', 'warning');
     $('updated-at').textContent = 'Confira a publica\u00e7\u00e3o do site';
   }
@@ -978,6 +1095,7 @@ for (const button of document.querySelectorAll('[data-metric]')) {
 function refreshAges() {
   if (!state.overview) return;
   refreshPublicationStatus();
+  renderSynthesis();
   renderTerritory();
   renderDetail();
   renderObservations();

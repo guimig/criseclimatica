@@ -13,6 +13,42 @@ def validate(output: Path, *, fixture: bool = False) -> None:
     data = output / "data"
     overview = json.loads((data / "latest.json").read_text(encoding="utf-8"))
     history = json.loads((data / "history.json").read_text(encoding="utf-8"))
+    analysis = json.loads((data / "analysis.json").read_text(encoding="utf-8"))
+    snapshot = json.loads((data / "forecast_snapshot.json").read_text(encoding="utf-8"))
+    expected_ids = {row["id"] for row in overview.get("locations", [])}
+    if (analysis.get("schema_version") != 1 or analysis.get("kind") != "meteorological_evidence_and_advisory_not_institutional_decision"
+            or analysis.get("primary_location_id") != "araquari" or "araquari" not in expected_ids
+            or analysis.get("institutional_decisions_automated") is not False
+            or analysis.get("generated_at") != overview.get("generated_at")
+            or analysis.get("fixture_mode", False) is not fixture
+            or {row.get("location_id") for row in analysis.get("locations", [])} != expected_ids
+            or len(analysis["locations"]) != len(expected_ids)):
+        raise ValueError("Invalid Araquari advisory synthesis")
+    for row in analysis["locations"]:
+        expected_role = "primary_ifc_reference" if row["location_id"] == "araquari" else "complementary_regional_context"
+        if row.get("role") != expected_role or not row.get("valid_until"):
+            raise ValueError("Regional context cannot replace Araquari")
+        forecast = row.get("forecast", {})
+        rain_window = forecast.get("rain") or {}
+        if rain_window.get("status") != "complete" and forecast.get("rain_peaks"):
+            raise ValueError("Incomplete rainfall cannot establish whole-window peaks")
+        for peak in forecast.get("rain_peaks", []):
+            if peak.get("hours") not in (3, 6) or not isinstance(peak.get("total_mm"), (int, float)):
+                raise ValueError("Invalid rain concentration window")
+        if forecast.get("status") != "available" and any(s.get("evidence", "").startswith("forecast.") for s in row.get("suggestions", [])):
+            raise ValueError("Unavailable forecast cannot support advisory suggestions")
+        for pair in row.get("temperature_context", {}).get("pairs", []):
+            if pair.get("difference_c") is not None or pair.get("kind") != "exploratory_context_not_forecast_accuracy":
+                raise ValueError("Exploratory station context cannot claim forecast error")
+        if row.get("revision", {}).get("status") != "comparable_publications" and row.get("revision", {}).get("rain_change_mm") is not None:
+            raise ValueError("Incompatible revisions cannot claim forecast changes")
+    if (snapshot.get("schema_version") != 1 or snapshot.get("kind") != "previous_published_forecast_not_observed_history"
+            or snapshot.get("generated_at") != overview.get("generated_at")
+            or snapshot.get("fixture_mode", False) is not fixture
+            or any(len(row.get("hourly", [])) > 49 for row in snapshot.get("locations", []))
+            or (data / "forecast_snapshot.json").stat().st_size > 1_000_000):
+        raise ValueError("Invalid bounded forecast snapshot")
+
     stations = json.loads((data / "stations.json").read_text(encoding="utf-8"))
     alerts = json.loads((data / "alerts.json").read_text(encoding="utf-8"))
     observations = json.loads((data / "observations.json").read_text(encoding="utf-8"))

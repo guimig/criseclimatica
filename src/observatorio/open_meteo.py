@@ -112,8 +112,20 @@ def normalize(location: dict[str, Any], payload: dict[str, Any], collected_at: s
     units = payload.get("current_units")
     if not isinstance(units, dict) or units.get("temperature_2m") != "\u00b0C" or units.get("wind_speed_10m") != "km/h" or units.get("precipitation") != "mm":
         raise ProviderError("Unexpected Open-Meteo current units")
+    expected_units = {"current": {"temperature_2m": "°C", "relative_humidity_2m": "%",
+        "apparent_temperature": "°C", "precipitation": "mm", "wind_speed_10m": "km/h", "wind_gusts_10m": "km/h"},
+        "hourly": {"temperature_2m": "°C", "relative_humidity_2m": "%", "precipitation": "mm",
+                   "precipitation_probability": "%", "wind_speed_10m": "km/h", "wind_gusts_10m": "km/h"},
+        "daily": {"temperature_2m_max": "°C", "temperature_2m_min": "°C", "precipitation_sum": "mm",
+                  "precipitation_probability_max": "%", "wind_gusts_10m_max": "km/h"}}
+    for section_name, expected in expected_units.items():
+        received = payload.get(section_name + "_units", {})
+        if not isinstance(received, dict) or any(received.get(key) != unit for key, unit in expected.items()):
+            raise ProviderError(f"Unexpected Open-Meteo {section_name} units")
     current_values = {label: number(current[field]) for field, label in current_map.items()}
     current_values["time"] = timestamp(current["time"])
+    interval = number(current.get("interval"))
+    current_values["interval_seconds"] = interval if interval is not None and 0 < interval <= 3600 else None
     return {
         "schema_version": 1,
         "location": location,
@@ -128,6 +140,8 @@ def normalize(location: dict[str, Any], payload: dict[str, Any], collected_at: s
         "measurement_status": "estimated_model_not_station_observation",
         "collected_at": collected_at,
         "current": current_values,
+        "time_basis": {"timezone": "UTC", "daily_boundaries": "00:00–24:00 UTC",
+                       "hourly_rain": "preceding_hour", "current_interval_seconds": current_values["interval_seconds"]},
         "hourly": _rows(hourly, hourly_map),
         "daily": _rows(daily, daily_map, date_only=True),
     }

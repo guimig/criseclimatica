@@ -162,7 +162,7 @@ class SensorFeedTests(unittest.TestCase):
 
     def test_invalid_catalog_does_not_block_actual_readings(self):
         session=SgaaSession('fake@example.org','fake',token_requester=lambda *_:TOKEN)
-        data=collect(LOCATIONS, STAMP, session=session,
+        data=collect(LOCATIONS, STAMP, now=NOW, session=session,
                      recent_fetcher=lambda _: [make_row()],
                      sensor_fetcher=lambda _: (_ for _ in ()).throw(SensorSourceError('unavailable')))
         self.assertEqual(data['status'],'available')
@@ -179,7 +179,7 @@ class SensorFeedTests(unittest.TestCase):
                 seen.append(token)
                 raise SensorSourceError('token_expired')
             return [make_row()]
-        data=collect(LOCATIONS, STAMP,session=session,recent_fetcher=fetcher,
+        data=collect(LOCATIONS, STAMP,now=NOW,session=session,recent_fetcher=fetcher,
                      sensor_fetcher=lambda _: TYPES)
         self.assertEqual(data['status'],'available')
         self.assertEqual(len(seen),1)
