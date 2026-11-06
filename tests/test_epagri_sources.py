@@ -30,7 +30,7 @@ class EpagriGIS(unittest.TestCase):
     def test_public_arcgis_url_bounded_and_region_specific(self):
         url = request_url()
         self.assertTrue(url.startswith("https://gis.epagri.sc.gov.br/arcgis/"))
-        self.assertIn("resultRecordCount=2000", url)
+        self.assertNotIn("resultRecordCount", url)
         self.assertIn("inSR=4326", url)
         self.assertIn("returnGeometry=false", url)
 

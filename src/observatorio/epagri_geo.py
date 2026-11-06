@@ -53,7 +53,9 @@ def request_url() -> str:
         "where": "1=1", "geometry": "-49.25,-27.15,-48.10,-25.70",
         "geometryType": "esriGeometryEnvelope", "inSR": 4326,
         "spatialRel": "esriSpatialRelIntersects", "outFields": FIELDS,
-        "returnGeometry": "false", "f": "json", "resultRecordCount": 2000,
+        # Service advertises Supports Pagination: false. Do not send
+        # resultRecordCount/resultOffset; enforce a bounded spatial envelope.
+        "returnGeometry": "false", "f": "json",
     }
     return QUERY + "?" + urlencode(params)
 
