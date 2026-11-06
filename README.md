@@ -163,3 +163,9 @@ Consulte [Integrações regionais e correção INMET](docs/INTEGRACOES_REGIONAIS
 - O portal Epagri de download gratuito de dados horários exige cadastro inicial e aceite dos termos; adicionamos **somente o link**, sem automação de login ou coleta de credenciais.
 
 Detalhes e limitações em [docs/INTEGRACOES_V9.md](docs/INTEGRACOES_V9.md).
+
+## Autenticação automática Cemaden PED (SGAA)
+
+A integração Cemaden pode agora autenticar-se no SGAA com as credenciais mantidas **somente** em dois GitHub Actions Repository secrets: `CEMADEN_PED_EMAIL` e `CEMADEN_PED_PASSWORD`. A aplicação gera o JWT em cada execução, renova-o de forma limitada quando a PED devolve 400/401 e não inclui credenciais no site. O fluxo de token estático `CEMADEN_PED_TOKEN` foi preservado apenas como compatibilidade com configurações anteriores.
+
+O endpoint de acumulados recentes fornece medidas **por estação** para janelas de 1, 3, 6, 12, 24, 48, 72, 96 e 120 horas. Ausência de leitura não é 0 mm. A configuração e os testes seguros estão documentados em [Autenticação Cemaden PED](docs/CEMADEN_PED_AUTENTICACAO.md).

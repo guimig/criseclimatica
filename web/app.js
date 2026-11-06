@@ -526,7 +526,7 @@ function renderCemaden() {
   const data = state.cemaden;
   const status = data?.status;
   const statusText = {
-    not_configured: 'O Cemaden exige token JWT da API PED. Ainda não há credencial autorizada configurada para a coleta automática.',
+    not_configured: 'A coleta Cemaden depende da configuração das credenciais SGAA em GitHub Secrets. Não há leitura instrumental disponível sem essa autorização.',
     access_restricted: 'A API PED recusou o token ou o acesso à informação. Necessário validar a autorização no Cemaden.',
     unavailable: 'O serviço Cemaden não respondeu adequadamente nesta publicação. Não é possível confirmar a chuva observada.',
     no_recent_data: 'A consulta foi concluída, mas não foram encontrados acumulados instrumentais recentes para os municípios cadastrados.',
@@ -542,7 +542,15 @@ function renderCemaden() {
       const item = child('article', 'rain-station');
       item.append(child('strong', '', `Estação ${station.code}`));
       const metrics = child('div', 'observed-metrics');
-      for (const [label, val] of [['CHUVA MEDIDA 1H', station.rain_1h_mm], ['ACUMULADO MEDIDO 24H', station.rain_24h_mm]]) {
+      const periods = [
+        ['1H', station.rain_1h_mm], ['3H', station.rain_3h_mm],
+        ['6H', station.rain_6h_mm], ['12H', station.rain_12h_mm],
+        ['24H', station.rain_24h_mm], ['48H', station.rain_48h_mm],
+        ['72H', station.rain_72h_mm], ['96H', station.rain_96h_mm],
+        ['120H', station.rain_120h_mm]
+      ];
+      for (const [windowHours, val] of periods) {
+        const label = `CHUVA MEDIDA ${windowHours}`;
         const tile = child('div', 'observed-metric');
         tile.append(child('span', '', label), child('strong', '', Number.isFinite(val) ? `${value(val, 1)} mm` : 'Sem dado'));
         metrics.append(tile);
@@ -551,7 +559,7 @@ function renderCemaden() {
       target.append(item);
     }
   }
-  $('cemaden-updated').textContent = `Cemaden PED · estado: ${status || 'indisponível'} · consulta: ${datetime(data?.checked_at)}. Credenciais nunca são enviadas ao navegador.`;
+  $('cemaden-updated').textContent = `Cemaden PED · estado: ${status || 'indisponível'} · consulta: ${datetime(data?.checked_at)}. DADOS DA REDE OBSERVACIONAL DO CEMADEN/MCTIC · Credenciais nunca são enviadas ao navegador.`;
 }
 function renderNasa() {
   const target = $('nasa-data');

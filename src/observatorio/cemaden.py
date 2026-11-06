@@ -17,11 +17,24 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
+from .cemaden_auth import SgaaAuthError, SgaaSession
+
 API = "https://sws.cemaden.gov.br/PED/rest/pcds-acum/acumulados-recentes"
 DOCS = "https://sws.cemaden.gov.br/PED/api/ui/"
 KIND = "cemaden_recent_observed_station_rainfall_raw"
 IBGE = re.compile(r"\d{7}")
 STATION = re.compile(r"[A-Za-z0-9-]{4,25}")
+ACCUMULATION_FIELDS = {
+    "acc1hr": ("rain_1h_mm", 500),
+    "acc3hr": ("rain_3h_mm", 750),
+    "acc6hr": ("rain_6h_mm", 1000),
+    "acc12hr": ("rain_12h_mm", 1200),
+    "acc24hr": ("rain_24h_mm", 1500),
+    "acc48hr": ("rain_48h_mm", 2500),
+    "acc72hr": ("rain_72h_mm", 3500),
+    "acc96hr": ("rain_96h_mm", 4500),
+    "acc120hr": ("rain_120h_mm", 5500),
+}
 
 
 class CemadenError(RuntimeError):
@@ -53,7 +66,10 @@ def fetch(ibge: str, token: str, *, timeout: int = 12) -> list[dict[str, Any]]:
             raise CemadenError("Cemaden API returned an invalid dataset")
         return raw
     except HTTPError as exc:
-        reason = "access_restricted" if exc.code in (401, 403) else "unavailable"
+        reason = ("token_expired" if exc.code == 401 else
+                  "bad_request" if exc.code == 400 else
+                  "access_restricted" if exc.code == 403 else
+                  "rate_limited" if exc.code == 429 else "unavailable")
         raise CemadenError("Cemaden request rejected", reason) from None
     except (URLError, TimeoutError, OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as exc:
         raise CemadenError("Cemaden request could not be completed") from None
@@ -93,12 +109,12 @@ def normalize(raw: Any, ibge: str, now: datetime) -> list[dict[str, Any]]:
             continue
         if not -timedelta(minutes=10) <= now - time <= timedelta(hours=6):
             continue
-        r1 = _number(item.get("acc1hr"), 500)
-        r24 = _number(item.get("acc24hr"), 1500)
-        if r1 is None and r24 is None:
+        accumulations = {field: _number(item.get(api_field), upper)
+                         for api_field, (field, upper) in ACCUMULATION_FIELDS.items()}
+        if all(value is None for value in accumulations.values()):
             continue
         entry = {"code": code, "observed_at": time.isoformat(timespec="seconds").replace("+00:00", "Z"),
-                 "rain_1h_mm": r1, "rain_24h_mm": r24,
+                 **accumulations,
                  "quality": "cemaden_raw_station_accumulations_not_municipality_averages"}
         old = by_station.get(code)
         if old is None or entry["observed_at"] > old["observed_at"]:
@@ -107,26 +123,82 @@ def normalize(raw: Any, ibge: str, now: datetime) -> list[dict[str, Any]]:
 
 
 def collect(locations: list[dict[str, Any]], stamp: str, *, token: str | None = None,
-            now: datetime | None = None, fetcher: Callable = fetch) -> dict[str, Any]:
-    token = token if token is not None else os.environ.get("CEMADEN_PED_TOKEN", "")
-    status = "not_configured" if not token else "unavailable"
-    base = {"schema_version": 1, "kind": KIND, "status": status, "checked_at": stamp,
-            "source": {"id": "cemaden", "name": "Cemaden PED", "url": DOCS},
-            "locations": [{"location_id": loc["id"], "ibge_code": str(loc["ibge_code"]), "stations": []} for loc in locations],
-            "municipalities_checked": 0, "municipalities_failed": 0,
-            "diagnostic": "token_not_configured" if not token else None}
+            now: datetime | None = None, fetcher: Callable = fetch,
+            session: SgaaSession | None = None) -> dict[str, Any]:
+    """Obtain a temporary SGAA token or retain the legacy JWT input.
+
+    Never call SGAA with real credentials during synthetic builds: those pass
+    token="" explicitly. Session is injectable for network-free testing.
+    """
+    if token is None:
+        email = os.environ.get("CEMADEN_PED_EMAIL", "")
+        password = os.environ.get("CEMADEN_PED_PASSWORD", "")
+        if email or password:
+            if not email or not password:
+                initial_status = "not_configured"
+                initial_reason = "incomplete_sgaa_credentials"
+            else:
+                initial_status = "unavailable"
+                initial_reason = None
+                session = session or SgaaSession(email, password)
+        else:
+            token = os.environ.get("CEMADEN_PED_TOKEN", "")
+            initial_status = "not_configured" if not token else "unavailable"
+            initial_reason = "token_not_configured" if not token else None
+    else:
+        initial_status = "not_configured" if not token else "unavailable"
+        initial_reason = "token_not_configured" if not token else None
+    base = {
+        "schema_version": 1, "kind": KIND, "status": initial_status,
+        "checked_at": stamp,
+        "source": {"id": "cemaden", "name": "Cemaden PED", "url": DOCS,
+                   "attribution": "DADOS DA REDE OBSERVACIONAL DO CEMADEN/MCTIC"},
+        "locations": [{"location_id": loc["id"], "ibge_code": str(loc["ibge_code"]), "stations": []}
+                      for loc in locations],
+        "municipalities_checked": 0, "municipalities_failed": 0,
+        "diagnostic": initial_reason,
+    }
+    if initial_status == "not_configured":
+        return base
+    if session is not None:
+        try:
+            token = session.token()
+        except SgaaAuthError as exc:
+            base["status"] = "access_restricted" if exc.reason == "access_restricted" else "unavailable"
+            base["diagnostic"] = "sgaa_" + exc.reason
+            return base
     if not token:
+        base["status"] = "not_configured"
+        base["diagnostic"] = "token_not_configured"
         return base
     now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+
     def get(loc):
         ibge = str(loc["ibge_code"])
         try:
-            return normalize(fetcher(ibge, token), ibge, now), None
+            current_token = session.token() if session is not None else token
+            try:
+                raw = fetcher(ibge, current_token)
+            except CemadenError as exc:
+                if session is None or exc.reason not in ("token_expired", "bad_request"):
+                    raise
+                # Retry once only when the official PED indicates expired/missing token.
+                # Concurrent workers share a refreshed token, avoiding a login storm.
+                current_token = session.token(rejected=current_token)
+                raw = fetcher(ibge, current_token)
+            return normalize(raw, ibge, now), None
+        except SgaaAuthError as exc:
+            return [], "access_restricted" if exc.reason == "access_restricted" else "unavailable"
         except CemadenError as exc:
-            return [], exc.reason
+            reason = "access_restricted" if exc.reason in ("token_expired", "bad_request") else exc.reason
+            return [], reason
         except (ValueError, TypeError, OSError):
             return [], "unavailable"
-    with ThreadPoolExecutor(max_workers=min(3, len(locations))) as pool:
+
+    # The PED FAQ limits external accounts to 12 requests/minute. With one
+    # sequential worker the first expired token is refreshed before the next
+    # municipality is queried; normal builds issue at most seven PED GETs.
+    with ThreadPoolExecutor(max_workers=(1 if session is not None else min(3, len(locations)) or 1)) as pool:
         results = list(pool.map(get, locations))
     failures = [err for _, err in results if err]
     for row, (stations, _) in zip(base["locations"], results):
