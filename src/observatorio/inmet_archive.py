@@ -328,8 +328,27 @@ def _valid_previous(previous: Any, year: int) -> bool:
             isinstance(previous.get("source"), dict) and previous["source"].get("id") == "inmet-annual")
 
 
-def _present(data: dict[str, Any], checked_at: str, *, cached: bool = False) -> dict[str, Any]:
+def _archive_location_index(locations: list[dict], stations: list[dict]) -> list[dict]:
+    """Rebuild per-city lookup from cached station coordinates without ZIP redownload."""
+    indexed = []
+    for place in locations:
+        candidates = []
+        for station in stations:
+            if not isinstance(station.get("latitude"), (int, float)) or not isinstance(station.get("longitude"), (int, float)):
+                continue
+            distance = haversine_km(place["latitude"], place["longitude"], station["latitude"], station["longitude"])
+            if distance <= 130:
+                candidates.append({"code": station["code"], "distance_km": round(distance, 1)})
+        candidates.sort(key=lambda row: (row["distance_km"], row["code"]))
+        indexed.append({"location_id": place["id"], "stations": candidates[:4]})
+    return indexed
+
+
+def _present(data: dict[str, Any], checked_at: str, *, cached: bool = False,
+             locations: list[dict] | None = None) -> dict[str, Any]:
     out = {**data, "checked_at": checked_at}
+    if locations is not None and out.get("stations"):
+        out["locations"] = _archive_location_index(locations, out["stations"])
     last = out.get("latest_observation_at")
     if last:
         age = _moment(checked_at) - _moment(last)
@@ -356,10 +375,10 @@ def collect_archive(locations: list[dict], catalog: dict, checked_at: str, *,
         since_download = age_of(previous.get("retrieved_at"))
         since_attempt = age_of(previous.get("last_attempt_at"))
         if previous.get("stations") and timedelta(0) <= since_download < timedelta(days=CACHE_DAYS):
-            return _present(previous, checked_at, cached=True)
+            return _present(previous, checked_at, cached=True, locations=locations)
         if (timedelta(0) <= since_attempt < timedelta(hours=RETRY_HOURS) and
                 (previous.get("stations") or previous.get("station_discovery_version") == 2)):
-            return _present(previous, checked_at, cached=True) if previous.get("stations") else {**previous, "checked_at": checked_at}
+            return _present(previous, checked_at, cached=True, locations=locations) if previous.get("stations") else {**previous, "checked_at": checked_at}
     try:
         # An incomplete or legacy INMET JSON catalogue must not stop us from
         # discovering genuine local A-code stations in the official ZIP itself.
@@ -381,12 +400,12 @@ def collect_archive(locations: list[dict], catalog: dict, checked_at: str, *,
         result.update({"stations": stations, "locations": closest, "retrieved_at": checked_at,
                        "station_discovery_version": 2, "last_attempt_at": checked_at,
                        "latest_observation_at": latest})
-        return _present(result, checked_at)
+        return _present(result, checked_at, locations=locations)
     except (InmetArchiveError, ValueError, TypeError) as exc:
         # Status is honest and does not reveal token or internal URL query strings.
         print(f"INMET annual archive: {type(exc).__name__}")
         if previous_ok and previous.get("stations"):
-            return _present({**previous, "last_attempt_at": checked_at}, checked_at, cached=True)
+            return _present({**previous, "last_attempt_at": checked_at}, checked_at, cached=True, locations=locations)
         result = unavailable_archive(checked_at)
         result["diagnostic"] = "archive_not_readable_or_not_published"
         return result

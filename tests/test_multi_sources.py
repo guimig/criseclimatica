@@ -119,14 +119,14 @@ class CemadenTests(unittest.TestCase):
         result=cemaden_collect(PLACES,STAMP,token="test-jwt",now=NOW,fetcher=fetcher)
         self.assertEqual(result["status"],"available")
         self.assertEqual(len(result["locations"][0]["stations"]),1)
-        self.assertEqual(result["municipalities_checked"],7)
+        self.assertEqual(result["municipalities_checked"],len(PLACES))
         self.assertNotIn("test-jwt",json.dumps(result))
 
     def test_all_access_denied_is_not_absence_of_rain(self):
         def deny(ibge,token): raise CemadenError("Auth blocked","access_restricted")
         result=cemaden_collect(PLACES,STAMP,token="bad",now=NOW,fetcher=deny)
         self.assertEqual(result["status"],"access_restricted")
-        self.assertEqual(result["municipalities_failed"],7)
+        self.assertEqual(result["municipalities_failed"],len(PLACES))
 
     def test_valid_empty_query_no_recent_data(self):
         result=cemaden_collect(PLACES,STAMP,token="valid",now=NOW,fetcher=lambda *_:[])

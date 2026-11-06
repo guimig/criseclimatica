@@ -121,3 +121,12 @@ Nenhuma alteração foi feita no armazenamento histórico externo, conforme deci
 - [ ] Validar a nova categoria RSS Epagri/Ciram no runner GitHub e na primeira execução real de Pages.
 - [ ] Confirmar integração e cobertura efetiva das estações Epagri/Ciram via acesso autorizado, sem credenciais expostas.
 - [ ] Resolver indisponibilidade de canais automatizados da Defesa Civil SC; continuar priorizando INMET e avisos Epagri já verificados.
+
+### Etapa de cobertura regional e sensores Cemaden
+
+- [x] Acrescentar Blumenau, Itajaí e Jaraguá do Sul (dez cidades) para previsões de modelo e consultas regionais.
+- [x] Integrar catálogo de tipos de sensores PED e dados instrumentais recentes de Santa Catarina, separados dos acumulados pluviométricos por município.
+- [x] Compartilhar a sessão SGAA e aplicar limite de chamadas entre os dois coletores Cemaden.
+- [x] Reassociar estações de arquivo anual INMET às novas localidades usando cache.
+- [ ] Validar disponibilidade real de temperatura, vazão e outros sensores no ambiente GitHub Actions com a conta autorizada, após o merge.
+- [ ] Avaliar consulta mais frequente de precipitação sem vender como alerta em tempo real; primeiro comprovar limites e confiabilidade das medições.

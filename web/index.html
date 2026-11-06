@@ -131,7 +131,7 @@
     <div class="integrations-grid" aria-label="Integrações adicionais de precipitação">
       <section class="panel" aria-labelledby="cemaden-title">
         <div class="panel-top"><div><span class="section-kicker">PLUVIÔMETROS / CEMADEN</span><h3 id="cemaden-title">Chuva observada no município</h3></div><span class="helper-label">Medição por estação</span></div>
-        <p class="analysis-explainer">Acumulados instrumentais de 1h e 24h disponibilizados pelo Cemaden por código IBGE. A API oficial exige autorização; dados brutos não representam a chuva de todo o município.</p>
+        <p class="analysis-explainer">Acumulados instrumentais de 1h a 120h disponibilizados pelo Cemaden por código IBGE. A API oficial exige autorização; dados brutos não representam a chuva de todo o município.</p>
         <div id="cemaden-data" aria-live="polite"><span class="loading-label">Verificando fonte...</span></div>
         <p class="analysis-foot" id="cemaden-updated"><a href="https://sws.cemaden.gov.br/PED/api/ui/" rel="noopener noreferrer" target="_blank">API oficial Cemaden</a></p>
       </section>
@@ -142,6 +142,13 @@
         <p class="analysis-foot" id="nasa-updated"><a href="https://power.larc.nasa.gov/docs/services/api/temporal/daily/" rel="noopener noreferrer" target="_blank">Documentação NASA POWER</a></p>
       </section>
     </div>
+    <section class="panel" aria-labelledby="cemaden-sensors-title">
+      <div class="panel-top"><div><span class="section-kicker">SENSORES / CEMADEN PED</span><h3 id="cemaden-sensors-title">Medições instrumentais recentes no entorno</h3></div><span class="helper-label">Dados de estação · últimas 3 horas</span></div>
+      <p class="analysis-explainer">Consulta regional da rede de sensores Cemaden em Santa Catarina. Mostra apenas sensores com leituras válidas e estações geograficamente próximas. <strong>Não é previsão, não representa todo o município e não oferece monitoramento contínuo em tempo real.</strong> A atualização do site está sujeita à agenda do GitHub Actions.</p>
+      <div id="cemaden-sensors-data" aria-live="polite"><span class="loading-label">Verificando leituras...</span></div>
+      <p class="analysis-foot" id="cemaden-sensors-updated">DADOS DA REDE OBSERVACIONAL DO CEMADEN/MCTIC · <a href="https://sws.cemaden.gov.br/PED/api/ui/" rel="noopener noreferrer" target="_blank">Catálogo oficial</a></p>
+    </section>
+
     <section class="panel source-health-panel" aria-labelledby="sources-title">
       <div class="panel-top"><div><span class="section-kicker">TRANSPARÊNCIA OPERACIONAL</span><h3 id="sources-title">Estado das integrações</h3></div><span class="helper-label">Última publicação</span></div>
       <p class="analysis-explainer">Fonte indisponível, sem credencial ou sem dado recente não significa ausência de chuva ou de risco. Cada serviço é processado de modo independente.</p>

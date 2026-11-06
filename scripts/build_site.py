@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import sys
 import tempfile
@@ -23,6 +24,9 @@ from observatorio.history import merge_daily_publications  # noqa: E402
 from observatorio.inmet_rain import collect_rain, unavailable as rain_unavailable  # noqa: E402
 from observatorio.inmet_archive import collect_archive, unavailable_archive  # noqa: E402
 from observatorio.cemaden import collect as collect_cemaden  # noqa: E402
+from observatorio.cemaden_auth import SgaaSession  # noqa: E402
+from observatorio.cemaden_rate import PedRateLimiter  # noqa: E402
+from observatorio.cemaden_sensors import collect as collect_cemaden_sensors, unavailable as sensors_unavailable  # noqa: E402
 from observatorio.nasa_power import collect as collect_nasa, unavailable as nasa_unavailable  # noqa: E402
 from observatorio.notice_archive import merge_notice_archive  # noqa: E402
 from observatorio.inmet import CatalogError, fetch_catalog, nearby_catalog, normalize_catalog, now_utc  # noqa: E402
@@ -232,11 +236,22 @@ def build(
     primary = next((place for place in locations if place["id"] == "araquari"), locations[0])
     nasa = (nasa_unavailable(primary, stamp, "fixture_mode") if fixture is not None else
             collect_nasa(primary, stamp, previous_nasa))
-    cemaden = (collect_cemaden(locations, stamp, token="") if fixture is not None else
-               collect_cemaden(locations, stamp))
     if fixture is not None:
+        cemaden = collect_cemaden(locations, stamp, token="")
         cemaden["status"] = "fixture_mode"
         cemaden["diagnostic"] = "synthetic_build_no_provider_queries"
+        cemaden_sensors = sensors_unavailable(locations, stamp, "fixture_mode")
+    else:
+        # Share one ephemeral JWT and one conservative rate limit across PED
+        # rainfall and regional multi-sensor queries. Never publish credentials.
+        email = os.environ.get("CEMADEN_PED_EMAIL", "")
+        password = os.environ.get("CEMADEN_PED_PASSWORD", "")
+        ped_session = SgaaSession(email, password) if email and password else None
+        ped_limiter = PedRateLimiter(limit=9, window=61.0)
+        cemaden = collect_cemaden(locations, stamp, session=ped_session,
+                                  on_request=ped_limiter.acquire)
+        cemaden_sensors = collect_cemaden_sensors(locations, stamp, session=ped_session,
+                                                 on_request=ped_limiter.acquire)
     # Both sources publish forecasts/publications, not fresh station observations.
     cptec_fixture = (ROOT / "tests" / "fixtures" / "cptec.xml").read_bytes() if fixture is not None else None
     cptec = collect_cptec(locations, stamp, fixture=cptec_fixture)
@@ -258,6 +273,7 @@ def build(
     print(f"Provider status: open_meteo={manifest['available_locations']}/{len(locations)} "
           f"alerts={alerts['status']} metar={observations['status']} "
           f"inmet_rain={rain['status']} nasa={nasa['status']} cemaden={cemaden['status']} "
+          f"cemaden_sensors={cemaden_sensors['status']} "
           f"cptec={cptec['status']} defesa_sc={defesa_sc['status']} "
           f"inmet_archive={archive['status']} epagri_geo={epagri_geo['status']} "
           f"epagri_notices={epagri_notices['status']} "
@@ -278,6 +294,7 @@ def build(
         write_json_atomic(data / "rain_gauges.json", rain)
         write_json_atomic(data / "nasa_power.json", nasa)
         write_json_atomic(data / "cemaden.json", cemaden)
+        write_json_atomic(data / "cemaden_sensors.json", cemaden_sensors)
         write_json_atomic(data / "cptec.json", cptec)
         write_json_atomic(data / "defesa_civil_sc.json", defesa_sc)
         write_json_atomic(data / "inmet_archive.json", archive)

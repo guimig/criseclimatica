@@ -91,7 +91,7 @@ class SgaaAuthTests(unittest.TestCase):
                                      "CEMADEN_PED_TOKEN":"STALE_OLD_JWT"}):
             data = collect(LOCATIONS, STAMP, now=NOW, fetcher=fetcher, session=session)
         self.assertEqual(data["status"], "available")
-        self.assertEqual(len(calls), 7)
+        self.assertEqual(len(calls), len(LOCATIONS))
         self.assertTrue(all(value == TOKEN for _, value in calls))
         self.assertEqual(data["locations"][0]["stations"][0]["rain_120h_mm"], 16)
         public = json.dumps(data)

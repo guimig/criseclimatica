@@ -18,6 +18,7 @@ def validate(output: Path, *, fixture: bool = False) -> None:
     rain = json.loads((data / "rain_gauges.json").read_text(encoding="utf-8"))
     nasa = json.loads((data / "nasa_power.json").read_text(encoding="utf-8"))
     cemaden = json.loads((data / "cemaden.json").read_text(encoding="utf-8"))
+    cemaden_sensors = json.loads((data / "cemaden_sensors.json").read_text(encoding="utf-8"))
     cptec = json.loads((data / "cptec.json").read_text(encoding="utf-8"))
     defesa_sc = json.loads((data / "defesa_civil_sc.json").read_text(encoding="utf-8"))
     archive = json.loads((data / "inmet_archive.json").read_text(encoding="utf-8"))
@@ -86,6 +87,27 @@ def validate(output: Path, *, fixture: bool = False) -> None:
         raise ValueError("Synthetic Cemaden data forbidden in production")
     if cemaden["status"] not in ("available",) and any(row.get("stations") for row in cemaden.get("locations", [])):
         raise ValueError("Unavailable Cemaden data contains measured values")
+    CEMADEN_SENSORS_KIND = "cemaden_recent_instrumental_sensor_readings_not_model_forecast"
+    if (cemaden_sensors.get("schema_version") != 1 or cemaden_sensors.get("kind") != CEMADEN_SENSORS_KIND
+            or cemaden_sensors.get("status") not in ("available", "no_recent_data", "unavailable", "not_configured", "access_restricted", "fixture_mode")):
+        raise ValueError("Invalid Cemaden multi-sensor source")
+    if cemaden_sensors["status"] == "fixture_mode" and not fixture:
+        raise ValueError("Synthetic Cemaden readings forbidden in production")
+    if cemaden_sensors["status"] != "available" and cemaden_sensors.get("stations"):
+        raise ValueError("Unavailable Cemaden sensors cannot contain measurements")
+    if (not isinstance(cemaden_sensors.get("locations"), list) or
+            {row.get("location_id") for row in cemaden_sensors["locations"]} !=
+            {row["id"] for row in overview.get("locations", [])}):
+        raise ValueError("Cemaden sensor geographical coverage incomplete")
+    for station in cemaden_sensors.get("stations", []):
+        if not isinstance(station.get("readings"), list) or not station.get("readings"):
+            raise ValueError("Cemaden station has no readings")
+        for reading in station["readings"]:
+            if (not isinstance(reading.get("sensor_id"), int) or
+                    not isinstance(reading.get("value"), (int, float)) or
+                    not reading.get("observed_at") or
+                    not isinstance(reading.get("sensor_name"), str)):
+                raise ValueError("Invalid Cemaden sensor value")
     if cptec.get("schema_version") != 1 or cptec.get("kind") != "cptec_inpe_daily_forecast_nearest_locality_not_station_measurements" or cptec.get("status") not in ("available", "partial", "unavailable"):
         raise ValueError("Invalid CPTEC product or source status")
     if {x.get("location_id") for x in cptec.get("locations", [])} != {x["id"] for x in overview["locations"]}:

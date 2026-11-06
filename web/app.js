@@ -1,6 +1,6 @@
 'use strict';
 
-const state = { overview: null, detail: null, stations: null, history: null, alerts: null, observations: null, rain: null, nasa: null, cemaden: null, cptec: null, defesa: null, archive: null, noticeArchive: null, epagriGeo: null, epagriNotices: null, epagriBulletins: null, regionalQuality: null, slug: null, metric: 'temperature_c', requestId: 0 };
+const state = { overview: null, detail: null, stations: null, history: null, alerts: null, observations: null, rain: null, nasa: null, cemaden: null, cemadenSensors: null, cptec: null, defesa: null, archive: null, noticeArchive: null, epagriGeo: null, epagriNotices: null, epagriBulletins: null, regionalQuality: null, slug: null, metric: 'temperature_c', requestId: 0 };
 const $ = (id) => document.getElementById(id);
 const tz = 'America/Sao_Paulo';
 const units = { temperature_c: '\u00b0C', precipitation_mm: 'mm', gust_kmh: 'km/h' };
@@ -561,6 +561,53 @@ function renderCemaden() {
   }
   $('cemaden-updated').textContent = `Cemaden PED · estado: ${status || 'indisponível'} · consulta: ${datetime(data?.checked_at)}. DADOS DA REDE OBSERVACIONAL DO CEMADEN/MCTIC · Credenciais nunca são enviadas ao navegador.`;
 }
+function renderCemadenSensors() {
+  const target = $('cemaden-sensors-data');
+  clear(target);
+  const feed = state.cemadenSensors;
+  const status = feed?.status;
+  const checkedAtMs = feed?.checked_at ? Date.parse(feed.checked_at) : NaN;
+  const hoursOld = Date.now() - checkedAtMs;
+  const freshnessConfirmed = Number.isFinite(hoursOld) && hoursOld >= -10 * 60000 && hoursOld <= 6 * 3600000;
+  const messages = {
+    not_configured: 'Credenciais Cemaden ainda não configuradas. Não há medições nesta publicação.',
+    access_restricted: 'A PED recusou acesso às leituras de sensores. A chuva acumulada é uma consulta independente.',
+    unavailable: 'A consulta regional de sensores está indisponível ou excedeu um limite de segurança. Nenhuma leitura foi presumida.',
+    no_recent_data: 'Nenhuma medição válida das últimas três horas foi identificada perto desta localidade.',
+    fixture_mode: 'Dados de teste: sem medições instrumentais.'
+  };
+  if (!feed || status !== 'available' || !freshnessConfirmed) {
+    target.append(child('p', status === 'unavailable' || (status === 'available' && !freshnessConfirmed) ? 'alert-unknown' : 'loading-label',
+      status === 'available' && !freshnessConfirmed
+        ? 'A última coleta de sensores ficou desatualizada. Consulte a fonte oficial: não é possível confirmar medições atuais.'
+        : messages[status] || 'Integração de sensores não disponível.'));
+  } else {
+    const local = feed.locations?.find((row) => row.location_id === state.slug);
+    const nearby = Array.isArray(local?.stations) ? local.stations.slice(0, 5) : [];
+    if (!nearby.length) target.append(child('p', 'loading-label', messages.no_recent_data));
+    for (const match of nearby) {
+      const station = feed.stations?.find((item) => item.code === match.code);
+      if (!station || !Array.isArray(station.readings)) continue;
+      const card = child('article', 'rain-station');
+      const heading = child('div', 'observed-heading');
+      heading.append(child('strong', '', `${station.name} (${station.code})`),
+        child('span', '', `${value(match.distance_km, 1)} km em linha reta`));
+      card.append(heading, child('p', 'analysis-foot', `Local informado pela fonte: ${station.municipality}.`));
+      const metrics = child('div', 'observed-metrics');
+      for (const reading of station.readings.slice(0, 8)) {
+        const metric = child('div', 'observed-metric');
+        const descriptor = `${reading.sensor_name} · sensor ${reading.sensor_id}`;
+        metric.append(child('span', '', descriptor),
+          child('strong', '', `${value(reading.value, 2)}${reading.unit ? ' ' + reading.unit : ' (unidade não confirmada)'}`),
+          child('span', '', datetime(reading.observed_at)));
+        metrics.append(metric);
+      }
+      card.append(metrics);
+      target.append(card);
+    }
+  }
+  $('cemaden-sensors-updated').textContent = `Cemaden PED · ${status || 'indisponível'} · consulta: ${datetime(feed?.checked_at)} · medições pontuais das últimas 3 horas quando válidas. DADOS DA REDE OBSERVACIONAL DO CEMADEN/MCTIC.`;
+}
 function renderNasa() {
   const target = $('nasa-data');
   clear(target);
@@ -595,6 +642,7 @@ function renderSourceHealth() {
     ['INMET · pluviometria', state.rain?.status || 'unavailable'],
     ['INMET · arquivo anual', state.archive?.status || 'unavailable'],
     ['Cemaden · pluviometria', state.cemaden?.status || 'unavailable'],
+    ['Cemaden · sensores recentes', state.cemadenSensors?.status || 'unavailable'],
     ['NASA POWER · grade', state.nasa?.status || 'unavailable'],
     ['CPTEC/INPE · previsão', state.cptec?.status || 'unavailable'],
     ['Defesa Civil SC · publicações', state.defesa?.status || 'unavailable'],
@@ -688,6 +736,7 @@ async function selectLocation(slug) {
   renderOfficialAlerts();
   renderRain();
   renderCemaden();
+  renderCemadenSensors();
   renderNasa();
   renderCptec();
   renderDefesa();
@@ -718,7 +767,7 @@ async function boot() {
     const overview = await readJson('./data/latest.json');
     if (!Array.isArray(overview.locations) || overview.schema_version !== 1 || overview.fixture_mode) throw new Error('Invalid or test dataset');
     state.overview = overview;
-    const [stations, history, alerts, observations, rain, noticeArchive, nasa, cemaden, cptec, defesa, archive, epagriGeo, epagriNotices, epagriBulletins, regionalQuality] = await Promise.all([
+    const [stations, history, alerts, observations, rain, noticeArchive, nasa, cemaden, cemadenSensors, cptec, defesa, archive, epagriGeo, epagriNotices, epagriBulletins, regionalQuality] = await Promise.all([
       readJson('./data/stations.json').catch(() => null),
       readJson('./data/history.json').catch(() => null),
       readJson('./data/alerts.json').catch(() => null),
@@ -727,6 +776,7 @@ async function boot() {
       readJson('./data/notice_history.json').catch(() => null),
       readJson('./data/nasa_power.json').catch(() => null),
       readJson('./data/cemaden.json').catch(() => null),
+      readJson('./data/cemaden_sensors.json').catch(() => null),
       readJson('./data/cptec.json').catch(() => null),
       readJson('./data/defesa_civil_sc.json').catch(() => null),
       readJson('./data/inmet_archive.json').catch(() => null),
@@ -743,6 +793,7 @@ async function boot() {
     state.noticeArchive = noticeArchive?.schema_version === 1 && noticeArchive?.kind === 'archive_of_inmet_notices_not_confirmed_weather_events' ? noticeArchive : null;
     state.nasa = nasa?.schema_version === 1 && nasa?.kind === 'nasa_power_daily_gridded_estimate_not_station_observation' ? nasa : null;
     state.cemaden = cemaden?.schema_version === 1 && cemaden?.kind === 'cemaden_recent_observed_station_rainfall_raw' ? cemaden : null;
+    state.cemadenSensors = cemadenSensors?.schema_version === 1 && cemadenSensors?.kind === 'cemaden_recent_instrumental_sensor_readings_not_model_forecast' ? cemadenSensors : null;
     state.cptec = cptec?.schema_version === 1 && cptec?.kind === 'cptec_inpe_daily_forecast_nearest_locality_not_station_measurements' ? cptec : null;
     state.defesa = defesa?.schema_version === 1 && defesa?.kind === 'defesa_civil_sc_publications_not_verified_active_alerts' ? defesa : null;
     state.archive = archive?.schema_version === 1 && archive?.kind === 'inmet_annual_zip_delayed_station_measurements_not_real_time' ? archive : null;
