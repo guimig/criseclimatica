@@ -1,4 +1,8 @@
-"""INMET station CATALOG (not observations). Do not infer fresh sensor readings."""
+"""Official INMET station catalogues: metadata only, never sensor readings.
+
+The automatic and conventional networks have distinct update cadences.  Being
+listed in a catalogue is not proof of an operational station or fresh data.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +14,9 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 CATALOG_URL = "https://apitempo.inmet.gov.br/estacoes/T"
+CONVENTIONAL_CATALOG_URL = "https://apitempo.inmet.gov.br/estacoes/M"
 CATALOG_WEB = "https://tempo.inmet.gov.br/TabelaEstacoes/"
+NETWORKS = {"T": ("automatica", CATALOG_URL), "M": ("convencional", CONVENTIONAL_CATALOG_URL)}
 
 
 class CatalogError(RuntimeError):
@@ -26,24 +32,28 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 def _coordinate(value: Any, limit: int) -> float | None:
     try:
-        coordinate = float(value)
+        coordinate = float(str(value).replace(",", "."))
     except (TypeError, ValueError, OverflowError):
         return None
     return coordinate if math.isfinite(coordinate) and -limit <= coordinate <= limit else None
 
 
-def normalize_catalog(raw: Any) -> list[dict[str, Any]]:
-    """Normalize provider metadata, preserving INMET's catalog status verbatim."""
+def normalize_catalog(raw: Any, *, network_type: str = "automatica") -> list[dict[str, Any]]:
+    """Normalize provider metadata; no inference from cadastral operational status."""
+    if network_type not in ("automatica", "convencional"):
+        raise ValueError("Unrecognized station network")
     if not isinstance(raw, list) or not raw or len(raw) > 10000:
         raise CatalogError("Invalid INMET catalog payload")
     unique: dict[str, dict[str, Any]] = {}
     for row in raw:
         if not isinstance(row, dict):
             continue
-        code, name = row.get("CD_ESTACAO"), row.get("DC_NOME")
+        identifier = row.get("CD_ESTACAO")
+        code = str(identifier).strip() if isinstance(identifier, (str, int)) and not isinstance(identifier, bool) else ""
+        name = row.get("DC_NOME")
         lat = _coordinate(row.get("VL_LATITUDE"), 90)
         lon = _coordinate(row.get("VL_LONGITUDE"), 180)
-        if not isinstance(code, str) or not code.isalnum() or len(code) > 12:
+        if not code.isalnum() or not 2 <= len(code) <= 12:
             continue
         if not isinstance(name, str) or not name.strip() or len(name) > 120:
             continue
@@ -52,13 +62,11 @@ def normalize_catalog(raw: Any) -> list[dict[str, Any]]:
         state = row.get("SG_ESTADO")
         status = row.get("CD_SITUACAO")
         unique[code] = {
-            "code": code,
-            "name": name.strip(),
+            "code": code, "name": name.strip(),
             "state": state if isinstance(state, str) and len(state) == 2 else None,
-            "latitude": lat,
-            "longitude": lon,
+            "latitude": lat, "longitude": lon,
             "catalog_status": status[:70] if isinstance(status, str) else "Nao informado",
-            "catalog_provider": "INMET",
+            "catalog_provider": "INMET", "network_type": network_type,
         }
     if not unique:
         raise CatalogError("INMET catalog contains no valid coordinates")
@@ -69,7 +77,7 @@ def nearby_catalog(
     locations: list[dict[str, Any]], stations: list[dict[str, Any]],
     collected_at: str, *, per_place: int = 6, max_distance_km: float = 170.0,
 ) -> dict[str, Any]:
-    """Select real station records near each MODEL location, without implying coverage."""
+    """Select nearest registered stations; retain both networks when present."""
     results = []
     for location in locations:
         candidates = []
@@ -78,10 +86,17 @@ def nearby_catalog(
             if distance <= max_distance_km:
                 candidates.append({**station, "distance_km": round(distance, 1)})
         candidates.sort(key=lambda station: (station["distance_km"], station["code"]))
-        results.append({"location_id": location["id"], "stations": candidates[:per_place]})
+        # Keep a nearby conventional station visible without displacing all
+        # automatic station candidates useful for later pluviometric collection.
+        automatic = [s for s in candidates if s.get("network_type", "automatica") == "automatica"]
+        conventional = [s for s in candidates if s.get("network_type") == "convencional"]
+        if conventional and automatic and per_place >= 2:
+            selected = sorted(automatic[:per_place - 1] + conventional[:1], key=lambda s: (s["distance_km"], s["code"]))
+        else:
+            selected = candidates[:per_place]
+        results.append({"location_id": location["id"], "stations": selected})
     return {
-        "schema_version": 1,
-        "kind": "station_catalog_metadata_not_measurements",
+        "schema_version": 1, "kind": "station_catalog_metadata_not_measurements",
         "source": {"id": "inmet", "name": "INMET", "url": CATALOG_URL},
         "retrieved_at": collected_at,
         "coverage_note": "Distancia geografica nao garante representatividade ou atualizacao de sensores.",
@@ -89,8 +104,12 @@ def nearby_catalog(
     }
 
 
-def fetch_catalog(*, timeout: int = 15) -> list[dict[str, Any]]:
-    request = Request(CATALOG_URL, headers={"Accept": "application/json", "User-Agent": "criseclimatica-observatorio/0.2 (open research)"})
+def fetch_catalog(*, network: str = "T", timeout: int = 15) -> list[dict[str, Any]]:
+    """Fetch public JSON catalogues; does not query the restricted observation API."""
+    if network not in NETWORKS:
+        raise ValueError("Unknown INMET station network")
+    label, url = NETWORKS[network]
+    request = Request(url, headers={"Accept": "application/json", "User-Agent": "criseclimatica-observatorio/0.3 (open research)"})
     try:
         with urlopen(request, timeout=timeout) as response:
             if response.status != 200:
@@ -98,9 +117,9 @@ def fetch_catalog(*, timeout: int = 15) -> list[dict[str, Any]]:
             raw = response.read(5_000_001)
             if len(raw) > 5_000_000:
                 raise CatalogError("INMET station catalog exceeded 5 MB")
-        return normalize_catalog(json.loads(raw.decode("utf-8")))
+        return normalize_catalog(json.loads(raw.decode("utf-8")), network_type=label)
     except (HTTPError, URLError, OSError, TimeoutError, json.JSONDecodeError, UnicodeDecodeError) as exc:
-        raise CatalogError(f"INMET station catalog unavailable: {type(exc).__name__}") from exc
+        raise CatalogError(f"INMET {label} catalog unavailable: {type(exc).__name__}") from exc
 
 
 def now_utc() -> str:

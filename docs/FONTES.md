@@ -32,3 +32,19 @@ Módulo experimental de chuva observada a partir de estações automáticas INME
 | INMET pluviometria | `src/observatorio/inmet_rain.py` | Diagnosticados `not_configured`, `access_restricted`, `no_recent_data`, `unavailable`; requer autorização e confirmação de endpoint estável |
 
 **Não confundir:** o catálogo INMET não contém medições, o produto NASA não é pluviômetro, e os boletins METAR não fornecem acumulados de precipitação diária. Referências e instruções em [Integrações](INTEGRACOES_FASE_ATUAL.md).
+
+## Catálogos INMET e Defesa Civil SC (nova integração)
+
+| Fonte | Documentação/página oficial | Estratégia |
+|---|---|---|
+| INMET estações automáticas | https://portal.inmet.gov.br/paginas/catalogoaut | Metadados da API `/estacoes/T`; sem medições |
+| INMET estações convencionais | https://portal.inmet.gov.br/paginas/catalogoman | Metadados da API `/estacoes/M`; sem medições |
+| INMET tabela por estação | https://tempo.inmet.gov.br/TabelaEstacoes/A001 | Link oficial para consulta humana; frontend depende de JS, não há contrato confirmado de API |
+| BDMEP INMET | https://bdmep.inmet.gov.br/ | Consulta histórica interativa; não usada como coleta automática |
+| Defesa Civil SC | https://www.defesacivil.sc.gov.br/boletins-do-tempo/ | Adaptador experimental de publicações WordPress/RSS, com controle de indisponibilidade |
+| Defesa Civil SC — alertas | https://www.defesacivil.sc.gov.br/alerta/ | Consulta oficial, sem supor vigência dos posts |
+| Defesa Civil Araquari | https://araquari.atende.net/subportal/secretaria-de-seguranca-publica-e-defesa-civil | Página institucional de acesso; feed automático não confirmado |
+| CPTEC/INPE XML | https://servicos.cptec.inpe.br/XML/ | Previsões em XML por coordenadas, com validação de estado e datas; sujeito a disponibilidade HTTPS |
+| Epagri/Ciram | https://ciram.epagri.sc.gov.br/agroconnect/ | Link oficial ao monitoramento; coleta automatizada ainda depende de validação |
+
+Não buscar contornar bloqueios/recaptcha do INMET ou reutilizar cookies de sessões humanas.

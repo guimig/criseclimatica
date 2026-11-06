@@ -64,3 +64,16 @@ novos bancos/arquivos externos foi **postergado**. Nesta etapa foram preparados:
   somente após confirmação das integrações.
 
 Ver [Integrações e chuva observada](INTEGRACOES_FASE_ATUAL.md).
+
+### Ampliação regional — CPTEC, redes INMET e Defesa Civil SC
+
+- [x] Catálogo automático INMET; nova consulta ao catálogo **convencional**, separados por tipo e localização.
+- [x] Links oficiais para BDMEP, tabelas INMET, Defesa Civil SC, Defesa Civil Araquari e Epagri/Ciram.
+- [x] Adaptador CPTEC/INPE XML para comparação de previsão diária, com indisponibilidade explícita.
+- [x] Coletor experimental de publicações da Defesa Civil SC via WP/RSS, sem alegar vigência de alertas.
+- [ ] Validar no runner GitHub as consultas reais de CPTEC e SC; estas interfaces não oferecem SLA/contrato estável para o projeto.
+- [ ] Solicitar interface machine-readable autorizada à Defesa Civil de Araquari e SC para alertas com vigência/área.
+- [ ] Integrar dados instrumentais de chuva de redes com API autorizada e horários verificáveis.
+- [ ] Validar dados públicos estruturados de estações Epagri/Ciram na região.
+
+**Decisão preservada:** sem novo banco de dados ou arquivo histórico independente nesta etapa.

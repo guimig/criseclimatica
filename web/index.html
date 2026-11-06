@@ -66,14 +66,22 @@
 
     <section class="panel daily-panel" aria-labelledby="daily-title"><div class="panel-top"><div><span class="section-kicker">TEND&Ecirc;NCIA</span><h3 id="daily-title">Pr&oacute;ximos dias</h3></div><span class="helper-label">Previs&atilde;o por modelo</span></div><div class="daily-grid" id="daily-grid"><span class="loading-label">Carregando previs&atilde;o...</span></div></section>
 
+    <section class="panel cptec-panel" aria-labelledby="cptec-title">
+      <div class="panel-top"><div><span class="section-kicker">PREVISÃO OFICIAL / INPE</span><h3 id="cptec-title">CPTEC — previsão independente</h3></div><span class="helper-label">Até 7 dias · XML</span></div>
+      <p class="analysis-explainer">Previsão divulgada pelo CPTEC/INPE para a localidade mais próxima das coordenadas selecionadas. <strong>Não é medição instrumental nem confirmação da previsão Open-Meteo.</strong></p>
+      <div class="cptec-grid" id="cptec-data" aria-live="polite"><span class="loading-label">Consultando previsão CPTEC...</span></div>
+      <p class="analysis-foot" id="cptec-updated"><a href="https://servicos.cptec.inpe.br/XML/" rel="noopener noreferrer" target="_blank">Serviço XML CPTEC/INPE</a></p>
+    </section>
+
     <section class="territory-section" aria-labelledby="territory-title"><div class="section-heading"><div><span class="section-kicker">VIS&Atilde;O DO TERRIT&Oacute;RIO</span><h2 id="territory-title">Litoral Norte de Santa Catarina</h2><p>Uma leitura comparativa de sete pontos de refer&ecirc;ncia regionais.</p></div><span class="helper-label" id="territory-count">-- localidades</span></div><div class="territory-grid" id="territory-grid"></div></section>
 
     <section class="analysis-grid" aria-label="Redes observacionais e historico">
       <article class="panel station-panel" aria-labelledby="stations-title">
         <div class="panel-top"><div><span class="section-kicker">REDE OBSERVACIONAL</span><h3 id="stations-title">Estações próximas</h3></div><span class="helper-label" id="station-count">Cadastro INMET</span></div>
-        <p class="analysis-explainer">Distâncias em linha reta até estações cadastradas pelo INMET. O estado cadastral não confirma transmissão atual. Medições são exibidas somente quando obtidas, em um bloco próprio.</p>
+        <p class="analysis-explainer">Distâncias em linha reta até estações <strong>automáticas e convencionais</strong> cadastradas pelo INMET. Cadastro não significa sensor ativo ou leitura recente; as medições são exibidas em painel próprio.</p>
         <div class="station-grid" id="station-grid" aria-live="polite"><span class="loading-label">Carregando cadastro...</span></div>
-        <p class="analysis-foot" id="station-updated">Fonte: <a href="https://apitempo.inmet.gov.br/estacoes/T" target="_blank" rel="noopener noreferrer">Catálogo INMET ↗</a></p>
+        <p class="analysis-foot" id="station-updated">Fonte: catálogos oficiais INMET</p>
+        <div class="reference-links"><a href="https://portal.inmet.gov.br/paginas/catalogoaut" target="_blank" rel="noopener noreferrer">Automáticas ↗</a><a href="https://portal.inmet.gov.br/paginas/catalogoman" target="_blank" rel="noopener noreferrer">Convencionais ↗</a><a href="https://bdmep.inmet.gov.br/" target="_blank" rel="noopener noreferrer">BDMEP histórico ↗</a><a href="https://ciram.epagri.sc.gov.br/agroconnect/" target="_blank" rel="noopener noreferrer">Rede Epagri/Ciram ↗</a></div>
       </article>
       <article class="panel history-panel" aria-labelledby="history-title">
         <div class="panel-top"><div><span class="section-kicker">HISTÓRICO DE PUBLICAÇÕES</span><h3 id="history-title">Evolução das estimativas</h3></div><span class="helper-label" id="history-count">-- dias</span></div>
@@ -125,6 +133,13 @@
         <div class="reference-links"><a href="https://www.defesacivil.sc.gov.br/" target="_blank" rel="noopener noreferrer">Defesa Civil SC ↗</a><a href="https://alertas2.inmet.gov.br/" target="_blank" rel="noopener noreferrer">Portal INMET ↗</a></div>
       </article>
       <article class="panel source-panel"><span class="section-kicker">TRANSPAR&Ecirc;NCIA</span><h3>Sobre estes dados</h3><p>Indicadores superiores: modelo Open-Meteo. NASA POWER: estimativas diárias em grade. INMET/Cemaden, quando disponíveis: chuva instrumental pontual. NOAA: boletins de aeródromo. Avisos: INMET. Nenhum desses produtos, isoladamente, garante segurança.</p><div class="source-line"><span>MODELO</span><strong>Open-Meteo</strong></div><div class="source-line"><span>HOR&Aacute;RIO</span><strong id="source-time">--</strong></div><div class="source-line"><span>COORDENADAS DO MODELO</span><strong id="coordinates">--</strong></div></article>
+    </section>
+    <section class="panel civil-defense-panel" aria-labelledby="defesa-title">
+      <div class="panel-top"><div><span class="section-kicker">PROTEÇÃO E DEFESA CIVIL DE SANTA CATARINA</span><h3 id="defesa-title">Alertas, avisos e boletins publicados</h3></div><span class="helper-label" id="defesa-count">Canal institucional</span></div>
+      <p class="analysis-explainer"><strong>Publicação no site não prova que um alerta continua vigente.</strong> A classificação territorial usa somente menções explícitas no título ou resumo; um boletim estadual não equivale a alerta municipal.</p>
+      <div class="civil-defense-list" id="defesa-list" aria-live="polite"><span class="loading-label">Verificando publicações...</span></div>
+      <p class="analysis-foot" id="defesa-updated">Acompanhe os canais oficiais em caso de risco. Emergência: 199 ou 193.</p>
+      <div class="reference-links"><a href="https://www.defesacivil.sc.gov.br/alerta/" target="_blank" rel="noopener noreferrer">Alertas SC ↗</a><a href="https://www.defesacivil.sc.gov.br/boletins-do-tempo/" target="_blank" rel="noopener noreferrer">Boletins SC ↗</a><a href="https://araquari.atende.net/subportal/secretaria-de-seguranca-publica-e-defesa-civil" target="_blank" rel="noopener noreferrer">Defesa Civil de Araquari ↗</a><a href="https://ciram.epagri.sc.gov.br/index.php/avisos-meteorologicos/" target="_blank" rel="noopener noreferrer">Avisos Epagri/Ciram ↗</a></div>
     </section>
     <section class="panel notice-archive-panel" aria-labelledby="notice-archive-title">
       <div class="panel-top"><div><span class="section-kicker">MEMÓRIA DOS AVISOS OFICIAIS</span><h3 id="notice-archive-title">Avisos anteriormente publicados</h3></div><span class="helper-label" id="notice-archive-count">Histórico</span></div>
