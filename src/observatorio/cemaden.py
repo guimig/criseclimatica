@@ -124,7 +124,8 @@ def normalize(raw: Any, ibge: str, now: datetime) -> list[dict[str, Any]]:
 
 def collect(locations: list[dict[str, Any]], stamp: str, *, token: str | None = None,
             now: datetime | None = None, fetcher: Callable = fetch,
-            session: SgaaSession | None = None) -> dict[str, Any]:
+            session: SgaaSession | None = None,
+            on_request: Callable[[], None] | None = None) -> dict[str, Any]:
     """Obtain a temporary SGAA token or retain the legacy JWT input.
 
     Never call SGAA with real credentials during synthetic builds: those pass
@@ -178,6 +179,8 @@ def collect(locations: list[dict[str, Any]], stamp: str, *, token: str | None = 
         try:
             current_token = session.token() if session is not None else token
             try:
+                if on_request is not None:
+                    on_request()
                 raw = fetcher(ibge, current_token)
             except CemadenError as exc:
                 if session is None or exc.reason not in ("token_expired", "bad_request"):
@@ -185,6 +188,8 @@ def collect(locations: list[dict[str, Any]], stamp: str, *, token: str | None = 
                 # Retry once only when the official PED indicates expired/missing token.
                 # Concurrent workers share a refreshed token, avoiding a login storm.
                 current_token = session.token(rejected=current_token)
+                if on_request is not None:
+                    on_request()
                 raw = fetcher(ibge, current_token)
             return normalize(raw, ibge, now), None
         except SgaaAuthError as exc:
@@ -197,7 +202,7 @@ def collect(locations: list[dict[str, Any]], stamp: str, *, token: str | None = 
 
     # The PED FAQ limits external accounts to 12 requests/minute. With one
     # sequential worker the first expired token is refreshed before the next
-    # municipality is queried; normal builds issue at most seven PED GETs.
+    # municipality is queried; a shared limiter prevents exceeding PED quotas.
     with ThreadPoolExecutor(max_workers=(1 if session is not None else min(3, len(locations)) or 1)) as pool:
         results = list(pool.map(get, locations))
     failures = [err for _, err in results if err]

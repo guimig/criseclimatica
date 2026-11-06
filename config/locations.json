@@ -20,6 +20,30 @@
       "ibge_code": "4209102"
     },
     {
+      "id": "blumenau",
+      "name": "Blumenau",
+      "state": "SC",
+      "latitude": -26.9194,
+      "longitude": -49.0661,
+      "ibge_code": "4202404"
+    },
+    {
+      "id": "itajai",
+      "name": "Itajaí",
+      "state": "SC",
+      "latitude": -26.9101,
+      "longitude": -48.6705,
+      "ibge_code": "4208203"
+    },
+    {
+      "id": "jaragua-do-sul",
+      "name": "Jaraguá do Sul",
+      "state": "SC",
+      "latitude": -26.4851,
+      "longitude": -49.071,
+      "ibge_code": "4208906"
+    },
+    {
       "id": "sao-francisco-do-sul",
       "name": "Sao Francisco do Sul",
       "state": "SC",
