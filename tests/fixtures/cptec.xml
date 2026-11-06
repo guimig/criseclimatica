@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<cidade>
+<nome>Araquari</nome><uf>SC</uf><atualizacao>2026-11-05</atualizacao>
+<previsao><dia>2026-11-05</dia><tempo>pn</tempo><maxima>30</maxima><minima>20</minima><iuv>11.5</iuv></previsao>
+<previsao><dia>2026-11-06</dia><tempo>ch</tempo><maxima>27</maxima><minima>21</minima><iuv>8.2</iuv></previsao>
+</cidade>

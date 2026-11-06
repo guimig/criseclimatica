@@ -1,6 +1,6 @@
 'use strict';
 
-const state = { overview: null, detail: null, stations: null, history: null, alerts: null, observations: null, rain: null, nasa: null, cemaden: null, noticeArchive: null, slug: null, metric: 'temperature_c', requestId: 0 };
+const state = { overview: null, detail: null, stations: null, history: null, alerts: null, observations: null, rain: null, nasa: null, cemaden: null, cptec: null, defesa: null, noticeArchive: null, slug: null, metric: 'temperature_c', requestId: 0 };
 const $ = (id) => document.getElementById(id);
 const tz = 'America/Sao_Paulo';
 const units = { temperature_c: '\u00b0C', precipitation_mm: 'mm', gust_kmh: 'km/h' };
@@ -140,8 +140,8 @@ function renderStations() {
   const catalog = state.stations;
   const record = catalog?.locations?.find((item) => item.location_id === state.slug);
   const stations = Array.isArray(record?.stations) ? record.stations : [];
-  $('station-count').textContent = stations.length ? `${stations.length} estações no entorno` : 'Sem estações disponíveis';
-  $('station-updated').textContent = catalog?.retrieved_at ? `Catálogo INMET: ${datetime(catalog.retrieved_at)} (${catalog.catalog_status === 'stale' ? 'cópia desatualizada' : 'metadados'})` : 'Catálogo INMET indisponível para consulta automatizada';
+  $('station-count').textContent = stations.length ? `${stations.filter(s => s.network_type !== 'convencional').length} automáticas · ${stations.filter(s => s.network_type === 'convencional').length} convencionais` : 'Sem estações disponíveis';
+  $('station-updated').textContent = catalog?.retrieved_at ? `INMET: ${datetime(catalog.retrieved_at)} · automáticas ${catalog.catalog_status || 'indisponível'} · convencionais ${catalog.conventional_catalog_status || 'não verificadas'} · somente metadados` : 'Catálogos INMET indisponíveis para consulta automatizada';
   if (!stations.length) { target.append(child('p', 'loading-label', 'Não foi possível identificar estações próximas nesta publicação.')); return; }
   for (const station of stations) {
     const item = child('div', 'station-item');
@@ -149,7 +149,63 @@ function renderStations() {
     heading.append(child('strong', '', station.name), child('span', '', station.code));
     const distance = child('span', 'station-distance', `${value(station.distance_km, 1)} km`);
     const status = child('span', 'station-status', `Cadastro: ${station.catalog_status || 'não informado'}`);
-    item.append(heading, distance, status);
+    const network = station.network_type === 'convencional' ? 'convencional' : 'automática';
+    const source = child('span', 'station-status', `Rede ${network}`);
+    const external = child('a', 'station-open', 'Ver estação no INMET ↗');
+    external.href = station.network_type === 'convencional'
+      ? 'https://portal.inmet.gov.br/paginas/catalogoman'
+      : (/^A\d{3,4}$/.test(station.code) ? `https://tempo.inmet.gov.br/TabelaEstacoes/${station.code}` : 'https://portal.inmet.gov.br/paginas/catalogoaut');
+    external.target = '_blank'; external.rel = 'noopener noreferrer';
+    item.append(heading, distance, status, source, external);
+    target.append(item);
+  }
+}
+function renderCptec() {
+  const target = $('cptec-data'); clear(target);
+  const data = state.cptec;
+  const record = data?.locations?.find((x) => x.location_id === state.slug);
+  $('cptec-updated').textContent = `CPTEC/INPE · estado: ${record?.status || 'indisponível'} · consulta: ${datetime(data?.checked_at)}. Consulte a fonte oficial se a previsão estiver indisponível.`;
+  if (!record || !Array.isArray(record.days) || !record.days.length || record.status === 'unavailable') {
+    target.append(child('p', 'loading-label', 'Previsão CPTEC indisponível nesta publicação. A previsão Open-Meteo continua independente.'));
+    return;
+  }
+  const intro = child('p', 'analysis-explainer', `Localidade CPTEC de referência: ${record.nearest_cptec_locality || 'não identificada'} · data da atualização: ${record.updated_day || '--'}${record.status === 'stale' ? ' · PREVISÃO DESATUALIZADA' : ''}.`);
+  target.append(intro);
+  for (const day of record.days.slice(0, 7)) {
+    const item = child('div', 'cptec-day');
+    const dt = child('strong', '', day.day?.split('-').reverse().join('/') || '--');
+    const temp = child('span', '', `Mín. ${value(day.minimum_c, 0)}°C · Máx. ${value(day.maximum_c, 0)}°C`);
+    const uv = child('span', '', `UV máx.: ${value(day.uv_index_max, 1)}`);
+    item.append(dt, temp, uv);
+    target.append(item);
+  }
+}
+function renderDefesa() {
+  const target = $('defesa-list'); clear(target);
+  const source = state.defesa;
+  const posts = Array.isArray(source?.publications) ? source.publications : [];
+  const mentioned = posts.filter(p => Array.isArray(p.mentioned_location_ids) && p.mentioned_location_ids.includes(state.slug));
+  const statewide = posts.filter(p => p.category === 'previsao_publicada' && !mentioned.includes(p));
+  const selected = [...mentioned, ...statewide].slice(0, 9);
+  $('defesa-count').textContent = mentioned.length ? `${mentioned.length} publicação(ões) mencionando a localidade` : 'Menção municipal não identificada';
+  $('defesa-updated').textContent = `Defesa Civil SC · consulta: ${datetime(source?.checked_at)} · situação: ${source?.status || 'indisponível'} · as publicações NÃO confirmam vigência de alertas. Emergência: 199 ou 193.`;
+  if (!selected.length) {
+    target.append(child('p', 'loading-label', source?.status === 'unavailable' ? 'Canal automatizado indisponível. Consulte os links oficiais para alertas e boletins.' : 'Nenhuma publicação recente identificada para este município na amostra acessível. Isso não significa ausência de alertas.'));
+    return;
+  }
+  for (const post of selected) {
+    const item = child('article', 'defesa-entry');
+    const anchor = child('a', 'defesa-entry-link', post.title || 'Publicação oficial');
+    try {
+      const address = new URL(post.url);
+      if (address.protocol === 'https:' && address.hostname === 'www.defesacivil.sc.gov.br') {
+        anchor.href = address.href; anchor.target = '_blank'; anchor.rel = 'noopener noreferrer';
+      }
+    } catch (_) { /* omit invalid link */ }
+    const where = mentioned.includes(post) ? 'Menção explícita ao município no resumo' : 'Boletim estadual; abrangência local não verificada';
+    const label = child('span', 'analysis-foot', `${post.category?.replaceAll('_', ' ') || 'Publicação'} · ${datetime(post.published_at)} · ${where}`);
+    item.append(anchor, label);
+    if (post.summary) item.append(child('p', 'defesa-summary', post.summary));
     target.append(item);
   }
 }
@@ -369,12 +425,16 @@ function renderSourceHealth() {
     ['INMET · pluviometria', state.rain?.status || 'unavailable'],
     ['Cemaden · pluviometria', state.cemaden?.status || 'unavailable'],
     ['NASA POWER · grade', state.nasa?.status || 'unavailable'],
+    ['CPTEC/INPE · previsão', state.cptec?.status || 'unavailable'],
+    ['Defesa Civil SC · publicações', state.defesa?.status || 'unavailable'],
+    ['INMET · convencionais', state.stations?.conventional_catalog_status || 'unavailable'],
   ];
   const labels = {
     available:'Disponível', cached:'Última leitura em cache', stale:'Dados anteriores', partial:'Parcial',
     unavailable:'Indisponível', not_configured:'Credencial não configurada',
     access_restricted:'Acesso recusado', no_recent_data:'Sem leituras recentes',
-    no_recent_reports:'Sem boletins recentes', no_nearby_catalog_stations:'Sem estações próximas'
+    no_recent_reports:'Sem boletins recentes', no_nearby_catalog_stations:'Sem estações próximas',
+    no_recent_publications:'Sem publicações recentes', not_tested:'Não testado'
   };
   for (const [name, status] of providers) {
     const item = child('div', 'source-health-item');
@@ -451,6 +511,8 @@ async function selectLocation(slug) {
   renderRain();
   renderCemaden();
   renderNasa();
+  renderCptec();
+  renderDefesa();
   renderSourceHealth();
   renderNoticeArchive();
   clearDetails();
@@ -473,7 +535,7 @@ async function boot() {
     const overview = await readJson('./data/latest.json');
     if (!Array.isArray(overview.locations) || overview.schema_version !== 1 || overview.fixture_mode) throw new Error('Invalid or test dataset');
     state.overview = overview;
-    const [stations, history, alerts, observations, rain, noticeArchive, nasa, cemaden] = await Promise.all([
+    const [stations, history, alerts, observations, rain, noticeArchive, nasa, cemaden, cptec, defesa] = await Promise.all([
       readJson('./data/stations.json').catch(() => null),
       readJson('./data/history.json').catch(() => null),
       readJson('./data/alerts.json').catch(() => null),
@@ -482,6 +544,8 @@ async function boot() {
       readJson('./data/notice_history.json').catch(() => null),
       readJson('./data/nasa_power.json').catch(() => null),
       readJson('./data/cemaden.json').catch(() => null),
+      readJson('./data/cptec.json').catch(() => null),
+      readJson('./data/defesa_civil_sc.json').catch(() => null),
     ]);
     state.stations = stations?.schema_version === 1 && stations?.kind === 'station_catalog_metadata_not_measurements' ? stations : null;
     state.history = history?.schema_version === 1 && history?.kind === 'daily_last_model_publication_not_station_observation' ? history : null;
@@ -491,6 +555,8 @@ async function boot() {
     state.noticeArchive = noticeArchive?.schema_version === 1 && noticeArchive?.kind === 'archive_of_inmet_notices_not_confirmed_weather_events' ? noticeArchive : null;
     state.nasa = nasa?.schema_version === 1 && nasa?.kind === 'nasa_power_daily_gridded_estimate_not_station_observation' ? nasa : null;
     state.cemaden = cemaden?.schema_version === 1 && cemaden?.kind === 'cemaden_recent_observed_station_rainfall_raw' ? cemaden : null;
+    state.cptec = cptec?.schema_version === 1 && cptec?.kind === 'cptec_inpe_daily_forecast_nearest_locality_not_station_measurements' ? cptec : null;
+    state.defesa = defesa?.schema_version === 1 && defesa?.kind === 'defesa_civil_sc_publications_not_verified_active_alerts' ? defesa : null;
     const select = $('location-select');
     clear(select);
     for (const loc of overview.locations) {

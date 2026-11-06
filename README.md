@@ -107,3 +107,14 @@ ampliado nesta etapa**, conforme decisão de projeto.
 
 Consulte [Integrações e chuva observada](docs/INTEGRACOES_FASE_ATUAL.md) para
 fluxo de diagnóstico, limites e instruções de validação real.
+
+## Ampliação de integração regional (INMET, CPTEC e Defesa Civil de SC)
+
+Esta etapa **não altera o armazenamento histórico**. Foram acrescentados:
+
+- Consulta de **metadados** das redes de estações automáticas (`INMET /estacoes/T`) e convencionais (`INMET /estacoes/M`), preservando tipo, código, nome e distância aproximada aos sete pontos municipais. Catálogos não garantem transmissões ou chuva medida.
+- **Previsões independentes do CPTEC/INPE**, via serviço XML georreferenciado de sete dias por coordenadas; a API pode estar indisponível. O painel informa o estado e não substitui o modelo Open-Meteo silenciosamente.
+- Catálogo experimental de **publicações da Defesa Civil de Santa Catarina**, a partir de interfaces públicas WordPress/RSS quando acessíveis. São notícias, boletins e alertas *publicados*, não alertas cuja vigência foi validada pelo sistema. A menção explícita ao município no título/resumo é identificada sem presumir abrangência territorial.
+- Referências diretas às páginas oficiais de [Defesa Civil de Araquari](https://araquari.atende.net/subportal/secretaria-de-seguranca-publica-e-defesa-civil), [Defesa Civil SC](https://www.defesacivil.sc.gov.br/), [Epagri/Ciram](https://ciram.epagri.sc.gov.br/agroconnect/), [catálogo automático](https://portal.inmet.gov.br/paginas/catalogoaut), [catálogo convencional](https://portal.inmet.gov.br/paginas/catalogoman) e [BDMEP](https://bdmep.inmet.gov.br/).
+
+Os arquivos `data/cptec.json` e `data/defesa_civil_sc.json` são gerados por execução. A publicação valida os formatos e impede a divulgação de amostras sintéticas como se fossem dados reais. Consulte [documentação técnica](docs/INMET_DEFESA_CIVIL_CPTEC.md) para limitações e testes.

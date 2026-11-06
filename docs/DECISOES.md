@@ -8,3 +8,7 @@
 - Integracoes oficiais devem declarar restricoes de acesso e passar por testes antes de serem anunciadas no site.
 - Manter historico regular dos dias normais e preservar detalhes selecionados de eventos; nao arquivar somente extremos.
 - A fase 0 publica estimativas de modelo e nao afirma observacoes instrumentais ou alertas oficiais.
+
+## Integrações regionais — 05/11/2026
+
+Manter o pipeline Python/GitHub Actions/Pages e o histórico atual, sem persistência independente por enquanto. Priorizar conectores gratuitos de dados reais e fontes oficiais. Incorporar catálogos INMET automáticos/convencionais como metadados; novas previsões CPTEC como produto independente; publicações da Defesa Civil SC como registros editoriais, **não** como alertas com vigência confirmada. Defender indisponibilidade explícita quando não houver feed público autorizado, inclusive na Defesa Civil municipal de Araquari. Não contornar bloqueios de APIs INMET/BDMEP.

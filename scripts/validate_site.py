@@ -17,6 +17,8 @@ def validate(output: Path, *, fixture: bool = False) -> None:
     rain = json.loads((data / "rain_gauges.json").read_text(encoding="utf-8"))
     nasa = json.loads((data / "nasa_power.json").read_text(encoding="utf-8"))
     cemaden = json.loads((data / "cemaden.json").read_text(encoding="utf-8"))
+    cptec = json.loads((data / "cptec.json").read_text(encoding="utf-8"))
+    defesa_sc = json.loads((data / "defesa_civil_sc.json").read_text(encoding="utf-8"))
     notices_archive = json.loads((data / "notice_history.json").read_text(encoding="utf-8"))
     if overview.get("schema_version") != 1 or overview.get("fixture_mode", False) is not fixture:
         raise ValueError("Unexpected manifest schema or fixture mode")
@@ -48,6 +50,20 @@ def validate(output: Path, *, fixture: bool = False) -> None:
         raise ValueError("Synthetic Cemaden data forbidden in production")
     if cemaden["status"] not in ("available",) and any(row.get("stations") for row in cemaden.get("locations", [])):
         raise ValueError("Unavailable Cemaden data contains measured values")
+    if cptec.get("schema_version") != 1 or cptec.get("kind") != "cptec_inpe_daily_forecast_nearest_locality_not_station_measurements" or cptec.get("status") not in ("available", "partial", "unavailable"):
+        raise ValueError("Invalid CPTEC product or source status")
+    if {x.get("location_id") for x in cptec.get("locations", [])} != {x["id"] for x in overview["locations"]}:
+        raise ValueError("Invalid CPTEC municipality coverage")
+    for row in cptec["locations"]:
+        if row.get("status") not in ("available", "stale", "unavailable") or (row["status"] == "unavailable" and row.get("days")):
+            raise ValueError("Invalid CPTEC local forecast state")
+    if defesa_sc.get("schema_version") != 1 or defesa_sc.get("kind") != "defesa_civil_sc_publications_not_verified_active_alerts" or defesa_sc.get("status") not in ("available", "partial", "unavailable", "no_recent_publications"):
+        raise ValueError("Invalid civil defense publications status")
+    if len(defesa_sc.get("publications", [])) > 35 or (defesa_sc["status"] == "unavailable" and defesa_sc.get("publications")):
+        raise ValueError("Invalid civil defense publication list")
+    for post in defesa_sc["publications"]:
+        if post.get("validity_status") != "not_verified_from_publication_date" or not post.get("url", "").startswith("https://www.defesacivil.sc.gov.br/"):
+            raise ValueError("Civil defense publication cannot claim a verified active alert")
     if overview.get("notice_archive_published") is not True:
         raise ValueError("Published archive marker is missing")
     if notices_archive.get("kind") != "archive_of_inmet_notices_not_confirmed_weather_events" or notices_archive.get("schema_version") != 1 or notices_archive.get("feed_status") != alerts["status"]:

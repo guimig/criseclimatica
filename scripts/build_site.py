@@ -25,6 +25,8 @@ from observatorio.cemaden import collect as collect_cemaden  # noqa: E402
 from observatorio.nasa_power import collect as collect_nasa, unavailable as nasa_unavailable  # noqa: E402
 from observatorio.notice_archive import merge_notice_archive  # noqa: E402
 from observatorio.inmet import CatalogError, fetch_catalog, nearby_catalog, normalize_catalog, now_utc  # noqa: E402
+from observatorio.cptec import collect as collect_cptec  # noqa: E402
+from observatorio.defesa_civil_sc import collect as collect_defesa  # noqa: E402
 from observatorio.open_meteo import OpenMeteoClient, normalize  # noqa: E402
 from observatorio.pipeline import collect  # noqa: E402
 from observatorio.storage import write_json_atomic  # noqa: E402
@@ -65,7 +67,10 @@ def fetch_previous_json(base_url: str, path: str, *, max_bytes: int = 3_000_000)
         raise RuntimeError(f"Previous {path} unavailable; refusing possible history loss") from exc
 
 
-def station_catalog_for_build(locations: list[dict], previous: dict | None, fixture: Path | None) -> dict:
+def station_catalog_for_build(
+    locations: list[dict], previous: dict | None, fixture: Path | None,
+    conventional_fixture: Path | None = None,
+) -> dict:
     """Refresh station METADATA daily, without blocking forecast publication on outages."""
     prior_ok = (
         isinstance(previous, dict)
@@ -91,25 +96,45 @@ def station_catalog_for_build(locations: list[dict], previous: dict | None, fixt
     try:
         raw = json.loads(fixture.read_text(encoding="utf-8")) if fixture else None
         stations = normalize_catalog(raw) if fixture else fetch_catalog()
-        result = nearby_catalog(locations, stations, stamp)
+        conventional_status = "available"
+        try:
+            if conventional_fixture:
+                conventional = normalize_catalog(json.loads(conventional_fixture.read_text(encoding="utf-8")), network_type="convencional")
+            elif fixture:
+                conventional = []
+                conventional_status = "not_tested"
+            else:
+                conventional = fetch_catalog(network="M")
+        except (CatalogError, OSError, ValueError, json.JSONDecodeError) as exc:
+            print(f"Conventional INMET catalog unavailable: {type(exc).__name__}", file=sys.stderr)
+            conventional = []
+            conventional_status = "unavailable"
+        result = nearby_catalog(locations, stations + conventional, stamp)
         result["catalog_status"] = "available"
+        result["conventional_catalog_status"] = conventional_status
+        result["catalog_reference_pages"] = {
+            "automatic": "https://portal.inmet.gov.br/paginas/catalogoaut",
+            "conventional": "https://portal.inmet.gov.br/paginas/catalogoman",
+            "historical": "https://bdmep.inmet.gov.br/",
+        }
         return result
     except (CatalogError, OSError, ValueError, json.JSONDecodeError) as exc:
-        print(f"Station catalog unavailable: {type(exc).__name__}", file=sys.stderr)
+        print(f"INMET automatic station catalog unavailable: {type(exc).__name__}", file=sys.stderr)
         if prior_ok and timedelta(0) <= age <= timedelta(days=7):
             return {**previous, "catalog_status": "stale"}
         return {
             "schema_version": 1, "kind": "station_catalog_metadata_not_measurements",
             "source": {"id": "inmet", "name": "INMET", "url": "https://apitempo.inmet.gov.br/estacoes/T"},
-            "retrieved_at": None, "catalog_status": "unavailable", "locations": [],
+            "retrieved_at": None, "catalog_status": "unavailable", "conventional_catalog_status": "unavailable", "locations": [],
         }
 
 
 def build(
     output: Path, fixture: Path | None = None, *, previous_url: str | None = None,
     station_fixture: Path | None = None, alerts_fixture: Path | None = None, metar_fixture: Path | None = None,
+    conventional_fixture: Path | None = None,
 ) -> tuple[int, int]:
-    if fixture is None and any(value is not None for value in (station_fixture, alerts_fixture, metar_fixture)):
+    if fixture is None and any(value is not None for value in (station_fixture, alerts_fixture, metar_fixture, conventional_fixture)):
         raise ValueError("Provider fixtures can only be used in a synthetic offline build")
     locations = load_locations(ROOT / "config" / "locations.json")
     client = FixtureClient(fixture) if fixture is not None else OpenMeteoClient()
@@ -143,7 +168,9 @@ def build(
     history = merge_daily_publications(previous_history, manifest, details)
     if fixture is not None and station_fixture is None:
         station_fixture = ROOT / "tests" / "fixtures" / "inmet_catalog.json"
-    stations = station_catalog_for_build(locations, previous_stations, station_fixture)
+    if fixture is not None and conventional_fixture is None:
+        conventional_fixture = ROOT / "tests" / "fixtures" / "inmet_conventional.json"
+    stations = station_catalog_for_build(locations, previous_stations, station_fixture, conventional_fixture)
     stamp = now_utc()
     if fixture is not None:
         alert_raw = json.loads((alerts_fixture or ROOT / "tests" / "fixtures" / "inmet_alerts.json").read_text(encoding="utf-8"))
@@ -176,9 +203,16 @@ def build(
     if fixture is not None:
         cemaden["status"] = "fixture_mode"
         cemaden["diagnostic"] = "synthetic_build_no_provider_queries"
+    # Both sources publish forecasts/publications, not fresh station observations.
+    cptec_fixture = (ROOT / "tests" / "fixtures" / "cptec.xml").read_bytes() if fixture is not None else None
+    cptec = collect_cptec(locations, stamp, fixture=cptec_fixture)
+    defensa_fixture = ({"alerta_publicado": (ROOT / "tests" / "fixtures" / "defesa_sc.xml").read_text(encoding="utf-8")}
+                       if fixture is not None else None)
+    defesa_sc = collect_defesa(locations, stamp, fixture=defensa_fixture)
     print(f"Provider status: open_meteo={manifest['available_locations']}/{len(locations)} "
           f"alerts={alerts['status']} metar={observations['status']} "
-          f"inmet_rain={rain['status']} nasa={nasa['status']} cemaden={cemaden['status']}")
+          f"inmet_rain={rain['status']} nasa={nasa['status']} cemaden={cemaden['status']} "
+          f"cptec={cptec['status']} defesa_sc={defesa_sc['status']}")
     output = output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="observatorio-build-", dir=output.parent) as temp:
@@ -194,6 +228,8 @@ def build(
         write_json_atomic(data / "rain_gauges.json", rain)
         write_json_atomic(data / "nasa_power.json", nasa)
         write_json_atomic(data / "cemaden.json", cemaden)
+        write_json_atomic(data / "cptec.json", cptec)
+        write_json_atomic(data / "defesa_civil_sc.json", defesa_sc)
         for slug, record in details.items():
             write_json_atomic(data / "places" / (slug + ".json"), record)
         (staged / ".nojekyll").write_text("", encoding="utf-8")
@@ -207,13 +243,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Build weather observatory static pages")
     parser.add_argument("--output", type=Path, default=ROOT / "dist")
     parser.add_argument("--fixture", type=Path, default=None, help="Offline synthetic provider response, never deploy")
-    parser.add_argument("--stations-fixture", type=Path, default=None, help="Offline INMET catalog fixture")
+    parser.add_argument("--stations-fixture", type=Path, default=None, help="Offline INMET automatic catalogue fixture")
+    parser.add_argument("--conventional-fixture", type=Path, default=None, help="Offline INMET conventional catalogue fixture")
     parser.add_argument("--previous-url", type=str, default=None, help="Prior GitHub Pages site for rolling history")
     parser.add_argument("--alerts-fixture", type=Path, default=None, help="INMET alerts sample for offline build only")
     parser.add_argument("--metar-fixture", type=Path, default=None, help="METAR sample for offline build only")
     args = parser.parse_args()
     try:
-        count, total = build(args.output, args.fixture, previous_url=args.previous_url, station_fixture=args.stations_fixture, alerts_fixture=args.alerts_fixture, metar_fixture=args.metar_fixture)
+        count, total = build(args.output, args.fixture, previous_url=args.previous_url, station_fixture=args.stations_fixture, conventional_fixture=args.conventional_fixture, alerts_fixture=args.alerts_fixture, metar_fixture=args.metar_fixture)
     except Exception as exc:
         print(f"BUILD FAILED: {exc}", file=sys.stderr)
         return 1
