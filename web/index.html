@@ -71,7 +71,7 @@
     <section class="analysis-grid" aria-label="Redes observacionais e historico">
       <article class="panel station-panel" aria-labelledby="stations-title">
         <div class="panel-top"><div><span class="section-kicker">REDE OBSERVACIONAL</span><h3 id="stations-title">Estações próximas</h3></div><span class="helper-label" id="station-count">Cadastro INMET</span></div>
-        <p class="analysis-explainer">Distâncias em linha reta até estações cadastradas pelo INMET. O estado cadastral não confirma transmissão atual e <strong>não há medições instrumentais nesta versão.</strong></p>
+        <p class="analysis-explainer">Distâncias em linha reta até estações cadastradas pelo INMET. O estado cadastral não confirma transmissão atual. Medições são exibidas somente quando obtidas, em um bloco próprio.</p>
         <div class="station-grid" id="station-grid" aria-live="polite"><span class="loading-label">Carregando cadastro...</span></div>
         <p class="analysis-foot" id="station-updated">Fonte: <a href="https://apitempo.inmet.gov.br/estacoes/T" target="_blank" rel="noopener noreferrer">Catálogo INMET ↗</a></p>
       </article>
@@ -97,6 +97,26 @@
       <p class="analysis-foot" id="rain-updated">Fonte: <a href="https://portal.inmet.gov.br/servicos/esta%C3%A7%C3%B5es-autom%C3%A1ticas" target="_blank" rel="noopener noreferrer">INMET</a> · dados instrumentais brutos.</p>
     </section>
 
+    <div class="integrations-grid" aria-label="Integrações adicionais de precipitação">
+      <section class="panel" aria-labelledby="cemaden-title">
+        <div class="panel-top"><div><span class="section-kicker">PLUVIÔMETROS / CEMADEN</span><h3 id="cemaden-title">Chuva observada no município</h3></div><span class="helper-label">Medição por estação</span></div>
+        <p class="analysis-explainer">Acumulados instrumentais de 1h e 24h disponibilizados pelo Cemaden por código IBGE. A API oficial exige autorização; dados brutos não representam a chuva de todo o município.</p>
+        <div id="cemaden-data" aria-live="polite"><span class="loading-label">Verificando fonte...</span></div>
+        <p class="analysis-foot" id="cemaden-updated"><a href="https://sws.cemaden.gov.br/PED/api/ui/" rel="noopener noreferrer" target="_blank">API oficial Cemaden</a></p>
+      </section>
+      <section class="panel" aria-labelledby="nasa-title">
+        <div class="panel-top"><div><span class="section-kicker">ESTIMATIVAS INDEPENDENTES / NASA</span><h3 id="nasa-title">Precipitação diária — NASA POWER</h3></div><span class="helper-label">Grade espacial · UTC</span></div>
+        <p class="analysis-explainer">Estimativa de precipitação e temperatura da NASA para um ponto de referência em Araquari. <strong>Não é medição de pluviômetro</strong> e não substitui a previsão horária.</p>
+        <div id="nasa-data" aria-live="polite"><span class="loading-label">Consultando série...</span></div>
+        <p class="analysis-foot" id="nasa-updated"><a href="https://power.larc.nasa.gov/docs/services/api/temporal/daily/" rel="noopener noreferrer" target="_blank">Documentação NASA POWER</a></p>
+      </section>
+    </div>
+    <section class="panel source-health-panel" aria-labelledby="sources-title">
+      <div class="panel-top"><div><span class="section-kicker">TRANSPARÊNCIA OPERACIONAL</span><h3 id="sources-title">Estado das integrações</h3></div><span class="helper-label">Última publicação</span></div>
+      <p class="analysis-explainer">Fonte indisponível, sem credencial ou sem dado recente não significa ausência de chuva ou de risco. Cada serviço é processado de modo independente.</p>
+      <div class="source-health-grid" id="source-health" aria-live="polite"><span class="loading-label">Verificando fontes...</span></div>
+    </section>
+
     <section class="lower-grid" aria-label="Fontes e alertas">
       <article class="panel alert-panel" aria-labelledby="alert-title"><span class="section-kicker">AVISOS METEOROLÓGICOS OFICIAIS</span><h3 id="alert-title">Avisos INMET para o município</h3>
         <p class="analysis-explainer">Informações obtidas periodicamente do INMET por código IBGE. A situação pode mudar entre coletas. <strong>Não substitui a Defesa Civil.</strong></p>
@@ -104,7 +124,7 @@
         <p class="analysis-foot" id="alert-updated">Consulta oficial ainda não verificada.</p>
         <div class="reference-links"><a href="https://www.defesacivil.sc.gov.br/" target="_blank" rel="noopener noreferrer">Defesa Civil SC ↗</a><a href="https://alertas2.inmet.gov.br/" target="_blank" rel="noopener noreferrer">Portal INMET ↗</a></div>
       </article>
-      <article class="panel source-panel"><span class="section-kicker">TRANSPAR&Ecirc;NCIA</span><h3>Sobre estes dados</h3><p>Os indicadores superiores são estimativas e previsões da Open-Meteo. O bloco METAR contém medições pontuais de aeródromo e os avisos são consultados junto ao INMET. Todas as fontes são independentes; a indisponibilidade de uma não valida a ausência de risco.</p><div class="source-line"><span>MODELO</span><strong>Open-Meteo</strong></div><div class="source-line"><span>HOR&Aacute;RIO</span><strong id="source-time">--</strong></div><div class="source-line"><span>COORDENADAS DO MODELO</span><strong id="coordinates">--</strong></div></article>
+      <article class="panel source-panel"><span class="section-kicker">TRANSPAR&Ecirc;NCIA</span><h3>Sobre estes dados</h3><p>Indicadores superiores: modelo Open-Meteo. NASA POWER: estimativas diárias em grade. INMET/Cemaden, quando disponíveis: chuva instrumental pontual. NOAA: boletins de aeródromo. Avisos: INMET. Nenhum desses produtos, isoladamente, garante segurança.</p><div class="source-line"><span>MODELO</span><strong>Open-Meteo</strong></div><div class="source-line"><span>HOR&Aacute;RIO</span><strong id="source-time">--</strong></div><div class="source-line"><span>COORDENADAS DO MODELO</span><strong id="coordinates">--</strong></div></article>
     </section>
     <section class="panel notice-archive-panel" aria-labelledby="notice-archive-title">
       <div class="panel-top"><div><span class="section-kicker">MEMÓRIA DOS AVISOS OFICIAIS</span><h3 id="notice-archive-title">Avisos anteriormente publicados</h3></div><span class="helper-label" id="notice-archive-count">Histórico</span></div>

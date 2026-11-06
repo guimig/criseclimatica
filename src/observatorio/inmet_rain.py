@@ -30,7 +30,10 @@ MAX_ROWS = 250
 
 
 class RainSourceError(RuntimeError):
-    """Observed rainfall provider or payload unavailable or invalid."""
+    """Provider failure with a controlled public diagnostic; never expose URL/token."""
+    def __init__(self, message: str, reason: str = "unavailable"):
+        super().__init__(message)
+        self.reason = reason
 
 
 class _NoRedirect(HTTPRedirectHandler):
@@ -142,8 +145,10 @@ def fetch_station_rows(code: str, token: str, now: datetime, *, timeout: int = 1
     opener = build_opener(_NoRedirect())
     try:
         with opener.open(request, timeout=timeout) as response:
+            if response.status == 204:
+                raise RainSourceError("INMET supplied no observation payload", "no_recent_data")
             if response.status != 200:
-                raise RainSourceError("INMET observation endpoint did not return HTTP 200")
+                raise RainSourceError("INMET observation endpoint did not return HTTP 200", "endpoint_unavailable")
             body = response.read(2_000_001)
             if len(body) > 2_000_000:
                 raise RainSourceError("INMET observation response exceeded safe limit")
@@ -151,8 +156,14 @@ def fetch_station_rows(code: str, token: str, now: datetime, *, timeout: int = 1
         if not isinstance(data, list):
             raise RainSourceError("Invalid INMET observation response structure")
         return data
-    except (HTTPError, URLError, TimeoutError, OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-        # Do not stringify exc: urllib errors can contain the credential-bearing URL.
+    except HTTPError as exc:
+        # HTTPS HTTPError carries the full token-bearing URL. Never stringify it.
+        reason = ("access_restricted" if exc.code in (401, 403) else
+                  "no_recent_data" if exc.code == 204 else
+                  "rate_limited" if exc.code == 429 else
+                  "endpoint_unavailable" if exc.code in (404, 405, 410) else "unavailable")
+        raise RainSourceError("INMET observation endpoint refused request", reason) from None
+    except (URLError, TimeoutError, OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise RainSourceError(f"INMET observation fetch failed ({type(exc).__name__})") from None
 
 
@@ -161,6 +172,8 @@ def unavailable(locations: list[dict[str, Any]], stamp: str, status: str) -> dic
         "schema_version": 1, "kind": KIND, "status": status,
         "checked_at": stamp, "source": {"id": "inmet", "url": SOURCE},
         "stations": [], "locations": [{"location_id": loc["id"], "stations": []} for loc in locations],
+        "diagnostic": "token_not_configured" if status == "not_configured" else status,
+        "failure_reasons": {},
     }
 
 
@@ -177,6 +190,7 @@ def collect_rain(locations: list[dict[str, Any]], catalog: dict[str, Any], stamp
     now = now or datetime.now(timezone.utc)
     usable = []
     failures = 0
+    reasons: dict[str, int] = {}
     for station in selected:
         try:
             rows = fetcher(station["code"], token, now)
@@ -185,20 +199,35 @@ def collect_rain(locations: list[dict[str, Any]], catalog: dict[str, Any], stamp
                 usable.append({**station, **parsed})
             else:
                 failures += 1
-        except (RainSourceError, ValueError, TypeError):
+                reasons["no_recent_data"] = reasons.get("no_recent_data", 0) + 1
+        except (RainSourceError, ValueError, TypeError) as exc:
             failures += 1
+            reason = exc.reason if isinstance(exc, RainSourceError) else "invalid_data"
+            if reason not in {"access_restricted", "rate_limited", "endpoint_unavailable", "no_recent_data", "invalid_data", "unavailable"}:
+                reason = "unavailable"
+            reasons[reason] = reasons.get(reason, 0) + 1
     region = []
     for place in locations:
         near = sorted(({"code": st["code"], "distance_km": round(haversine_km(place["latitude"], place["longitude"], st["latitude"], st["longitude"]), 1)}
                        for st in usable if haversine_km(place["latitude"], place["longitude"], st["latitude"], st["longitude"]) <= MAX_DISTANCE_KM),
                       key=lambda x: (x["distance_km"], x["code"]))
         region.append({"location_id": place["id"], "stations": near})
+    if usable:
+        status = "available"
+    elif reasons.get("access_restricted") == len(selected):
+        status = "access_restricted"
+    elif reasons.get("no_recent_data") == len(selected):
+        status = "no_recent_data"
+    else:
+        status = "unavailable"
     return {
         "schema_version": 1, "kind": KIND,
-        "status": "available" if usable else "unavailable",
+        "status": status,
         "checked_at": stamp,
         "source": {"id": "inmet", "url": SOURCE},
         "selection": "up to 5 nearest stations within 90 km, geographical distance not municipal representativeness",
         "stations_checked": len(selected), "stations_unavailable": failures,
+        "diagnostic": "partial" if usable and failures else (status if not usable else "ok"),
+        "failure_reasons": reasons,
         "stations": usable, "locations": region,
     }

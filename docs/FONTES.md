@@ -22,3 +22,13 @@ Para cada fonte futura, validar: cobertura, licenca, autenticacao, quota, data d
 ## Medições horárias INMET condicionadas a token
 
 Módulo experimental de chuva observada a partir de estações automáticas INMET. Usa somente credencial legítima obtida pelo usuário e guardada em `INMET_API_TOKEN` nos Secrets do GitHub Actions. O padrão de endpoint com token é conhecido por implementações públicas, mas ainda exige validação real no ambiente de implantação. Os dados do INMET são brutos e podem conter marcadores de ausência (`9999`/`Null`). Sem token, o site não publica chuva medida. Mais detalhes em [Chuva e histórico de avisos](CHUVA_E_HISTORICO_AVISOS.md).
+
+## Extensão de fontes — validação prioritária
+
+| Fonte | Integração | Observações |
+|---|---|---|
+| NASA POWER Daily | `src/observatorio/nasa_power.py` | API pública de estimativas diárias em grade para ponto de Araquari; dados `PRECTOTCORR/T2M` **não medidos em estação**, atualização diária, estado de cache/falha |
+| Cemaden PED | `src/observatorio/cemaden.py` | Endpoint `/pcds-acum/acumulados-recentes` conforme Swagger oficial; exige JWT em segredo `CEMADEN_PED_TOKEN`; registros de pluviômetros municipais, não média municipal |
+| INMET pluviometria | `src/observatorio/inmet_rain.py` | Diagnosticados `not_configured`, `access_restricted`, `no_recent_data`, `unavailable`; requer autorização e confirmação de endpoint estável |
+
+**Não confundir:** o catálogo INMET não contém medições, o produto NASA não é pluviômetro, e os boletins METAR não fornecem acumulados de precipitação diária. Referências e instruções em [Integrações](INTEGRACOES_FASE_ATUAL.md).

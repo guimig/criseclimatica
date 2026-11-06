@@ -1,6 +1,6 @@
 'use strict';
 
-const state = { overview: null, detail: null, stations: null, history: null, alerts: null, observations: null, rain: null, noticeArchive: null, slug: null, metric: 'temperature_c', requestId: 0 };
+const state = { overview: null, detail: null, stations: null, history: null, alerts: null, observations: null, rain: null, nasa: null, cemaden: null, noticeArchive: null, slug: null, metric: 'temperature_c', requestId: 0 };
 const $ = (id) => document.getElementById(id);
 const tz = 'America/Sao_Paulo';
 const units = { temperature_c: '\u00b0C', precipitation_mm: 'mm', gust_kmh: 'km/h' };
@@ -262,6 +262,10 @@ function renderRain() {
     target.append(child('p', 'alert-unknown', 'A consulta pluviométrica do INMET está indisponível. Não é possível confirmar chuva medida nesta publicação.'));
   } else if (status === 'not_configured') {
     target.append(child('p', 'loading-label', 'A consulta de medições INMET depende de autorização. Ainda não foi configurada; previsões de chuva continuam disponíveis no painel do modelo.'));
+  } else if (status === 'access_restricted') {
+    target.append(child('p', 'alert-unknown', 'O INMET recusou o acesso à API de leituras. Verifique a autorização e a interface disponibilizada pelo órgão; o catálogo de estações, sozinho, não contém chuva medida.'));
+  } else if (status === 'no_recent_data') {
+    target.append(child('p', 'loading-label', 'As estações consultadas não retornaram leituras recentes válidas. Isso não significa precipitação zero.'));
   } else if (status === 'no_nearby_catalog_stations') {
     target.append(child('p', 'loading-label', 'Não foram identificadas estações selecionáveis no catálogo disponível.'));
   } else if (status !== 'available') {
@@ -295,7 +299,88 @@ function renderRain() {
       }
     }
   }
-  $('rain-updated').textContent = `INMET · situação: ${status || 'não consultado'} · verificação: ${datetime(feed?.checked_at)} · sem garantia de representatividade municipal.`;
+  const causes = feed?.failure_reasons ? Object.entries(feed.failure_reasons).map(([key, count]) => `${key}: ${count}`).join(' · ') : '';
+  $('rain-updated').textContent = `INMET · ${status || 'não consultado'} · ${datetime(feed?.checked_at)}${causes ? ' · ' + causes : ''} · sem representatividade municipal garantida.`;
+}
+function renderCemaden() {
+  const target = $('cemaden-data');
+  clear(target);
+  const data = state.cemaden;
+  const status = data?.status;
+  const statusText = {
+    not_configured: 'O Cemaden exige token JWT da API PED. Ainda não há credencial autorizada configurada para a coleta automática.',
+    access_restricted: 'A API PED recusou o token ou o acesso à informação. Necessário validar a autorização no Cemaden.',
+    unavailable: 'O serviço Cemaden não respondeu adequadamente nesta publicação. Não é possível confirmar a chuva observada.',
+    no_recent_data: 'A consulta foi concluída, mas não foram encontrados acumulados instrumentais recentes para os municípios cadastrados.',
+    fixture_mode: 'Dados de teste: pluviometria instrumental desabilitada.'
+  };
+  if (!data || statusText[status]) {
+    target.append(child('p', status === 'unavailable' || status === 'access_restricted' ? 'alert-unknown' : 'loading-label', statusText[status] || 'Integração Cemaden indisponível.'));
+  } else {
+    const local = data.locations?.find((place) => place.location_id === state.slug);
+    const rows = Array.isArray(local?.stations) ? local.stations : [];
+    if (!rows.length) target.append(child('p', 'loading-label', 'Nenhum pluviômetro Cemaden com leitura recente para este município. A ausência de leitura não significa chuva zero.'));
+    for (const station of rows.slice(0, 6)) {
+      const item = child('article', 'rain-station');
+      item.append(child('strong', '', `Estação ${station.code}`));
+      const metrics = child('div', 'observed-metrics');
+      for (const [label, val] of [['CHUVA MEDIDA 1H', station.rain_1h_mm], ['ACUMULADO MEDIDO 24H', station.rain_24h_mm]]) {
+        const tile = child('div', 'observed-metric');
+        tile.append(child('span', '', label), child('strong', '', Number.isFinite(val) ? `${value(val, 1)} mm` : 'Sem dado'));
+        metrics.append(tile);
+      }
+      item.append(metrics, child('p', 'analysis-foot', `Registro da estação: ${datetime(station.observed_at)} · medição bruta.`));
+      target.append(item);
+    }
+  }
+  $('cemaden-updated').textContent = `Cemaden PED · estado: ${status || 'indisponível'} · consulta: ${datetime(data?.checked_at)}. Credenciais nunca são enviadas ao navegador.`;
+}
+function renderNasa() {
+  const target = $('nasa-data');
+  clear(target);
+  const feed = state.nasa;
+  if (!feed || !['available', 'cached', 'stale'].includes(feed.status) || !Array.isArray(feed.daily) || !feed.daily.length) {
+    target.append(child('p', 'loading-label', 'NASA POWER ainda não disponibilizou uma série válida nesta publicação. As previsões Open-Meteo permanecem independentes.'));
+    $('nasa-updated').textContent = `NASA POWER · estado: ${feed?.status || 'indisponível'} · verificação: ${datetime(feed?.checked_at)}`;
+    return;
+  }
+  const mostRecent = feed.daily.slice(-7).reverse();
+  const table = child('div', 'nasa-daily-list');
+  for (const record of mostRecent) {
+    const row = child('div', 'nasa-daily-row');
+    row.append(child('span', '', record.date_utc.split('-').reverse().join('/')),
+      child('strong', '', Number.isFinite(record.rain_estimated_mm_day) ? `${value(record.rain_estimated_mm_day, 1)} mm/dia` : 'Sem chuva estimada'),
+      child('span', '', Number.isFinite(record.temperature_estimated_c) ? `${value(record.temperature_estimated_c, 1)} °C (média estimada)` : '--'));
+    table.append(row);
+  }
+  target.append(table);
+  if (feed.status === 'stale') target.append(child('p', 'alert-unknown', 'A última consulta NASA falhou: são exibidos valores anteriores, explicitamente desatualizados.'));
+  $('nasa-updated').textContent = `NASA POWER · referência: ${feed.point?.name || 'Araquari'} · último dia de dados: ${feed.latest_data_day_utc || '--'} UTC · consulta: ${datetime(feed.retrieved_at)} · ${feed.status}. Não é estação meteorológica.`;
+}
+function renderSourceHealth() {
+  const target = $('source-health');
+  clear(target);
+  const overview = state.overview;
+  const providers = [
+    ['Open-Meteo · modelo', overview?.available_locations ? (overview.available_locations === overview.total_locations ? 'available' : 'partial') : 'unavailable'],
+    ['INMET · catálogo', state.stations?.catalog_status || 'unavailable'],
+    ['INMET · avisos', state.alerts?.status || 'unavailable'],
+    ['NOAA · METAR', state.observations?.status || 'unavailable'],
+    ['INMET · pluviometria', state.rain?.status || 'unavailable'],
+    ['Cemaden · pluviometria', state.cemaden?.status || 'unavailable'],
+    ['NASA POWER · grade', state.nasa?.status || 'unavailable'],
+  ];
+  const labels = {
+    available:'Disponível', cached:'Última leitura em cache', stale:'Dados anteriores', partial:'Parcial',
+    unavailable:'Indisponível', not_configured:'Credencial não configurada',
+    access_restricted:'Acesso recusado', no_recent_data:'Sem leituras recentes',
+    no_recent_reports:'Sem boletins recentes', no_nearby_catalog_stations:'Sem estações próximas'
+  };
+  for (const [name, status] of providers) {
+    const item = child('div', 'source-health-item');
+    item.append(child('strong', '', name), child('span', `source-health-status ${['available','cached'].includes(status) ? 'health-ok' : 'health-pending'}`, labels[status] || status));
+    target.append(item);
+  }
 }
 function renderNoticeArchive() {
   const target = $('notice-archive-list');
@@ -364,6 +449,9 @@ async function selectLocation(slug) {
   renderObservations();
   renderOfficialAlerts();
   renderRain();
+  renderCemaden();
+  renderNasa();
+  renderSourceHealth();
   renderNoticeArchive();
   clearDetails();
   if (place.status !== 'available') return;
@@ -385,13 +473,15 @@ async function boot() {
     const overview = await readJson('./data/latest.json');
     if (!Array.isArray(overview.locations) || overview.schema_version !== 1 || overview.fixture_mode) throw new Error('Invalid or test dataset');
     state.overview = overview;
-    const [stations, history, alerts, observations, rain, noticeArchive] = await Promise.all([
+    const [stations, history, alerts, observations, rain, noticeArchive, nasa, cemaden] = await Promise.all([
       readJson('./data/stations.json').catch(() => null),
       readJson('./data/history.json').catch(() => null),
       readJson('./data/alerts.json').catch(() => null),
       readJson('./data/observations.json').catch(() => null),
       readJson('./data/rain_gauges.json').catch(() => null),
       readJson('./data/notice_history.json').catch(() => null),
+      readJson('./data/nasa_power.json').catch(() => null),
+      readJson('./data/cemaden.json').catch(() => null),
     ]);
     state.stations = stations?.schema_version === 1 && stations?.kind === 'station_catalog_metadata_not_measurements' ? stations : null;
     state.history = history?.schema_version === 1 && history?.kind === 'daily_last_model_publication_not_station_observation' ? history : null;
@@ -399,6 +489,8 @@ async function boot() {
     state.observations = observations?.schema_version === 1 && observations?.kind === 'aerodrome_metar_observations_not_municipal_measurements' ? observations : null;
     state.rain = rain?.schema_version === 1 && rain?.kind === 'inmet_automatic_station_hourly_observed_rain_unvalidated' ? rain : null;
     state.noticeArchive = noticeArchive?.schema_version === 1 && noticeArchive?.kind === 'archive_of_inmet_notices_not_confirmed_weather_events' ? noticeArchive : null;
+    state.nasa = nasa?.schema_version === 1 && nasa?.kind === 'nasa_power_daily_gridded_estimate_not_station_observation' ? nasa : null;
+    state.cemaden = cemaden?.schema_version === 1 && cemaden?.kind === 'cemaden_recent_observed_station_rainfall_raw' ? cemaden : null;
     const select = $('location-select');
     clear(select);
     for (const loc of overview.locations) {
