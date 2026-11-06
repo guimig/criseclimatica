@@ -30,6 +30,8 @@ from observatorio.cptec import collect as collect_cptec  # noqa: E402
 from observatorio.defesa_civil_sc import collect as collect_defesa  # noqa: E402
 from observatorio.epagri_geo import collect as collect_epagri_geo  # noqa: E402
 from observatorio.epagri_notices import collect as collect_epagri_notices  # noqa: E402
+from observatorio.epagri_bulletins import collect as collect_epagri_bulletins  # noqa: E402
+from observatorio.regional_quality import summarize as summarize_regional_quality  # noqa: E402
 from observatorio.open_meteo import OpenMeteoClient, normalize  # noqa: E402
 from observatorio.pipeline import collect  # noqa: E402
 from observatorio.storage import write_json_atomic  # noqa: E402
@@ -151,6 +153,7 @@ def build(
     previous_inmet_archive = None
     previous_epagri_geo = None
     previous_epagri_notices = None
+    previous_epagri_bulletins = None
     if previous_url and fixture is None:
         previous_history = fetch_previous_json(previous_url, "data/history.json")
         previous_overview = fetch_previous_json(previous_url, "data/latest.json", max_bytes=800_000)
@@ -166,7 +169,8 @@ def build(
         for filename, label in (("data/defesa_civil_sc.json", "Defesa Civil"),
                                 ("data/inmet_archive.json", "INMET annual"),
                                 ("data/epagri_geo.json", "Epagri stations"),
-                                ("data/epagri_notices.json", "Epagri advisories")):
+                                ("data/epagri_notices.json", "Epagri advisories"),
+                                ("data/epagri_bulletins.json", "Epagri forecast bulletins")):
             try:
                 old = fetch_previous_json(previous_url, filename, max_bytes=450_000)
                 if label == "Defesa Civil":
@@ -177,6 +181,8 @@ def build(
                     previous_epagri_geo = old
                 elif label == "Epagri advisories":
                     previous_epagri_notices = old
+                elif label == "Epagri forecast bulletins":
+                    previous_epagri_bulletins = old
             except (RuntimeError, ValueError) as exc:
                 print(f"Previous {label} cache unavailable: {type(exc).__name__}", file=sys.stderr)
         # A metadata outage should not disable the weather and history updates.
@@ -244,12 +250,19 @@ def build(
     epagri_geo = collect_epagri_geo(locations, stamp, previous=previous_epagri_geo, fixture=epagri_geo_fixture)
     epagri_notices = collect_epagri_notices(stamp, previous=previous_epagri_notices,
                                             fixture=epagri_notices_fixture)
+    epagri_bulletins_fixture = ((ROOT / "tests" / "fixtures" / "epagri_bulletins.xml").read_bytes()
+                               if fixture is not None else None)
+    epagri_bulletins = collect_epagri_bulletins(stamp, previous=previous_epagri_bulletins,
+                                                fixture=epagri_bulletins_fixture)
+    regional_quality = summarize_regional_quality(locations, archive, nasa, epagri_geo, stamp)
     print(f"Provider status: open_meteo={manifest['available_locations']}/{len(locations)} "
           f"alerts={alerts['status']} metar={observations['status']} "
           f"inmet_rain={rain['status']} nasa={nasa['status']} cemaden={cemaden['status']} "
           f"cptec={cptec['status']} defesa_sc={defesa_sc['status']} "
           f"inmet_archive={archive['status']} epagri_geo={epagri_geo['status']} "
-          f"epagri_notices={epagri_notices['status']}")
+          f"epagri_notices={epagri_notices['status']} "
+          f"epagri_bulletins={epagri_bulletins['status']} "
+          f"regional_quality={regional_quality['status']}")
     output = output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="observatorio-build-", dir=output.parent) as temp:
@@ -270,6 +283,8 @@ def build(
         write_json_atomic(data / "inmet_archive.json", archive)
         write_json_atomic(data / "epagri_geo.json", epagri_geo)
         write_json_atomic(data / "epagri_notices.json", epagri_notices)
+        write_json_atomic(data / "epagri_bulletins.json", epagri_bulletins)
+        write_json_atomic(data / "regional_quality.json", regional_quality)
         for slug, record in details.items():
             write_json_atomic(data / "places" / (slug + ".json"), record)
         (staged / ".nojekyll").write_text("", encoding="utf-8")

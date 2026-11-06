@@ -112,3 +112,12 @@ Ver [Integrações e chuva observada](INTEGRACOES_FASE_ATUAL.md).
 - [ ] Obter autorização real das APIs INMET recente/Cemaden ou outra fonte instrumental para chuva quase em tempo real.
 
 Nenhuma alteração foi feita no armazenamento histórico externo, conforme decisão do projeto.
+
+### Integrações e qualidade regional (V9)
+- [x] Distinguir a estação mais próxima da estação mais próxima com medição pluviométrica diária completa (24/24 horas), exibindo distâncias e defasagem.
+- [x] Cruzamento cauteloso entre chuva de estação INMET e estimativa em grade NASA apenas no mesmo dia UTC, com proibição de índices falsos de precisão.
+- [x] Conector independente para boletins editoriais de cinco e dez dias Epagri/Ciram, com metadados de origem e sem confundir com alertas.
+- [x] Link explícito para dados horários públicos Epagri/Ciram, que requerem cadastro e condições de uso.
+- [ ] Validar a nova categoria RSS Epagri/Ciram no runner GitHub e na primeira execução real de Pages.
+- [ ] Confirmar integração e cobertura efetiva das estações Epagri/Ciram via acesso autorizado, sem credenciais expostas.
+- [ ] Resolver indisponibilidade de canais automatizados da Defesa Civil SC; continuar priorizando INMET e avisos Epagri já verificados.

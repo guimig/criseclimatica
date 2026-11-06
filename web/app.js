@@ -1,6 +1,6 @@
 'use strict';
 
-const state = { overview: null, detail: null, stations: null, history: null, alerts: null, observations: null, rain: null, nasa: null, cemaden: null, cptec: null, defesa: null, archive: null, noticeArchive: null, epagriGeo: null, epagriNotices: null, slug: null, metric: 'temperature_c', requestId: 0 };
+const state = { overview: null, detail: null, stations: null, history: null, alerts: null, observations: null, rain: null, nasa: null, cemaden: null, cptec: null, defesa: null, archive: null, noticeArchive: null, epagriGeo: null, epagriNotices: null, epagriBulletins: null, regionalQuality: null, slug: null, metric: 'temperature_c', requestId: 0 };
 const $ = (id) => document.getElementById(id);
 const tz = 'America/Sao_Paulo';
 const units = { temperature_c: '\u00b0C', precipitation_mm: 'mm', gust_kmh: 'km/h' };
@@ -216,6 +216,63 @@ function renderEpagriNotices() {
     if (notice.regions_text) item.append(child('p', 'analysis-foot', `Regiões indicadas no boletim: ${notice.regions_text}`));
     target.append(item);
   }
+}
+function renderRegionalQuality() {
+  const target = $('regional-quality-data');
+  clear(target);
+  const data = state.regionalQuality;
+  const place = data?.locations?.find((row) => row.location_id === state.slug);
+  if (!place?.selected_station) {
+    target.append(child('p', 'loading-label', data?.status === 'unavailable' ?
+      'A fonte do arquivo INMET está indisponível. Não há medição comprovada nesta consulta.' :
+      'Nenhuma estação próxima apresentou um dia completo de chuva no período disponível. Isso não equivale a chuva zero.'));
+    $('regional-quality-foot').textContent = 'Consulta de estações pontuais, sem extrapolar valores para o município.';
+    return;
+  }
+  const station = place.selected_station;
+  const heading = child('div', 'station-item');
+  heading.append(child('strong', '', `${station.name} (${station.code}) · ${value(station.distance_km,1)} km`));
+  heading.append(child('p', 'analysis-foot', `Último dia com 24 leituras: ${station.last_complete_day_utc} (UTC) · ${value(station.last_complete_rain_mm,1)} mm medidos nesta estação`));
+  const weekly = station.total_7_complete_days_mm;
+  heading.append(child('p', 'analysis-foot', Number.isFinite(weekly) ?
+    `7 dias completos consecutivos até essa data: ${value(weekly,1)} mm` :
+    'Sete dias consecutivos completos não disponíveis; nenhum total semanal calculado.'));
+  target.append(heading);
+  if (place.nearest_station_missing_rain) {
+    target.append(child('p', 'analysis-explainer', 'A estação geograficamente mais próxima não apresentou dias completos com chuva válida. A estação mostrada é a alternativa com dados disponíveis, e não representa a chuva do município.'));
+  }
+  if (place.spatial_comparison) {
+    const pair = place.spatial_comparison;
+    target.append(child('p', 'analysis-foot', `Contexto espacial em ${pair.day_utc}: estação ${value(pair.inmet_station_measurement_mm,1)} mm medidos; grade NASA em Araquari ${value(pair.nasa_gridded_estimate_mm,1)} mm estimados. Pontos diferentes: não é validação de modelo.`));
+  }
+  $('regional-quality-foot').textContent = `Arquivo INMET com atraso de ${station.days_since_complete_observation} dia(s) desde a última medição diária completa · ${place.epagri_catalog_within_30km} cadastro(s) Epagri a até 30 km, não necessariamente em operação.`;
+}
+function renderEpagriBulletins() {
+  const target = $('epagri-bulletins-list');
+  clear(target);
+  const data = state.epagriBulletins;
+  const bulletins = Array.isArray(data?.bulletins) ? data.bulletins : [];
+  $('epagri-bulletins-count').textContent = bulletins.length ? `${bulletins.length} publicação(ões)` : 'Sem boletim recente';
+  if (data?.status === 'stale') target.append(child('p', 'analysis-explainer', 'Consulta atual indisponível; boletins de uma publicação anterior, sujeitos a desatualização.'));
+  if (!bulletins.length) {
+    target.append(child('p', 'loading-label', 'Sem boletins recentes acessíveis. Consulte a previsão editorial original; isto não significa ausência de risco.'));
+  }
+  for (const row of bulletins) {
+    const item = child('article', 'defesa-entry');
+    const anchor = child('a', 'defesa-entry-link', row.title || 'Boletim regional');
+    try {
+      const url = new URL(row.url);
+      if (url.protocol === 'https:' && url.hostname === 'ciram.epagri.sc.gov.br') {
+        anchor.href = url.href; anchor.target = '_blank'; anchor.rel = 'noopener noreferrer';
+      }
+    } catch (_) { /* do not link unverified addresses */ }
+    item.append(anchor, child('p', 'analysis-foot', `Publicado em ${datetime(row.published_at)} · previsão regional, não alerta emergencial`));
+    if (row.summary) item.append(child('p', 'defesa-summary', row.summary));
+    target.append(item);
+  }
+  $('epagri-bulletins-updated').textContent = data?.retrieved_at ?
+    `Fonte Epagri/Ciram consultada: ${datetime(data.retrieved_at)}${data.status === 'stale' ? ' · desatualizada' : ''}` :
+    'Fonte indisponível para atualização automática.';
 }
 function renderCptec() {
   const target = $('cptec-data'); clear(target);
@@ -535,6 +592,8 @@ function renderSourceHealth() {
     ['Defesa Civil SC · publicações', state.defesa?.status || 'unavailable'],
     ['Epagri · cadastro de estações', state.epagriGeo?.status || 'unavailable'],
     ['Epagri/Ciram · avisos publicados', state.epagriNotices?.status || 'unavailable'],
+    ['Epagri/Ciram · previsão editorial', state.epagriBulletins?.status || 'unavailable'],
+    ['INMET · cobertura observada por localidade', state.regionalQuality?.status || 'unavailable'],
     ['INMET · convencionais', state.stations?.conventional_catalog_status || 'unavailable'],
   ];
   const labels = {
@@ -542,7 +601,8 @@ function renderSourceHealth() {
     unavailable:'Indisponível', not_configured:'Credencial não configurada',
     access_restricted:'Acesso recusado', no_recent_data:'Sem leituras recentes',
     no_recent_reports:'Sem boletins recentes', no_nearby_catalog_stations:'Sem estações próximas',
-    no_recent_publications:'Sem publicações recentes', not_tested:'Não testado',
+    no_recent_publications:'Sem publicações recentes', no_recent_bulletins:'Sem boletins editoriais recentes',
+    no_complete_gauge_data:'Sem dia completo medido', not_tested:'Não testado',
     no_nearby_stations:'Sem estações automáticas próximas', fixture_mode:'Teste sintético'
   };
   for (const [name, status] of providers) {
@@ -624,7 +684,9 @@ async function selectLocation(slug) {
   renderCptec();
   renderDefesa();
   renderEpagriNotices();
+  renderEpagriBulletins();
   renderArchive();
+  renderRegionalQuality();
   renderSourceHealth();
   renderNoticeArchive();
   clearDetails();
@@ -648,7 +710,7 @@ async function boot() {
     const overview = await readJson('./data/latest.json');
     if (!Array.isArray(overview.locations) || overview.schema_version !== 1 || overview.fixture_mode) throw new Error('Invalid or test dataset');
     state.overview = overview;
-    const [stations, history, alerts, observations, rain, noticeArchive, nasa, cemaden, cptec, defesa, archive, epagriGeo, epagriNotices] = await Promise.all([
+    const [stations, history, alerts, observations, rain, noticeArchive, nasa, cemaden, cptec, defesa, archive, epagriGeo, epagriNotices, epagriBulletins, regionalQuality] = await Promise.all([
       readJson('./data/stations.json').catch(() => null),
       readJson('./data/history.json').catch(() => null),
       readJson('./data/alerts.json').catch(() => null),
@@ -662,6 +724,8 @@ async function boot() {
       readJson('./data/inmet_archive.json').catch(() => null),
       readJson('./data/epagri_geo.json').catch(() => null),
       readJson('./data/epagri_notices.json').catch(() => null),
+      readJson('./data/epagri_bulletins.json').catch(() => null),
+      readJson('./data/regional_quality.json').catch(() => null),
     ]);
     state.stations = stations?.schema_version === 1 && stations?.kind === 'station_catalog_metadata_not_measurements' ? stations : null;
     state.history = history?.schema_version === 1 && history?.kind === 'daily_last_model_publication_not_station_observation' ? history : null;
@@ -676,6 +740,8 @@ async function boot() {
     state.archive = archive?.schema_version === 1 && archive?.kind === 'inmet_annual_zip_delayed_station_measurements_not_real_time' ? archive : null;
     state.epagriGeo = epagriGeo?.schema_version === 1 && epagriGeo?.kind === 'epagri_arcgis_station_registry_not_live_measurements' ? epagriGeo : null;
     state.epagriNotices = epagriNotices?.schema_version === 1 && epagriNotices?.kind === 'epagri_ciram_official_advisories_not_civil_defense_alerts' ? epagriNotices : null;
+    state.epagriBulletins = epagriBulletins?.schema_version === 1 && epagriBulletins?.kind === 'epagri_ciram_editorial_forecast_bulletins_not_emergency_alerts' ? epagriBulletins : null;
+    state.regionalQuality = regionalQuality?.schema_version === 1 && regionalQuality?.kind === 'regional_gauge_coverage_and_spatial_model_context_not_live_alert' ? regionalQuality : null;
     const select = $('location-select');
     clear(select);
     for (const loc of overview.locations) {

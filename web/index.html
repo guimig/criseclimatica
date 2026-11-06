@@ -95,6 +95,7 @@
       <div class="panel-top"><div><span class="section-kicker">REDE AMBIENTAL REGIONAL / EPAGRI</span><h3 id="epagri-registry-title">Estações ambientais próximas</h3></div><span class="helper-label" id="epagri-registry-count">Cadastro geográfico</span></div>
       <p class="analysis-explainer">Cadastro georreferenciado de estações meteorológicas e agrometeorológicas publicado pela Epagri. <strong>Estar cadastrado não confirma funcionamento atual nem disponibilidade de medições.</strong> Inclui identificação, classe, responsável e distância em linha reta, quando disponíveis.</p>
       <div class="station-grid" id="epagri-registry-list" aria-live="polite"><span class="loading-label">Verificando cadastro Epagri...</span></div>
+      <div class="reference-links"><a href="https://ciram.epagri.sc.gov.br/dadosambientaispublicos/index.jsp" target="_blank" rel="noopener noreferrer">Dados horários públicos Epagri (cadastro exigido) ↗</a></div>
       <p class="analysis-foot" id="epagri-registry-updated">Fonte: <a href="https://gis.epagri.sc.gov.br/arcgis/rest/services/Zoneamento/Potencial_estacoes/MapServer/1" target="_blank" rel="noopener noreferrer">Catálogo geográfico Epagri/SC</a>. Sem dados meteorológicos ao vivo.</p>
     </section>
 
@@ -118,6 +119,13 @@
       <p class="analysis-explainer">Esta consulta utiliza o <a href="https://portal.inmet.gov.br/dadoshistoricos" target="_blank" rel="noopener noreferrer">arquivo anual público de estações automáticas do INMET</a>. Pode estar atualizado apenas até o mês anterior. <strong>Não mostra a chuva de agora ou nas últimas 24 horas.</strong> O total de um dia somente é apresentado quando as 24 leituras horárias estão disponíveis.</p>
       <div class="archive-list" id="archive-data" aria-live="polite"><span class="loading-label">Verificando arquivo oficial...</span></div>
       <p class="analysis-foot" id="archive-updated">Fonte INMET · arquivo público de dados observados, com defasagem.</p>
+    </section>
+
+    <section class="panel regional-quality-panel" aria-labelledby="regional-quality-title">
+      <div class="panel-top"><div><span class="section-kicker">QUALIDADE DAS MEDIÇÕES / INMET</span><h3 id="regional-quality-title">Qual estação tem chuva válida perto de mim?</h3></div><span class="helper-label">Dados medidos · histórico atrasado</span></div>
+      <p class="analysis-explainer">Identifica a estação mais próxima com ao menos um dia de <strong>24 leituras válidas de chuva</strong>. A mais próxima pode estar sem sensor ou com registros incompletos. Distância e defasagem são exibidas: <strong>nenhum total representa a chuva em todo o município.</strong></p>
+      <div id="regional-quality-data" class="station-grid" aria-live="polite"><span class="loading-label">Verificando cobertura das medições...</span></div>
+      <p class="analysis-foot" id="regional-quality-foot">As leituras são pontuais e podem estar atrasadas.</p>
     </section>
 
     <div class="integrations-grid" aria-label="Integrações adicionais de precipitação">
@@ -164,6 +172,13 @@
       <div class="reference-links"><a href="https://ciram.epagri.sc.gov.br/index.php/avisos-meteorologicos/" target="_blank" rel="noopener noreferrer">Avisos Epagri/Ciram ↗</a><a href="https://ciram.epagri.sc.gov.br/index.php/category/avisos-meteorologicos/" target="_blank" rel="noopener noreferrer">Publicações anteriores ↗</a></div>
     </section>
 
+    <section class="panel epagri-bulletins-panel" aria-labelledby="epagri-bulletins-title">
+      <div class="panel-top"><div><span class="section-kicker">PREVISÃO EDITORIAL / EPAGRI-CIRAM</span><h3 id="epagri-bulletins-title">Boletins para 5 e 10 dias</h3></div><span class="helper-label" id="epagri-bulletins-count">Fonte institucional</span></div>
+      <p class="analysis-explainer">Textos oficiais de previsão e tendência divulgados pela Epagri/Ciram. Não são medições instrumentais, nem previsão pontual exclusiva do município, nem alertas emergenciais da Defesa Civil.</p>
+      <div id="epagri-bulletins-list" class="civil-defense-list" aria-live="polite"><span class="loading-label">Consultando boletins da Epagri...</span></div>
+      <p id="epagri-bulletins-updated" class="analysis-foot">Os boletins podem se tornar obsoletos rapidamente.</p>
+      <div class="reference-links"><a href="https://ciram.epagri.sc.gov.br/index.php/category/previsao/" target="_blank" rel="noopener noreferrer">Boletins Epagri/Ciram ↗</a><a href="https://ciram.epagri.sc.gov.br/index.php/previsao-municipio-15-dias/" target="_blank" rel="noopener noreferrer">Previsão municipal 15 dias ↗</a></div>
+    </section>
     <section class="panel notice-archive-panel" aria-labelledby="notice-archive-title">
       <div class="panel-top"><div><span class="section-kicker">MEMÓRIA DOS AVISOS OFICIAIS</span><h3 id="notice-archive-title">Avisos anteriormente publicados</h3></div><span class="helper-label" id="notice-archive-count">Histórico</span></div>
       <p class="analysis-explainer">Registra avisos que foram retornados pela fonte oficial nas publicações anteriores. Não é comprovação de desastre, nem substitui a consulta aos avisos atualmente vigentes.</p>
