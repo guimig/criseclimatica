@@ -44,6 +44,12 @@
 
     <div class="disclaimer" role="note"><span class="information-icon">i</span><div><strong>Dados estimados por modelo.</strong> As condi&ccedil;&otilde;es atuais e as proje&ccedil;&otilde;es desta vers&atilde;o v&ecirc;m da Open-Meteo. N&atilde;o s&atilde;o medi&ccedil;&otilde;es de esta&ccedil;&otilde;es nem alertas oficiais.</div></div>
 
+    <section class="panel coverage-panel" aria-labelledby="coverage-title">
+      <div class="panel-top"><div><span class="section-kicker">COBERTURA DESTA LOCALIDADE</span><h3 id="coverage-title">Quais dados estão disponíveis?</h3></div></div>
+      <p class="analysis-explainer">Fontes independentes, com horários e variáveis próprios. Estações próximas e aeródromos não representam todo o município. Consulte a idade de cada leitura nos painéis.</p>
+      <div id="coverage-data" class="coverage-grid" aria-live="polite"></div>
+    </section>
+
     <section class="metrics" aria-label="Indicadores meteorologicos atuais">
       <article class="metric metric-primary"><div class="metric-label">TEMPERATURA ESTIMADA <span aria-hidden="true">↗</span></div><div class="metric-number" id="temp">--</div><div class="metric-detail" id="weather">Sem informa&ccedil;&atilde;o</div></article>
       <article class="metric"><div class="metric-label">SENSA&Ccedil;&Atilde;O T&Eacute;RMICA</div><div class="metric-number" id="feels">--</div><div class="metric-detail">Estimativa &agrave; superf&iacute;cie</div></article>
@@ -59,7 +65,7 @@
       </section>
       <section class="panel detail-panel" aria-labelledby="detail-title">
         <div class="panel-top"><div><span class="section-kicker">DETALHAMENTO</span><h3 id="detail-title">Condi&ccedil;&otilde;es previstas</h3></div><span class="panel-icon" aria-hidden="true">☁</span></div>
-        <div class="detail-stats"><div><span>CHUVA NAS PR&Oacute;X. 24H</span><strong id="rain-24">--</strong></div><div><span>PRECIPITA&Ccedil;&Atilde;O NA HORA</span><strong id="rain-now">--</strong></div><div><span>RAJADA ESTIMADA</span><strong id="gust-now">--</strong></div><div><span>PRESS&Atilde;O AO N&Iacute;VEL DO MAR</span><strong id="pressure">--</strong></div></div>
+        <div class="detail-stats"><div><span>CHUVA PREVISTA · JANELA DE 24H</span><strong id="rain-24">--</strong><small id="rain-coverage">Sem janela completa publicada</small></div><div><span>PRECIPITA&Ccedil;&Atilde;O NA HORA</span><strong id="rain-now">--</strong></div><div><span>RAJADA ESTIMADA</span><strong id="gust-now">--</strong></div><div><span>PRESS&Atilde;O AO N&Iacute;VEL DO MAR</span><strong id="pressure">--</strong></div></div>
         <div class="detail-bottom"><span class="info-line">◉ Fonte: <a href="https://open-meteo.com/en/docs" target="_blank" rel="noopener noreferrer">Open-Meteo</a></span><span id="model-time">Refer&ecirc;ncia: --</span></div>
       </section>
     </div>
@@ -73,7 +79,7 @@
       <p class="analysis-foot" id="cptec-updated"><a href="https://servicos.cptec.inpe.br/XML/" rel="noopener noreferrer" target="_blank">Serviço XML CPTEC/INPE</a></p>
     </section>
 
-    <section class="territory-section" aria-labelledby="territory-title"><div class="section-heading"><div><span class="section-kicker">VIS&Atilde;O DO TERRIT&Oacute;RIO</span><h2 id="territory-title">Litoral Norte de Santa Catarina</h2><p>Uma leitura comparativa de sete pontos de refer&ecirc;ncia regionais.</p></div><span class="helper-label" id="territory-count">-- localidades</span></div><div class="territory-grid" id="territory-grid"></div></section>
+    <section class="territory-section" aria-labelledby="territory-title"><div class="section-heading"><div><span class="section-kicker">VIS&Atilde;O DO TERRIT&Oacute;RIO</span><h2 id="territory-title">Litoral Norte de Santa Catarina</h2><p>Uma leitura comparativa de dez pontos de refer&ecirc;ncia regionais.</p></div><span class="helper-label" id="territory-count">-- localidades</span></div><div class="territory-grid" id="territory-grid"></div></section>
 
     <section class="analysis-grid" aria-label="Redes observacionais e historico">
       <article class="panel station-panel" aria-labelledby="stations-title">
@@ -196,3 +202,4 @@
   <footer class="site-footer"><div class="shell footer-inner"><div><strong>OBSERVAT&Oacute;RIO / TEMPO &amp; CLIMA</strong><p>Projeto aberto e independente. N&atilde;o substitui alertas e orienta&ccedil;&otilde;es da Defesa Civil.</p></div><div><span>Dados meteorol&oacute;gicos: <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a></span><span><a href="https://github.com/guimig/criseclimatica" target="_blank" rel="noopener noreferrer">Reposit&oacute;rio no GitHub ↗</a></span></div></div></footer>
 </body>
 </html>
+

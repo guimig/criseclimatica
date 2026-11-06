@@ -154,7 +154,8 @@ def collect(locations: list[dict[str, Any]], stamp: str, *, token: str | None = 
         "checked_at": stamp,
         "source": {"id": "cemaden", "name": "Cemaden PED", "url": DOCS,
                    "attribution": "DADOS DA REDE OBSERVACIONAL DO CEMADEN/MCTIC"},
-        "locations": [{"location_id": loc["id"], "ibge_code": str(loc["ibge_code"]), "stations": []}
+        "locations": [{"location_id": loc["id"], "ibge_code": str(loc["ibge_code"]), "stations": [], "status": initial_status,
+                       "diagnostic": initial_reason}
                       for loc in locations],
         "municipalities_checked": 0, "municipalities_failed": 0,
         "diagnostic": initial_reason,
@@ -167,10 +168,14 @@ def collect(locations: list[dict[str, Any]], stamp: str, *, token: str | None = 
         except SgaaAuthError as exc:
             base["status"] = "access_restricted" if exc.reason == "access_restricted" else "unavailable"
             base["diagnostic"] = "sgaa_" + exc.reason
+            for row in base["locations"]:
+                row.update(status=base["status"], diagnostic=base["diagnostic"])
             return base
     if not token:
         base["status"] = "not_configured"
         base["diagnostic"] = "token_not_configured"
+        for row in base["locations"]:
+            row.update(status=base["status"], diagnostic=base["diagnostic"])
         return base
     now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
 
@@ -206,8 +211,10 @@ def collect(locations: list[dict[str, Any]], stamp: str, *, token: str | None = 
     with ThreadPoolExecutor(max_workers=(1 if session is not None else min(3, len(locations)) or 1)) as pool:
         results = list(pool.map(get, locations))
     failures = [err for _, err in results if err]
-    for row, (stations, _) in zip(base["locations"], results):
-        row["stations"] = stations
+    for row, (stations, error) in zip(base["locations"], results):
+        row.update(stations=stations,
+                   status=error or ("available" if stations else "no_recent_data"),
+                   diagnostic=error or ("ok" if stations else "no_valid_recent_readings"))
     base["municipalities_checked"] = len(locations)
     base["municipalities_failed"] = len(failures)
     if any(rows for rows, _ in results):
@@ -220,3 +227,4 @@ def collect(locations: list[dict[str, Any]], stamp: str, *, token: str | None = 
         base["status"] = "no_recent_data"
     base["diagnostic"] = "partial" if base["status"] == "available" and failures else (failures[0] if failures else "ok")
     return base
+

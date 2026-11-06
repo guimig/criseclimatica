@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -59,8 +60,38 @@ def validate(output: Path, *, fixture: bool = False) -> None:
             raise ValueError("Invalid Epagri advisory classification")
     if overview.get("schema_version") != 1 or overview.get("fixture_mode", False) is not fixture:
         raise ValueError("Unexpected manifest schema or fixture mode")
-    if not overview.get("available_locations") or not overview.get("locations"):
-        raise ValueError("Manifest has no available locations")
+    available = sum(row.get("status") == "available" for row in overview.get("locations", []))
+    if not overview.get("locations") or overview.get("available_locations") != available:
+        raise ValueError("Manifest availability count inconsistent")
+    if not available and not any(feed.get("status") in ("available", "partial", "no_recent_notices", "no_recent_bulletins")
+                                 for feed in (alerts, observations, rain, cemaden, cemaden_sensors, cptec,
+                                              epagri_notices, epagri_bulletins)):
+        raise ValueError("Manifest has no available operational source")
+    if not available and overview.get("publication_status") != "partial":
+        raise ValueError("Model outage must be marked as a partial publication")
+    coverage = json.loads((data / "coverage.json").read_text(encoding="utf-8"))
+    expected_coverage = {row["id"] for row in overview["locations"]}
+    if (coverage.get("schema_version") != 1 or coverage.get("kind") != "local_source_coverage_not_municipal_weather_measurement"
+            or {row.get("location_id") for row in coverage.get("locations", [])} != expected_coverage):
+        raise ValueError("Invalid locality coverage summary")
+    for row in cemaden.get("locations", []):
+        if row.get("status") not in ("available", "no_recent_data", "unavailable", "not_configured", "access_restricted", "rate_limited"):
+            raise ValueError("Missing or invalid per-municipality Cemaden state")
+        if row["status"] != "available" and row.get("stations"):
+            raise ValueError("Failed municipality cannot contain Cemaden measurements")
+    for place in overview["locations"]:
+        if place.get("status") != "available":
+            continue
+        window = place.get("rain_window", {})
+        hours = window.get("valid_hours")
+        total = place.get("rain_next_24h_mm")
+        if not isinstance(hours, int) or isinstance(hours, bool) or not 0 <= hours <= 24 or window.get("expected_hours") != 24:
+            raise ValueError("Invalid forecast rain coverage")
+        if hours != 24 and (total is not None or window.get("total_mm") is not None):
+            raise ValueError("Partial forecast rain cannot be a full 24h total")
+        if hours == 24 and (window.get("status") != "complete" or not isinstance(total, (int, float))
+                            or isinstance(total, bool) or not math.isfinite(total) or total < 0 or total != window.get("total_mm")):
+            raise ValueError("Invalid complete forecast rain total")
     if history.get("kind") != "daily_last_model_publication_not_station_observation":
         raise ValueError("History source classification invalid")
     if stations.get("kind") != "station_catalog_metadata_not_measurements":
@@ -185,3 +216,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

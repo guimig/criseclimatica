@@ -17,6 +17,7 @@ from urllib.request import Request, urlopen
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from observatorio.coverage import summarize as summarize_coverage
 from observatorio.config import load_locations  # noqa: E402
 from observatorio.alerts import AlertSourceError, fetch_alerts, normalize_alerts, unavailable_alerts  # noqa: E402
 from observatorio.metar import MetarSourceError, fetch_metars, normalize_metars, unavailable_metars  # noqa: E402
@@ -161,6 +162,8 @@ def build(
     if previous_url and fixture is None:
         previous_history = fetch_previous_json(previous_url, "data/history.json")
         previous_overview = fetch_previous_json(previous_url, "data/latest.json", max_bytes=800_000)
+        if previous_history is None and previous_overview and previous_overview.get("model_history_published") is True:
+            raise RuntimeError("Previous model history missing; refusing history loss")
         previous_notices = fetch_previous_json(previous_url, "data/notice_history.json", max_bytes=2_000_000)
         if previous_notices is None and previous_overview and previous_overview.get("notice_archive_published") is True:
             raise RuntimeError("Previous notice archive missing after prior publication; refusing history loss")
@@ -195,10 +198,11 @@ def build(
         except (RuntimeError, ValueError) as exc:
             print(f"Previous stations not available: {exc}", file=sys.stderr)
 
-    manifest, details = collect(locations, client)
+    manifest, details = collect(locations, client, allow_empty=True)
     if fixture is not None:
         manifest["fixture_mode"] = True
 
+    manifest["model_history_published"] = True
     history = merge_daily_publications(previous_history, manifest, details)
     if fixture is not None and station_fixture is None:
         station_fixture = ROOT / "tests" / "fixtures" / "inmet_catalog.json"
@@ -270,6 +274,15 @@ def build(
     epagri_bulletins = collect_epagri_bulletins(stamp, previous=previous_epagri_bulletins,
                                                 fixture=epagri_bulletins_fixture)
     regional_quality = summarize_regional_quality(locations, archive, nasa, epagri_geo, stamp)
+    manifest["publication_status"] = "complete" if len(details) == len(locations) else "partial"
+    # Preserve the last publication if neither forecasts nor a live operational
+    # source can be refreshed. Metadata and old annual archives do not qualify.
+    operational = (alerts, observations, rain, cemaden, cemaden_sensors, cptec,
+                   epagri_notices, epagri_bulletins)
+    if not details and not any(feed.get("status") in ("available", "partial", "no_recent_notices", "no_recent_bulletins")
+                               for feed in operational):
+        raise RuntimeError("All operational sources failed; preserving previous publication")
+    coverage = summarize_coverage(locations, manifest, cemaden, cemaden_sensors, observations, stamp)
     print(f"Provider status: open_meteo={manifest['available_locations']}/{len(locations)} "
           f"alerts={alerts['status']} metar={observations['status']} "
           f"inmet_rain={rain['status']} nasa={nasa['status']} cemaden={cemaden['status']} "
@@ -285,6 +298,7 @@ def build(
         staged = Path(temp) / "site"
         shutil.copytree(ROOT / "web", staged)
         data = staged / "data"
+        write_json_atomic(data / "coverage.json", coverage)
         write_json_atomic(data / "latest.json", manifest)
         write_json_atomic(data / "history.json", history)
         write_json_atomic(data / "stations.json", stations)
@@ -332,3 +346,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

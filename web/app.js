@@ -1,6 +1,6 @@
 'use strict';
 
-const state = { overview: null, detail: null, stations: null, history: null, alerts: null, observations: null, rain: null, nasa: null, cemaden: null, cemadenSensors: null, cptec: null, defesa: null, archive: null, noticeArchive: null, epagriGeo: null, epagriNotices: null, epagriBulletins: null, regionalQuality: null, slug: null, metric: 'temperature_c', requestId: 0 };
+const state = { coverage: null, bootId: 0, overview: null, detail: null, stations: null, history: null, alerts: null, observations: null, rain: null, nasa: null, cemaden: null, cemadenSensors: null, cptec: null, defesa: null, archive: null, noticeArchive: null, epagriGeo: null, epagriNotices: null, epagriBulletins: null, regionalQuality: null, slug: null, metric: 'temperature_c', requestId: 0 };
 const $ = (id) => document.getElementById(id);
 const tz = 'America/Sao_Paulo';
 const units = { temperature_c: '\u00b0C', precipitation_mm: 'mm', gust_kmh: 'km/h' };
@@ -16,6 +16,24 @@ function value(number, fraction = 0) {
 function datetime(iso, options = {}) {
   if (!iso || Number.isNaN(Date.parse(iso))) return '--';
   return new Intl.DateTimeFormat('pt-BR', { timeZone: tz, day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', ...options }).format(new Date(iso));
+}
+function freshAt(iso, maxHours = 6, now = Date.now()) {
+  const stamp = typeof iso === 'string' ? Date.parse(iso) : NaN;
+  const age = now - stamp;
+  return Number.isFinite(age) && age >= -10 * 60000 && age <= maxHours * 3600000;
+}
+function effectiveStatus(status, stamp, maxHours = 6) {
+  return ['available', 'cached', 'partial'].includes(status) && !freshAt(stamp, maxHours) ? 'stale' : status;
+}
+function refreshPublicationStatus() {
+  if (!state.overview) return;
+  const current = freshAt(state.overview.generated_at, 8);
+  const count = state.overview.available_locations;
+  const partial = count < state.overview.total_locations;
+  setStatus(!current ? 'Publicação desatualizada: confira os horários das fontes' :
+    !count ? 'Previsão Open-Meteo indisponível; consulte as outras fontes abaixo' :
+    partial ? 'Publicação parcial: confira a cobertura por fonte' : 'Dados de modelo disponíveis',
+    !current || partial ? 'warning' : 'ok');
 }
 function weatherInfo(code) {
   if (!Number.isFinite(code)) return { label: 'Indispon\u00edvel', symbol: '\u25cb' };
@@ -36,9 +54,13 @@ function child(tag, className, text) {
 }
 function clear(element) { element.replaceChildren(); }
 async function readJson(url) {
-  const response = await fetch(url, { cache: 'no-store' });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  return response.json();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const response = await fetch(url, { cache: 'no-store', signal: controller.signal });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await response.json();
+  } finally { clearTimeout(timeout); }
 }
 function setStatus(message, kind) {
   $('system-status').textContent = message;
@@ -54,7 +76,7 @@ function renderTerritory() {
     const top = child('div', 'territory-top');
     top.append(child('span', '', place.name), child('span', '', weatherInfo(place.current?.weather_code).symbol));
     const reading = child('div', 'territory-reading', place.current ? value(place.current.temperature_c) + '\u00b0' : '--');
-    const foot = child('div', 'territory-foot', place.status === 'available' ? 'Modelo Open-Meteo' : 'Dados indispon\u00edveis');
+    const foot = child('div', 'territory-foot', place.status === 'available' ? (freshAt(place.current?.time, 8) ? 'Modelo Open-Meteo' : 'Modelo desatualizado') : 'Dados indispon\u00edveis');
     btn.append(top, reading, foot);
     btn.addEventListener('click', () => selectLocation(place.id));
     container.append(btn);
@@ -279,7 +301,7 @@ function renderCptec() {
   const data = state.cptec;
   const record = data?.locations?.find((x) => x.location_id === state.slug);
   $('cptec-updated').textContent = `CPTEC/INPE · estado: ${record?.status || 'indisponível'} · consulta: ${datetime(data?.checked_at)}. Consulte a fonte oficial se a previsão estiver indisponível.`;
-  if (!record || !Array.isArray(record.days) || !record.days.length || record.status === 'unavailable') {
+  if (!record || !Array.isArray(record.days) || !record.days.length || record.status === 'unavailable' || !freshAt(data?.checked_at)) {
     target.append(child('p', 'loading-label', 'Previsão CPTEC indisponível nesta publicação. A previsão Open-Meteo continua independente.'));
     return;
   }
@@ -292,7 +314,7 @@ function renderCptec() {
     const uv = child('span', '', `UV máx.: ${value(day.uv_index_max, 1)}`);
     item.append(dt, temp, uv);
     const model = state.detail?.daily?.find((row) => row.time === day.day);
-    if (model && Number.isFinite(model.temp_max_c) && Number.isFinite(day.maximum_c) && record.status === 'available') {
+    if (model && Number.isFinite(model.temp_max_c) && Number.isFinite(day.maximum_c) && record.status === 'available' && freshAt(state.detail?.collected_at, 8) && freshAt(state.detail?.current?.time, 8)) {
       const delta = day.maximum_c - model.temp_max_c;
       item.append(child('span', 'model-difference', `Diferença máx. CPTEC − Open-Meteo: ${delta > 0 ? '+' : ''}${value(delta, 1)}°C`));
     }
@@ -497,6 +519,10 @@ function renderRain() {
       for (const nearby of selected) {
         const station = feed.stations?.find((s) => s.code === nearby.code);
         if (!station) continue;
+        if (!freshAt(feed.checked_at) || !freshAt(station.observed_at)) {
+          target.append(child('p', 'alert-unknown', `Estação ${station.code}: leitura desatualizada (${datetime(station.observed_at)}).`));
+          continue;
+        }
         const item = child('article', 'rain-station');
         const head = child('div', 'observed-heading');
         head.append(child('strong', '', `${station.name} (${station.code})`), child('span', '', `${value(nearby.distance_km, 1)} km em linha reta`));
@@ -524,20 +550,23 @@ function renderCemaden() {
   const target = $('cemaden-data');
   clear(target);
   const data = state.cemaden;
-  const status = data?.status;
+  const local = data?.locations?.find((place) => place.location_id === state.slug);
+  const status = local?.status || data?.status;
   const statusText = {
     not_configured: 'A coleta Cemaden depende da configuração das credenciais SGAA em GitHub Secrets. Não há leitura instrumental disponível sem essa autorização.',
     access_restricted: 'A API PED recusou o token ou o acesso à informação. Necessário validar a autorização no Cemaden.',
     unavailable: 'O serviço Cemaden não respondeu adequadamente nesta publicação. Não é possível confirmar a chuva observada.',
-    no_recent_data: 'A consulta foi concluída, mas não foram encontrados acumulados instrumentais recentes para os municípios cadastrados.',
+    no_recent_data: 'Consulta concluída: nenhuma leitura recente válida neste município. Isso não significa chuva zero.',
+    rate_limited: 'A consulta deste município atingiu o limite da fonte. Não é possível confirmar leituras.',
     fixture_mode: 'Dados de teste: pluviometria instrumental desabilitada.'
   };
   if (!data || statusText[status]) {
     target.append(child('p', status === 'unavailable' || status === 'access_restricted' ? 'alert-unknown' : 'loading-label', statusText[status] || 'Integração Cemaden indisponível.'));
   } else {
-    const local = data.locations?.find((place) => place.location_id === state.slug);
-    const rows = Array.isArray(local?.stations) ? local.stations : [];
-    if (!rows.length) target.append(child('p', 'loading-label', 'Nenhum pluviômetro Cemaden com leitura recente para este município. A ausência de leitura não significa chuva zero.'));
+    const allRows = Array.isArray(local?.stations) ? local.stations : [];
+    const rows = allRows.filter((row) => freshAt(data.checked_at) && freshAt(row.observed_at));
+    if (allRows.length && rows.length < allRows.length) target.append(child('p', 'alert-unknown', 'Há leituras desatualizadas, omitidas dos acumulados atuais. Consulte a fonte oficial.'));
+    if (!allRows.length) target.append(child('p', 'loading-label', 'Nenhum pluviômetro Cemaden com leitura recente para este município. A ausência de leitura não significa chuva zero.'));
     for (const station of rows.slice(0, 6)) {
       const item = child('article', 'rain-station');
       item.append(child('strong', '', `Estação ${station.code}`));
@@ -594,7 +623,9 @@ function renderCemadenSensors() {
         child('span', '', `${value(match.distance_km, 1)} km em linha reta`));
       card.append(heading, child('p', 'analysis-foot', `Local informado pela fonte: ${station.municipality}.`));
       const metrics = child('div', 'observed-metrics');
-      for (const reading of station.readings.slice(0, 8)) {
+      const validReadings = station.readings.filter((reading) => freshAt(reading.observed_at, 3 + 20 / 60));
+      if (validReadings.length < station.readings.length) card.append(child('p', 'alert-unknown', 'Leituras vencidas foram omitidas.'));
+      for (const reading of validReadings.slice(0, 8)) {
         const metric = child('div', 'observed-metric');
         const descriptor = `${reading.sensor_name} · sensor ${reading.sensor_id}`;
         metric.append(child('span', '', descriptor),
@@ -634,6 +665,7 @@ function renderSourceHealth() {
   const target = $('source-health');
   clear(target);
   const overview = state.overview;
+  const cemadenLocal = state.cemaden?.locations?.find((row) => row.location_id === state.slug);
   const providers = [
     ['Open-Meteo · modelo', overview?.available_locations ? (overview.available_locations === overview.total_locations ? 'available' : 'partial') : 'unavailable'],
     ['INMET · catálogo', state.stations?.catalog_status || 'unavailable'],
@@ -641,7 +673,7 @@ function renderSourceHealth() {
     ['NOAA · METAR', state.observations?.status || 'unavailable'],
     ['INMET · pluviometria', state.rain?.status || 'unavailable'],
     ['INMET · arquivo anual', state.archive?.status || 'unavailable'],
-    ['Cemaden · pluviometria', state.cemaden?.status || 'unavailable'],
+    ['Cemaden · pluviometria', cemadenLocal?.status || state.cemaden?.status || 'unavailable'],
     ['Cemaden · sensores recentes', state.cemadenSensors?.status || 'unavailable'],
     ['NASA POWER · grade', state.nasa?.status || 'unavailable'],
     ['CPTEC/INPE · previsão', state.cptec?.status || 'unavailable'],
@@ -652,7 +684,13 @@ function renderSourceHealth() {
     ['INMET · cobertura observada por localidade', state.regionalQuality?.status || 'unavailable'],
     ['INMET · convencionais', state.stations?.conventional_catalog_status || 'unavailable'],
   ];
+  const feeds = [overview, state.stations, state.alerts, state.observations, state.rain,
+    state.archive, state.cemaden, state.cemadenSensors, state.nasa, state.cptec,
+    state.defesa, state.epagriGeo, state.epagriNotices, state.epagriBulletins,
+    state.regionalQuality, state.stations];
+  const limits = [8, 192, 6, 6, 6, 192, 6, 6, 72, 6, 6, 72, 6, 6, 8, 192];
   const labels = {
+    rate_limited:'Limite da fonte atingido', no_recent_report:'Sem boletim recente',
     available:'Disponível', cached:'Última leitura em cache', stale:'Dados anteriores', partial:'Parcial',
     unavailable:'Indisponível', not_configured:'Credencial não configurada',
     access_restricted:'Acesso recusado', no_recent_data:'Sem leituras recentes',
@@ -661,10 +699,37 @@ function renderSourceHealth() {
     no_complete_gauge_data:'Sem dia completo medido', not_tested:'Não testado',
     no_nearby_stations:'Sem estações automáticas próximas', fixture_mode:'Teste sintético'
   };
-  for (const [name, status] of providers) {
+  for (const [index, [name, rawStatus]] of providers.entries()) {
+    const feed = feeds[index];
+    const stamp = feed?.retrieved_at || feed?.checked_at || feed?.generated_at;
+    let status = effectiveStatus(rawStatus, stamp, limits[index]);
+    if (index === 6 && status === 'available' && !cemadenLocal?.stations?.some((row) => freshAt(row.observed_at))) status = 'stale';
+    if (index === 7 && status === 'available' && !state.cemadenSensors?.stations?.some((row) => row.readings?.some((r) => freshAt(r.observed_at, 3 + 20 / 60)))) status = 'stale';
     const item = child('div', 'source-health-item');
     item.append(child('strong', '', name), child('span', `source-health-status ${['available','cached'].includes(status) ? 'health-ok' : 'health-pending'}`, labels[status] || status));
+    if (stamp) item.append(child('small', 'analysis-foot', `Consulta: ${datetime(stamp)}`));
     target.append(item);
+  }
+}
+function renderCoverage() {
+  const target = $('coverage-data');
+  clear(target);
+  const local = state.coverage?.locations?.find((row) => row.location_id === state.slug);
+  if (!local) { target.append(child('p', 'loading-label', 'Resumo de cobertura indisponível nesta publicação.')); return; }
+  const statuses = { available: 'Disponível', unavailable: 'Falha na consulta', not_configured: 'Não configurado',
+    access_restricted: 'Acesso recusado', no_recent_data: 'Sem leitura válida', no_recent_report: 'Sem boletim recente',
+    rate_limited: 'Limite atingido', stale: 'Dados desatualizados', fixture_mode: 'Teste sintético' };
+  for (const product of local.products) {
+    const limit = product.id === 'cemaden-sensors' ? 3 + 20 / 60 : product.id === 'open-meteo' ? 8 : 6;
+    let status = effectiveStatus(product.status, product.checked_at, 6);
+    status = effectiveStatus(status, product.reference_at, limit);
+    const card = child('article', 'coverage-card');
+    card.append(child('strong', '', product.name), child('p', 'analysis-foot', statuses[status] || status));
+    const count = product.station_count === null ? 'Modelo numérico' : `${product.station_count} estação(ões) com dados na coleta`;
+    card.append(child('p', '', count), child('p', '', product.variables.join(' · ') || 'Sem variável disponível'));
+    if (Number.isFinite(product.nearest_distance_km)) card.append(child('p', 'analysis-foot', `Mais próxima: ${value(product.nearest_distance_km, 1)} km em linha reta`));
+    card.append(child('p', 'analysis-foot', `Referência mais recente: ${datetime(product.reference_at)} · consulta: ${datetime(product.checked_at)}. A idade varia por leitura; confira os painéis abaixo.`));
+    target.append(card);
   }
 }
 function renderNoticeArchive() {
@@ -694,6 +759,7 @@ function renderNoticeArchive() {
 }
 function clearDetails() {
   for (const id of ['temp', 'feels', 'humidity', 'wind', 'rain-24', 'rain-now', 'gust-now', 'pressure', 'model-time', 'coordinates', 'source-time']) $(id).textContent = '--';
+  $('rain-coverage').textContent = 'Sem janela completa publicada';
   $('weather').textContent = 'Dados indispon\u00edveis';
   renderDaily([]);
   clear($('chart'));
@@ -703,13 +769,21 @@ function renderDetail() {
   const detail = state.detail;
   if (!detail) { clearDetails(); return; }
   const current = detail.current;
+  if (!freshAt(detail.collected_at, 8) || !freshAt(current.time, 8)) {
+    clearDetails();
+    $('weather').textContent = 'Modelo desatualizado';
+    $('model-time').textContent = 'Última referência: ' + datetime(current.time);
+    return;
+  }
   const place = state.overview.locations.find((item) => item.id === state.slug);
   $('temp').textContent = value(current.temperature_c, 1) + '\u00b0C';
   $('feels').textContent = value(current.feels_like_c, 1) + '\u00b0C';
   $('humidity').textContent = value(current.humidity_pct) + '%';
   $('wind').textContent = `${value(current.wind_kmh)} / ${value(current.gust_kmh)}`;
   $('weather').textContent = weatherInfo(current.weather_code).label;
-  $('rain-24').textContent = value(place?.rain_next_24h_mm, 1) + ' mm';
+  const window = place?.rain_window;
+  $('rain-24').textContent = window?.status === 'complete' ? value(place?.rain_next_24h_mm, 1) + ' mm' : 'Incompleto';
+  $('rain-coverage').textContent = window ? `${window.valid_hours}/24 h válidas · ${datetime(window.start_at)} a ${datetime(window.end_at)}${window.status !== 'complete' && Number.isFinite(window.partial_sum_mm) ? ` · soma parcial: ${value(window.partial_sum_mm, 1)} mm` : ''}` : 'Cobertura não informada';
   $('rain-now').textContent = value(current.precipitation_mm, 1) + ' mm';
   $('gust-now').textContent = value(current.gust_kmh, 1) + ' km/h';
   $('pressure').textContent = value(current.pressure_hpa) + ' hPa';
@@ -745,6 +819,7 @@ async function selectLocation(slug) {
   renderArchive();
   renderRegionalQuality();
   renderSourceHealth();
+  renderCoverage();
   renderNoticeArchive();
   clearDetails();
   if (place.status !== 'available') return;
@@ -762,12 +837,15 @@ async function selectLocation(slug) {
   }
 }
 async function boot() {
+  const bootId = ++state.bootId;
+  ++state.requestId;
   setStatus('Consultando dados publicados...', '');
   try {
     const overview = await readJson('./data/latest.json');
     if (!Array.isArray(overview.locations) || overview.schema_version !== 1 || overview.fixture_mode) throw new Error('Invalid or test dataset');
+    if (bootId !== state.bootId) return;
     state.overview = overview;
-    const [stations, history, alerts, observations, rain, noticeArchive, nasa, cemaden, cemadenSensors, cptec, defesa, archive, epagriGeo, epagriNotices, epagriBulletins, regionalQuality] = await Promise.all([
+    const [stations, history, alerts, observations, rain, noticeArchive, nasa, cemaden, cemadenSensors, cptec, defesa, archive, epagriGeo, epagriNotices, epagriBulletins, regionalQuality, coverage] = await Promise.all([
       readJson('./data/stations.json').catch(() => null),
       readJson('./data/history.json').catch(() => null),
       readJson('./data/alerts.json').catch(() => null),
@@ -784,7 +862,10 @@ async function boot() {
       readJson('./data/epagri_notices.json').catch(() => null),
       readJson('./data/epagri_bulletins.json').catch(() => null),
       readJson('./data/regional_quality.json').catch(() => null),
+      readJson('./data/coverage.json').catch(() => null),
     ]);
+    if (bootId !== state.bootId) return;
+    state.coverage = coverage?.kind === 'local_source_coverage_not_municipal_weather_measurement' && coverage?.schema_version === 1 ? coverage : null;
     state.stations = stations?.schema_version === 1 && stations?.kind === 'station_catalog_metadata_not_measurements' ? stations : null;
     state.history = history?.schema_version === 1 && history?.kind === 'daily_last_model_publication_not_station_observation' ? history : null;
     state.alerts = alerts?.schema_version === 1 && alerts?.kind === 'inmet_official_notices_by_municipality' ? alerts : null;
@@ -809,13 +890,12 @@ async function boot() {
       select.append(option);
     }
     select.disabled = false;
-    const outdated = Date.now() - Date.parse(overview.generated_at) > 8 * 3600000;
-    const partial = overview.available_locations < overview.total_locations;
-    setStatus(outdated ? 'Dados publicados est\u00e3o desatualizados' : partial ? 'Atualiza\u00e7\u00e3o parcial: algumas localidades indispon\u00edveis' : 'Dados de modelo dispon\u00edveis', outdated || partial ? 'warning' : 'ok');
+    refreshPublicationStatus();
     $('updated-at').textContent = 'Atualizado: ' + datetime(overview.generated_at);
     const featured = overview.locations.find((loc) => loc.id === state.slug && loc.status === 'available') || overview.locations.find((loc) => loc.featured && loc.status === 'available') || overview.locations.find((loc) => loc.status === 'available') || overview.locations[0];
     await selectLocation(featured.id);
   } catch (err) {
+    if (bootId !== state.bootId) return;
     console.error('Failed to initialize observatory:', err);
     setStatus('N\u00e3o foi poss\u00edvel carregar os dados do observat\u00f3rio', 'warning');
     $('updated-at').textContent = 'Confira a publica\u00e7\u00e3o do site';
@@ -831,7 +911,24 @@ for (const button of document.querySelectorAll('[data-metric]')) {
       b.classList.toggle('active', selected);
       b.setAttribute('aria-pressed', String(selected));
     }
-    renderChart();
+    renderDetail();
   });
 }
+function refreshAges() {
+  if (!state.overview) return;
+  refreshPublicationStatus();
+  renderTerritory();
+  renderDetail();
+  renderObservations();
+  renderOfficialAlerts();
+  renderRain();
+  renderCemaden();
+  renderCemadenSensors();
+  renderSourceHealth();
+  renderCoverage();
+  renderCptec();
+}
+setInterval(refreshAges, 60000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshAges(); });
 boot();
+

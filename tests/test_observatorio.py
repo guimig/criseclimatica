@@ -94,10 +94,10 @@ class FakeClient:
 
 
 class TestPipeline(unittest.TestCase):
-    def test_next_24_hours_rain_only_future(self):
+    def test_incomplete_24_hours_rain_has_no_total(self):
         rows = normalize(LOCATION, sample(), TIMESTAMP)["hourly"]
         now = datetime(2026, 11, 5, 11, 30, tzinfo=timezone.utc)
-        self.assertEqual(next_24h_rain(rows, now), 2.2)
+        self.assertIsNone(next_24h_rain(rows, now))
 
     def test_partial_failure_is_visible(self):
         second = {**LOCATION, "id": "joinville", "name": "Joinville"}
@@ -164,3 +164,4 @@ class TestOfflineSiteBuild(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
