@@ -2,12 +2,62 @@
   "version": 1,
   "geographic_reference": "Approximate central coordinates for model sampling; not weather stations or municipal boundaries.",
   "locations": [
-    {"id": "araquari", "name": "Araquari", "state": "SC", "latitude": -26.3750, "longitude": -48.7210, "featured": true},
-    {"id": "joinville", "name": "Joinville", "state": "SC", "latitude": -26.3044, "longitude": -48.8487},
-    {"id": "sao-francisco-do-sul", "name": "Sao Francisco do Sul", "state": "SC", "latitude": -26.2433, "longitude": -48.6381},
-    {"id": "itapoa", "name": "Itapoa", "state": "SC", "latitude": -26.1156, "longitude": -48.6180},
-    {"id": "garuva", "name": "Garuva", "state": "SC", "latitude": -26.0272, "longitude": -48.8542},
-    {"id": "balneario-barra-do-sul", "name": "Balneario Barra do Sul", "state": "SC", "latitude": -26.4575, "longitude": -48.6114},
-    {"id": "barra-velha", "name": "Barra Velha", "state": "SC", "latitude": -26.6328, "longitude": -48.6840}
+    {
+      "id": "araquari",
+      "name": "Araquari",
+      "state": "SC",
+      "latitude": -26.375,
+      "longitude": -48.721,
+      "featured": true,
+      "ibge_code": "4201307"
+    },
+    {
+      "id": "joinville",
+      "name": "Joinville",
+      "state": "SC",
+      "latitude": -26.3044,
+      "longitude": -48.8487,
+      "ibge_code": "4209102"
+    },
+    {
+      "id": "sao-francisco-do-sul",
+      "name": "Sao Francisco do Sul",
+      "state": "SC",
+      "latitude": -26.2433,
+      "longitude": -48.6381,
+      "ibge_code": "4216206"
+    },
+    {
+      "id": "itapoa",
+      "name": "Itapoa",
+      "state": "SC",
+      "latitude": -26.1156,
+      "longitude": -48.618,
+      "ibge_code": "4208450"
+    },
+    {
+      "id": "garuva",
+      "name": "Garuva",
+      "state": "SC",
+      "latitude": -26.0272,
+      "longitude": -48.8542,
+      "ibge_code": "4205803"
+    },
+    {
+      "id": "balneario-barra-do-sul",
+      "name": "Balneario Barra do Sul",
+      "state": "SC",
+      "latitude": -26.4575,
+      "longitude": -48.6114,
+      "ibge_code": "4202057"
+    },
+    {
+      "id": "barra-velha",
+      "name": "Barra Velha",
+      "state": "SC",
+      "latitude": -26.6328,
+      "longitude": -48.684,
+      "ibge_code": "4202107"
+    }
   ]
 }

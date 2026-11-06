@@ -2,13 +2,13 @@
 
 Projeto aberto de monitoramento meteorologico, com foco em Araquari e no Litoral Norte de Santa Catarina. O MVP e um **portal estatico** publicado por GitHub Pages, atualizado por Python em GitHub Actions, sem banco pago nem Google Sheets.
 
-> **Aviso:** a primeira versao mostra **estimativas e previsoes numericas da Open-Meteo**, e nao leituras de estacoes meteorologicas. Nao existe ainda integracao automatica com alertas oficiais. Para risco e emergencias, consulte a Defesa Civil e os avisos do INMET.
+> **Aviso:** os indicadores principais continuam sendo **estimativas e previsões da Open-Meteo**. A nova versão consulta avisos do INMET e boletins METAR de aeródromos próximos em módulos **separados**. Essas informações dependem de disponibilidade e podem estar atrasadas. Para risco e emergências, consulte diretamente a Defesa Civil e o INMET.
 
 ## Arquitetura inicial
 
 - `src/observatorio/`: adaptadores, normalizacao, validacao, consolidacao e armazenamento local portavel.
 - `config/locations.json`: sete coordenadas aproximadas usadas para amostragem do modelo. **Nao representam o limite municipal**.
-- `scripts/build_site.py`: consulta Open-Meteo, prepara histórico diário de publicações, inventaria estações INMET e gera `dist/`.
+- `scripts/build_site.py`: consulta Open-Meteo, prepara histórico de publicações, inventaria estações INMET, consulta avisos oficiais e boletins METAR e gera `dist/`.
 - `web/`: frontend HTML/CSS/JavaScript sem backend de navegador.
 - `tests/`: testes automatizados offline, com respostas ficticias.
 - `.github/workflows/ci.yml`: testes em pushes e pull requests.
@@ -69,8 +69,9 @@ Dados numericos: [Open-Meteo](https://open-meteo.com/en/docs) (uso gratuito nao 
 - [x] Usuario confirmou publicação e funcionamento inicial do GitHub Pages.
 - [x] Inventário de estações INMET próximas, usando apenas metadados oficiais (sem medidas).
 - [x] Histórico progressivo de publicações do modelo (não séries observadas).
-- [ ] Integrar observacoes instrumentais e alertas oficiais.
+- [x] Integrar **avisos INMET por IBGE** e **boletins aeroportuários METAR** em módulos opcionais (não pluviômetros); validar execução real após merge.
+- [ ] Integrar observações pluviométricas reais com disponibilidade confirmada.
 - [ ] Persistencia historica externa e retencao automatica completa.
-- [ ] Dados hidrologicos, estações, mapas e comparacao de modelos.
+- [ ] Dados hidrológicos, pluviômetros, mapas e comparação de modelos.
 
-Para o detalhamento, consulte [Roadmap](docs/ROADMAP.md), [Fontes](docs/FONTES.md) e [Histórico e estações](docs/HISTORICO_E_ESTACOES.md).
+Para o detalhamento, consulte [Roadmap](docs/ROADMAP.md), [Fontes](docs/FONTES.md), [Histórico e estações](docs/HISTORICO_E_ESTACOES.md) e [Avisos e METAR](docs/AVISOS_E_METAR.md).

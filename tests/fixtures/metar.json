@@ -1,0 +1,5 @@
+[
+  {"icaoId": "SBJV", "name": "Joinville/Lauro Carneiro de Loyola", "obsTime": "2026-11-05T12:00:00Z", "lat": -26.223, "lon": -48.798, "temp": 24, "dewp": 21, "wspd": 8, "wgst": 19, "wdir": 140, "slp": 1011, "metarType": "METAR"},
+  {"icaoId": "SBJV", "name": "Joinville", "obsTime": "2026-11-05T11:00:00Z", "lat": -26.223, "lon": -48.798, "temp": 23, "wspd": 4},
+  {"icaoId": "SBNF", "name": "Navegantes", "obsTime": "2026-11-05T12:00:00Z", "lat": -26.879, "lon": -48.651, "temp": 25, "wspd": 9, "wdir": "VRB"}
+]

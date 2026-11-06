@@ -19,6 +19,12 @@ Open-Meteo (modelo) --HTTPS--> Python adapter
 
 O build utiliza um diretorio temporario e apenas substitui a pasta de destino se houver ao menos um municipio valido. Se todas as consultas falharem, o workflow para antes da publicacao. Se somente parte falhar, o manifesto informa indisponibilidade por localidade.
 
+## Camadas independentes adicionadas
+
+O processo publica `data/alerts.json` (avisos INMET por código IBGE) e `data/observations.json` (boletins METAR de aeródromos próximos), sem alterar os contratos dos modelos já publicados. A indisponibilidade das fontes secundárias é representada explicitamente e **não bloqueia** a publicação das estimativas válidas. Uma ausência de avisos só é declarada quando a consulta ao INMET foi bem-sucedida e recente.
+
+Ver [Avisos e METAR](AVISOS_E_METAR.md) para segurança, limites, unidades e tempos.
+
 ## Dados publicados
 
 - `data/latest.json`: fonte, tipo, hora de coleta, status e leituras resumidas por localidade.

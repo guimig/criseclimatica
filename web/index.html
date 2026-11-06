@@ -83,9 +83,21 @@
       </article>
     </section>
 
+    <section class="panel observed-panel" aria-labelledby="observed-title">
+      <div class="panel-top"><div><span class="section-kicker">OBSERVAÇÃO INSTRUMENTAL REGIONAL</span><h3 id="observed-title">Medições em aeródromos próximos</h3></div><span class="helper-label">METAR · NOAA</span></div>
+      <p class="analysis-explainer">Registros meteorológicos produzidos em aeródromos. <strong>Não são medições realizadas em todo o município</strong> e não representam precipitação acumulada em pluviômetros.</p>
+      <div id="observed-data" class="observed-data" aria-live="polite"><span class="loading-label">Carregando observações...</span></div>
+      <p class="analysis-foot" id="observed-foot">Fonte: <a href="https://aviationweather.gov/data/api/" target="_blank" rel="noopener noreferrer">Aviation Weather Center (NOAA)</a></p>
+    </section>
+
     <section class="lower-grid" aria-label="Fontes e alertas">
-      <article class="panel alert-panel"><span class="section-kicker">SEGURAN&Ccedil;A E DEFESA CIVIL</span><h3>Avisos oficiais</h3><p>A integra&ccedil;&atilde;o autom&aacute;tica de alertas est&aacute; planejada, mas ainda n&atilde;o foi validada. Consulte as autoridades antes de tomar decis&otilde;es de seguran&ccedil;a.</p><div class="reference-links"><a href="https://www.defesacivil.sc.gov.br/" target="_blank" rel="noopener noreferrer">Defesa Civil SC ↗</a><a href="https://alertas2.inmet.gov.br/" target="_blank" rel="noopener noreferrer">Avisos INMET ↗</a></div></article>
-      <article class="panel source-panel"><span class="section-kicker">TRANSPAR&Ecirc;NCIA</span><h3>Sobre estes dados</h3><p>Os valores da primeira vers&atilde;o s&atilde;o estimativas e previs&otilde;es de modelo. Observa&ccedil;&otilde;es de esta&ccedil;&otilde;es, hidrologia e radar dependem de integra&ccedil;&otilde;es futuras.</p><div class="source-line"><span>FONTE</span><strong>Open-Meteo</strong></div><div class="source-line"><span>HOR&Aacute;RIO</span><strong id="source-time">--</strong></div><div class="source-line"><span>LOCALIZA&Ccedil;&Atilde;O</span><strong id="coordinates">--</strong></div></article>
+      <article class="panel alert-panel" aria-labelledby="alert-title"><span class="section-kicker">AVISOS METEOROLÓGICOS OFICIAIS</span><h3 id="alert-title">Avisos INMET para o município</h3>
+        <p class="analysis-explainer">Informações obtidas periodicamente do INMET por código IBGE. A situação pode mudar entre coletas. <strong>Não substitui a Defesa Civil.</strong></p>
+        <div id="official-alerts" class="official-alerts" aria-live="polite"><span class="loading-label">Consultando avisos publicados...</span></div>
+        <p class="analysis-foot" id="alert-updated">Consulta oficial ainda não verificada.</p>
+        <div class="reference-links"><a href="https://www.defesacivil.sc.gov.br/" target="_blank" rel="noopener noreferrer">Defesa Civil SC ↗</a><a href="https://alertas2.inmet.gov.br/" target="_blank" rel="noopener noreferrer">Portal INMET ↗</a></div>
+      </article>
+      <article class="panel source-panel"><span class="section-kicker">TRANSPAR&Ecirc;NCIA</span><h3>Sobre estes dados</h3><p>Os indicadores superiores são estimativas e previsões da Open-Meteo. O bloco METAR contém medições pontuais de aeródromo e os avisos são consultados junto ao INMET. Todas as fontes são independentes; a indisponibilidade de uma não valida a ausência de risco.</p><div class="source-line"><span>MODELO</span><strong>Open-Meteo</strong></div><div class="source-line"><span>HOR&Aacute;RIO</span><strong id="source-time">--</strong></div><div class="source-line"><span>COORDENADAS DO MODELO</span><strong id="coordinates">--</strong></div></article>
     </section>
   </main>
   <footer class="site-footer"><div class="shell footer-inner"><div><strong>OBSERVAT&Oacute;RIO / TEMPO &amp; CLIMA</strong><p>Projeto aberto e independente. N&atilde;o substitui alertas e orienta&ccedil;&otilde;es da Defesa Civil.</p></div><div><span>Dados meteorol&oacute;gicos: <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a></span><span><a href="https://github.com/guimig/criseclimatica" target="_blank" rel="noopener noreferrer">Reposit&oacute;rio no GitHub ↗</a></span></div></div></footer>

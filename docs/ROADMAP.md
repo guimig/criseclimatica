@@ -14,10 +14,10 @@ O usuario confirmou a publicacao e o funcionamento do site. A comprovacao de cic
 ## Fase 1 - Observacoes instrumentais e confiabilidade
 
 1. **Implementado em PR:** catalogo publico de estacoes INMET (metadados e proximidade; nao medidas).
-2. Confirmar endpoint e licenca para medidas de cada fonte, e nao apenas estacoes catalogadas.
-3. Integrar fonte oficial de alertas com territorio/periodo de validade.
-4. Painel de observacoes separado do painel de modelo.
-5. Fallback preservando ultima publicacao valida para falhas parciais.
+2. **Implementado:** avisos do INMET associados por código municipal IBGE, com estado de indisponibilidade e sem inferência de fuso.
+3. **Implementado:** boletins METAR dos aeroportos SBJV/SBNF, com identificação da estação e conversão de unidades.
+4. **Pendente:** integrar medições de pluviômetros (INMET/Cemaden/Epagri), validar funcionamento real das novas APIs e comparar com os modelos.
+5. **Parcial:** falha do aviso/METAR não paralisa a previsão, mas a informação secundária fica marcada como indisponível.
 6. Revisao de coordenadas e representatividade territorial.
 
 ## Fase 2 - Historicos e armazenamento sem banco pago
@@ -39,3 +39,5 @@ O usuario confirmou a publicacao e o funcionamento do site. A comprovacao de cic
 6. Visao Brasil agregada e consultas sob demanda.
 
 Ver [Histórico e estações](HISTORICO_E_ESTACOES.md) para a distinção entre catálogo INMET, observações e estimativas de modelo.
+
+Para esta fase, consultar [Avisos INMET e METAR](AVISOS_E_METAR.md).
