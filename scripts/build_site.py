@@ -21,6 +21,8 @@ from observatorio.alerts import AlertSourceError, fetch_alerts, normalize_alerts
 from observatorio.metar import MetarSourceError, fetch_metars, normalize_metars, unavailable_metars  # noqa: E402
 from observatorio.history import merge_daily_publications  # noqa: E402
 from observatorio.inmet_rain import collect_rain, unavailable as rain_unavailable  # noqa: E402
+from observatorio.cemaden import collect as collect_cemaden  # noqa: E402
+from observatorio.nasa_power import collect as collect_nasa, unavailable as nasa_unavailable  # noqa: E402
 from observatorio.notice_archive import merge_notice_archive  # noqa: E402
 from observatorio.inmet import CatalogError, fetch_catalog, nearby_catalog, normalize_catalog, now_utc  # noqa: E402
 from observatorio.open_meteo import OpenMeteoClient, normalize  # noqa: E402
@@ -116,12 +118,18 @@ def build(
     previous_history = None
     previous_stations = None
     previous_notices = None
+    previous_nasa = None
     if previous_url and fixture is None:
         previous_history = fetch_previous_json(previous_url, "data/history.json")
         previous_overview = fetch_previous_json(previous_url, "data/latest.json", max_bytes=800_000)
         previous_notices = fetch_previous_json(previous_url, "data/notice_history.json", max_bytes=2_000_000)
         if previous_notices is None and previous_overview and previous_overview.get("notice_archive_published") is True:
             raise RuntimeError("Previous notice archive missing after prior publication; refusing history loss")
+        # NASA caching is optional and never replaces the required history workflow.
+        try:
+            previous_nasa = fetch_previous_json(previous_url, "data/nasa_power.json", max_bytes=100_000)
+        except (RuntimeError, ValueError) as exc:
+            print(f"Previous NASA model unavailable: {type(exc).__name__}", file=sys.stderr)
         # A metadata outage should not disable the weather and history updates.
         try:
             previous_stations = fetch_previous_json(previous_url, "data/stations.json", max_bytes=800_000)
@@ -158,6 +166,19 @@ def build(
     manifest["notice_archive_published"] = True
     # Never query authenticated station readings during synthetic fixture builds.
     rain = rain_unavailable(locations, stamp, "fixture_mode") if fixture is not None else collect_rain(locations, stations, stamp)
+    # NASA is a separate gridded *estimate*, not an alternative INMET gauge.
+    # Keep one reference point to avoid querying the same coarse NASA grid cell repeatedly.
+    primary = next((place for place in locations if place["id"] == "araquari"), locations[0])
+    nasa = (nasa_unavailable(primary, stamp, "fixture_mode") if fixture is not None else
+            collect_nasa(primary, stamp, previous_nasa))
+    cemaden = (collect_cemaden(locations, stamp, token="") if fixture is not None else
+               collect_cemaden(locations, stamp))
+    if fixture is not None:
+        cemaden["status"] = "fixture_mode"
+        cemaden["diagnostic"] = "synthetic_build_no_provider_queries"
+    print(f"Provider status: open_meteo={manifest['available_locations']}/{len(locations)} "
+          f"alerts={alerts['status']} metar={observations['status']} "
+          f"inmet_rain={rain['status']} nasa={nasa['status']} cemaden={cemaden['status']}")
     output = output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="observatorio-build-", dir=output.parent) as temp:
@@ -171,6 +192,8 @@ def build(
         write_json_atomic(data / "observations.json", observations)
         write_json_atomic(data / "notice_history.json", notice_history)
         write_json_atomic(data / "rain_gauges.json", rain)
+        write_json_atomic(data / "nasa_power.json", nasa)
+        write_json_atomic(data / "cemaden.json", cemaden)
         for slug, record in details.items():
             write_json_atomic(data / "places" / (slug + ".json"), record)
         (staged / ".nojekyll").write_text("", encoding="utf-8")

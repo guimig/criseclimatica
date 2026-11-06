@@ -43,3 +43,24 @@ Ver [Histórico e estações](HISTORICO_E_ESTACOES.md) para a distinção entre 
 Para esta fase, consultar [Avisos INMET e METAR](AVISOS_E_METAR.md).
 
 Ver também [Chuva observada e histórico de avisos](CHUVA_E_HISTORICO_AVISOS.md).
+
+## Prioridade vigente — amadurecer integrações antes de ampliar armazenamento
+
+Por decisão do mantenedor, o avanço para backup histórico independente e
+novos bancos/arquivos externos foi **postergado**. Nesta etapa foram preparados:
+
+- [x] Diagnóstico acionável da pluviometria INMET (credencial, bloqueio,
+  ausência de leitura, falta de cobertura e erros) sem inventar valores.
+- [x] Conector Cemaden PED baseado no contrato oficial de acumulados recentes,
+  sujeito a token JWT autorizado e teste em ambiente real.
+- [x] Integração NASA POWER de estimativas diárias em grade, com coleta
+  moderada, transparência da fonte e identificação dos dias UTC.
+- [x] Painel público de estado de cada fonte, com falhas independentes.
+- [ ] Validar o novo serviço NASA na primeira execução real do workflow.
+- [ ] Validar INMET/Cemaden com credenciais legítimas, quando disponíveis,
+  sem contornar proteções de acesso.
+- [ ] Obter canal oficial de acesso automático de Epagri/Ciram e ANA.
+- [ ] Ampliar variáveis observadas, cobertura de estações e representatividade
+  somente após confirmação das integrações.
+
+Ver [Integrações e chuva observada](INTEGRACOES_FASE_ATUAL.md).

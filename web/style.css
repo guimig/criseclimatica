@@ -60,3 +60,21 @@
 .notice-record{border:1px solid var(--border);border-radius:10px;padding:15px;background:rgba(129,153,178,.05)}
 .notice-record .analysis-foot{margin-top:9px}
 @media(max-width:700px){.notice-archive-list{grid-template-columns:1fr}}
+
+/* Independent sources; model-based NASA estimates never share station visual hierarchy. */
+.integrations-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:16px}
+.integrations-grid .panel{min-width:0}
+.nasa-daily-list{display:grid;gap:2px;margin-top:12px}
+.nasa-daily-row{display:grid;grid-template-columns:85px 1fr 1fr;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);align-items:center;font-size:11px}
+.nasa-daily-row strong{font-size:13px;color:var(--bright)}
+.nasa-daily-row span:last-child{color:var(--muted)}
+.source-health-panel{margin-top:16px}
+.source-health-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:16px}
+.source-health-item{border:1px solid var(--border);border-radius:9px;padding:12px;display:flex;flex-direction:column;gap:5px;min-width:0}
+.source-health-item strong{font-size:11px}
+.source-health-status{font-size:10px;color:var(--muted)}
+.health-ok{color:var(--bright)}
+.health-pending{color:#eccba2}
+@media(max-width:900px){.source-health-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:750px){.integrations-grid{grid-template-columns:1fr}}
+@media(max-width:450px){.nasa-daily-row{grid-template-columns:75px 1fr;gap:4px}.nasa-daily-row span:last-child{grid-column:2}}

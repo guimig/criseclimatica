@@ -30,6 +30,7 @@ jobs:
       - name: Fetch live forecast and build static site
         env:
           INMET_API_TOKEN: ${{ secrets.INMET_API_TOKEN }}
+          CEMADEN_PED_TOKEN: ${{ secrets.CEMADEN_PED_TOKEN }}
         run: python scripts/build_site.py --output dist --previous-url https://guimig.github.io/criseclimatica/
       - name: Verify dataset integrity
         run: python scripts/validate_site.py --output dist

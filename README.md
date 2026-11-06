@@ -83,3 +83,27 @@ Dados numericos: [Open-Meteo](https://open-meteo.com/en/docs) (uso gratuito nao 
 - [ ] Dados hidrológicos, pluviômetros, mapas e comparação de modelos.
 
 Para o detalhamento, consulte [Roadmap](docs/ROADMAP.md), [Fontes](docs/FONTES.md), [Histórico e estações](docs/HISTORICO_E_ESTACOES.md) e [Avisos e METAR](docs/AVISOS_E_METAR.md).
+
+## Integrações adicionais e diagnóstico de fontes
+
+O painel diferencia **previsão Open-Meteo**, **observações METAR/NOAA**,
+**avisos INMET**, **pluviometria de estações INMET e Cemaden (quando autorizadas)**
+e **estimativas diárias NASA POWER**. A NASA é uma fonte distinta, mas seus
+valores em grade **não são medições de pluviômetro**.
+
+O arquivo `data/rain_gauges.json` indica o motivo da ausência de chuva
+instrumental (`not_configured`, `access_restricted`, `no_recent_data`, etc.).
+Para habilitar o acesso autorizado, configurar os segredos `INMET_API_TOKEN`
+e/ou `CEMADEN_PED_TOKEN` em GitHub **Settings > Secrets and variables > Actions**.
+Apenas obtê-los não garante disponibilidade da API. Não existe nenhuma
+credencial embutida no repositório ou no site. O arquivo
+`data/nasa_power.json` não precisa de segredo e é consultado no máximo uma vez
+por dia quando a publicação anterior estiver íntegra.
+
+Os serviços de coleta são **independentes**: se NASA/Cemaden/INMET falharem,
+Open-Meteo continua publicando, com estados verificáveis. Os arquivos gerados
+são os próprios dados efêmeros do Pages; **o armazenamento histórico não foi
+ampliado nesta etapa**, conforme decisão de projeto.
+
+Consulte [Integrações e chuva observada](docs/INTEGRACOES_FASE_ATUAL.md) para
+fluxo de diagnóstico, limites e instruções de validação real.
