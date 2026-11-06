@@ -77,3 +77,23 @@ Ver [Integrações e chuva observada](INTEGRACOES_FASE_ATUAL.md).
 - [ ] Validar dados públicos estruturados de estações Epagri/Ciram na região.
 
 **Decisão preservada:** sem novo banco de dados ou arquivo histórico independente nesta etapa.
+
+
+### Em desenvolvimento — qualidade comprovada das fontes
+
+- [x] Auditar a execução real do GitHub Actions: Open-Meteo, METAR, INMET avisos
+  e CPTEC funcionaram; Defesa Civil SC não respondeu; INMET/Cemaden sem token.
+- [x] Implementar **consulta complementar ao arquivo anual oficial INMET**,
+  com limites para ZIP, classificação **observado porém atrasado**, completude
+  horária e controle de frequência. **Validar download real após o merge.**
+- [x] Melhorar fallback, diagnóstico e UTC da Defesa Civil SC, sempre sem
+  classificar notícias como alertas com vigência comprovada.
+- [x] Comparação explícita de máximas CPTEC x Open-Meteo por dia, sem misturar
+  áreas de referência ou tratar diferenças como perigo.
+- [ ] Confirmar no GitHub Actions quais endpoints respondem após o PR.
+- [ ] Buscar API oficialmente autorizada para chuva instrumental recente:
+  Cemaden/JWT, INMET autorizado e Epagri/Ciram.
+- [ ] Construir consulta hidrológica e radar apenas quando licença, estabilidade
+  e cobertura territorial estiverem verificadas.
+
+**Armazenamento histórico externo permanece adiado por decisão do projeto.**

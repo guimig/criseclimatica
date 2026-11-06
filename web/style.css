@@ -92,3 +92,16 @@
 .defesa-summary{font-size:12px;color:var(--muted);line-height:1.55;margin:0}
 .station-open{font-size:11px;text-decoration:underline;display:inline-block;align-self:flex-start}
 @media(max-width:700px){.civil-defense-list{grid-template-columns:1fr}.cptec-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Public annual INMET archive is explicitly delayed, separate from current rainfall. */
+.archive-panel{margin-top:16px}
+.archive-list{display:grid;gap:16px;margin-top:14px}
+.archive-station{border:1px solid var(--border);border-radius:10px;padding:14px;min-width:0}
+.archive-station .observed-heading{margin:2px 0 7px}
+.archive-days{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin-top:12px}
+.archive-day{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:12px}
+.archive-day strong{font-size:12px}
+.archive-day span{font-size:11px;color:var(--muted)}
+.archive-day .archive-incomplete{color:#eccba2}
+.cptec-day .model-difference{font-size:10px;line-height:1.45}
+@media(max-width:610px){.archive-days{grid-template-columns:1fr}}

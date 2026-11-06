@@ -21,6 +21,7 @@ from observatorio.alerts import AlertSourceError, fetch_alerts, normalize_alerts
 from observatorio.metar import MetarSourceError, fetch_metars, normalize_metars, unavailable_metars  # noqa: E402
 from observatorio.history import merge_daily_publications  # noqa: E402
 from observatorio.inmet_rain import collect_rain, unavailable as rain_unavailable  # noqa: E402
+from observatorio.inmet_archive import collect_archive, unavailable_archive  # noqa: E402
 from observatorio.cemaden import collect as collect_cemaden  # noqa: E402
 from observatorio.nasa_power import collect as collect_nasa, unavailable as nasa_unavailable  # noqa: E402
 from observatorio.notice_archive import merge_notice_archive  # noqa: E402
@@ -144,6 +145,8 @@ def build(
     previous_stations = None
     previous_notices = None
     previous_nasa = None
+    previous_defesa = None
+    previous_inmet_archive = None
     if previous_url and fixture is None:
         previous_history = fetch_previous_json(previous_url, "data/history.json")
         previous_overview = fetch_previous_json(previous_url, "data/latest.json", max_bytes=800_000)
@@ -155,6 +158,17 @@ def build(
             previous_nasa = fetch_previous_json(previous_url, "data/nasa_power.json", max_bytes=100_000)
         except (RuntimeError, ValueError) as exc:
             print(f"Previous NASA model unavailable: {type(exc).__name__}", file=sys.stderr)
+        # Optional source-state cache is deliberately not a history database.
+        for filename, label in (("data/defesa_civil_sc.json", "Defesa Civil"),
+                                ("data/inmet_archive.json", "INMET annual")):
+            try:
+                old = fetch_previous_json(previous_url, filename, max_bytes=450_000)
+                if label == "Defesa Civil":
+                    previous_defesa = old
+                else:
+                    previous_inmet_archive = old
+            except (RuntimeError, ValueError) as exc:
+                print(f"Previous {label} cache unavailable: {type(exc).__name__}", file=sys.stderr)
         # A metadata outage should not disable the weather and history updates.
         try:
             previous_stations = fetch_previous_json(previous_url, "data/stations.json", max_bytes=800_000)
@@ -193,6 +207,10 @@ def build(
     manifest["notice_archive_published"] = True
     # Never query authenticated station readings during synthetic fixture builds.
     rain = rain_unavailable(locations, stamp, "fixture_mode") if fixture is not None else collect_rain(locations, stations, stamp)
+    # Historical archive is an official but DELAYED observation product.
+    # It never populates the current gauge panel and never downloads in a fixture build.
+    archive = (unavailable_archive(stamp, "fixture_mode") if fixture is not None else
+               collect_archive(locations, stations, stamp, previous=previous_inmet_archive))
     # NASA is a separate gridded *estimate*, not an alternative INMET gauge.
     # Keep one reference point to avoid querying the same coarse NASA grid cell repeatedly.
     primary = next((place for place in locations if place["id"] == "araquari"), locations[0])
@@ -208,11 +226,12 @@ def build(
     cptec = collect_cptec(locations, stamp, fixture=cptec_fixture)
     defensa_fixture = ({"alerta_publicado": (ROOT / "tests" / "fixtures" / "defesa_sc.xml").read_text(encoding="utf-8")}
                        if fixture is not None else None)
-    defesa_sc = collect_defesa(locations, stamp, fixture=defensa_fixture)
+    defesa_sc = collect_defesa(locations, stamp, fixture=defensa_fixture, previous=previous_defesa)
     print(f"Provider status: open_meteo={manifest['available_locations']}/{len(locations)} "
           f"alerts={alerts['status']} metar={observations['status']} "
           f"inmet_rain={rain['status']} nasa={nasa['status']} cemaden={cemaden['status']} "
-          f"cptec={cptec['status']} defesa_sc={defesa_sc['status']}")
+          f"cptec={cptec['status']} defesa_sc={defesa_sc['status']} "
+          f"inmet_archive={archive['status']}")
     output = output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="observatorio-build-", dir=output.parent) as temp:
@@ -230,6 +249,7 @@ def build(
         write_json_atomic(data / "cemaden.json", cemaden)
         write_json_atomic(data / "cptec.json", cptec)
         write_json_atomic(data / "defesa_civil_sc.json", defesa_sc)
+        write_json_atomic(data / "inmet_archive.json", archive)
         for slug, record in details.items():
             write_json_atomic(data / "places" / (slug + ".json"), record)
         (staged / ".nojekyll").write_text("", encoding="utf-8")

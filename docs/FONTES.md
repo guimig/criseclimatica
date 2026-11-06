@@ -48,3 +48,18 @@ Módulo experimental de chuva observada a partir de estações automáticas INME
 | Epagri/Ciram | https://ciram.epagri.sc.gov.br/agroconnect/ | Link oficial ao monitoramento; coleta automatizada ainda depende de validação |
 
 Não buscar contornar bloqueios/recaptcha do INMET ou reutilizar cookies de sessões humanas.
+
+
+## INMET anual (observações históricas com atraso)
+
+Fonte primária: https://portal.inmet.gov.br/dadoshistoricos .
+Pacote anual (2026): https://portal.inmet.gov.br/uploads/dadoshistoricos/2026.zip .
+O pacote é de **leituras de estações automáticas**, não de medições atuais;
+consulte a indicação de cobertura no portal. O projeto usa o catálogo oficial
+para localizar estações, não o portal BDMEP para automatizar uma sessão humana.
+Módulo: `src/observatorio/inmet_archive.py`.
+
+Defesa Civil SC: https://www.defesacivil.sc.gov.br/boletins-do-tempo/ .
+O conector WordPress/RSS/HTML oficial é experimental; estados `unavailable`
+e `stale` não equivalem a ausência de risco. Nenhum CAPTCHA, cookie ou login
+é contornado. Consulte a documentação de integração do período.

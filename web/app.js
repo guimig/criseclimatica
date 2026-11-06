@@ -1,6 +1,6 @@
 'use strict';
 
-const state = { overview: null, detail: null, stations: null, history: null, alerts: null, observations: null, rain: null, nasa: null, cemaden: null, cptec: null, defesa: null, noticeArchive: null, slug: null, metric: 'temperature_c', requestId: 0 };
+const state = { overview: null, detail: null, stations: null, history: null, alerts: null, observations: null, rain: null, nasa: null, cemaden: null, cptec: null, defesa: null, archive: null, noticeArchive: null, slug: null, metric: 'temperature_c', requestId: 0 };
 const $ = (id) => document.getElementById(id);
 const tz = 'America/Sao_Paulo';
 const units = { temperature_c: '\u00b0C', precipitation_mm: 'mm', gust_kmh: 'km/h' };
@@ -177,7 +177,52 @@ function renderCptec() {
     const temp = child('span', '', `Mín. ${value(day.minimum_c, 0)}°C · Máx. ${value(day.maximum_c, 0)}°C`);
     const uv = child('span', '', `UV máx.: ${value(day.uv_index_max, 1)}`);
     item.append(dt, temp, uv);
+    const model = state.detail?.daily?.find((row) => row.time === day.day);
+    if (model && Number.isFinite(model.temp_max_c) && Number.isFinite(day.maximum_c) && record.status === 'available') {
+      const delta = day.maximum_c - model.temp_max_c;
+      item.append(child('span', 'model-difference', `Diferença máx. CPTEC − Open-Meteo: ${delta > 0 ? '+' : ''}${value(delta, 1)}°C`));
+    }
     target.append(item);
+  }
+}
+function renderArchive() {
+  const target = $('archive-data'); clear(target);
+  const feed = state.archive;
+  const status = feed?.status || 'unavailable';
+  const statuses = { available:'Arquivo público consultado', cached:'Arquivo previamente consultado',
+    stale:'Últimas observações antigas', unavailable:'Fonte indisponível',
+    no_nearby_stations:'Sem estações automáticas próximas no catálogo', fixture_mode:'Somente teste' };
+  $('archive-updated').textContent = `INMET · ${statuses[status] || status} · última coleta do ZIP: ${datetime(feed?.retrieved_at)} · última medição do arquivo: ${datetime(feed?.latest_observation_at)}. Não representa precipitação atual.`;
+  if (!feed || !['available','cached','stale'].includes(status)) {
+    target.append(child('p', 'loading-label', 'Ainda não há dados de arquivo anual verificáveis para as estações próximas. Consulte diretamente o INMET; isso não representa chuva zero.'));
+    return;
+  }
+  const locality = feed.locations?.find((item) => item.location_id === state.slug);
+  const nearby = Array.isArray(locality?.stations) ? locality.stations.slice(0, 3) : [];
+  if (!nearby.length) {
+    target.append(child('p', 'loading-label', 'Nenhuma estação do arquivo anual identificada no entorno desta localidade.'));
+    return;
+  }
+  if (status === 'stale') target.append(child('p', 'alert-unknown', 'Arquivo de observações desatualizado. Nenhum dado apresentado aqui deve ser interpretado como recente.'));
+  for (const entry of nearby) {
+    const station = feed.stations.find((item) => item.code === entry.code);
+    if (!station) continue;
+    const card = child('article', 'archive-station');
+    const head = child('div', 'observed-heading');
+    head.append(child('strong', '', `${station.name} (${station.code})`), child('span', '', `${value(entry.distance_km, 1)} km em linha reta`));
+    card.append(head, child('p', 'analysis-foot', `Última observação do arquivo: ${datetime(station.last_observation_at)} · horários e dias em UTC`));
+    const table = child('div', 'archive-days');
+    for (const day of (station.days || []).slice(0, 7)) {
+      const row = child('div', 'archive-day');
+      row.append(child('strong', '', day.day_utc?.split('-').reverse().join('/') || '--'));
+      const complete = day.rain_measured_hours === 24 && Number.isFinite(day.rain_total_complete_mm);
+      const amount = complete ? `${value(day.rain_total_complete_mm, 1)} mm (24/24 h)` :
+        `Parcial · ${day.rain_measured_hours || 0}/24 h${Number.isFinite(day.rain_sum_available_hours_mm) ? ` · ${value(day.rain_sum_available_hours_mm, 1)} mm nas horas disponíveis` : ''}`;
+      row.append(child('span', complete ? 'archive-complete' : 'archive-incomplete', amount));
+      table.append(row);
+    }
+    if (!table.childElementCount) table.append(child('p', 'loading-label', 'Arquivo sem dias utilizáveis.'));
+    card.append(table); target.append(card);
   }
 }
 function renderDefesa() {
@@ -188,7 +233,9 @@ function renderDefesa() {
   const statewide = posts.filter(p => p.category === 'previsao_publicada' && !mentioned.includes(p));
   const selected = [...mentioned, ...statewide].slice(0, 9);
   $('defesa-count').textContent = mentioned.length ? `${mentioned.length} publicação(ões) mencionando a localidade` : 'Menção municipal não identificada';
-  $('defesa-updated').textContent = `Defesa Civil SC · consulta: ${datetime(source?.checked_at)} · situação: ${source?.status || 'indisponível'} · as publicações NÃO confirmam vigência de alertas. Emergência: 199 ou 193.`;
+  const failures = (source?.source_diagnostics || []).slice(0, 2).join(' / ');
+  $('defesa-updated').textContent = `Defesa Civil SC · consulta: ${datetime(source?.checked_at)} · situação: ${source?.status || 'indisponível'}${failures ? ` · falhas: ${failures}` : ''} · as publicações NÃO confirmam vigência de alertas. Emergência: 199 ou 193.`;
+  if (source?.status === 'stale') target.append(child('p', 'alert-unknown', 'A fonte oficial não respondeu nesta atualização. Estas publicações foram preservadas de uma consulta anterior e NÃO comprovam alertas vigentes.'));
   if (!selected.length) {
     target.append(child('p', 'loading-label', source?.status === 'unavailable' ? 'Canal automatizado indisponível. Consulte os links oficiais para alertas e boletins.' : 'Nenhuma publicação recente identificada para este município na amostra acessível. Isso não significa ausência de alertas.'));
     return;
@@ -198,12 +245,13 @@ function renderDefesa() {
     const anchor = child('a', 'defesa-entry-link', post.title || 'Publicação oficial');
     try {
       const address = new URL(post.url);
-      if (address.protocol === 'https:' && address.hostname === 'www.defesacivil.sc.gov.br') {
+      if (address.protocol === 'https:' && ['www.defesacivil.sc.gov.br', 'defesacivil.sc.gov.br'].includes(address.hostname)) {
         anchor.href = address.href; anchor.target = '_blank'; anchor.rel = 'noopener noreferrer';
       }
     } catch (_) { /* omit invalid link */ }
     const where = mentioned.includes(post) ? 'Menção explícita ao município no resumo' : 'Boletim estadual; abrangência local não verificada';
-    const label = child('span', 'analysis-foot', `${post.category?.replaceAll('_', ' ') || 'Publicação'} · ${datetime(post.published_at)} · ${where}`);
+    const timeText = post.publication_precision === 'calendar_day_from_url_not_exact_time' ? `data aproximada: ${post.published_at?.slice(0, 10).split('-').reverse().join('/')}` : datetime(post.published_at);
+    const label = child('span', 'analysis-foot', `${post.category?.replaceAll('_', ' ') || 'Publicação'} · ${timeText} · ${where}`);
     item.append(anchor, label);
     if (post.summary) item.append(child('p', 'defesa-summary', post.summary));
     target.append(item);
@@ -423,6 +471,7 @@ function renderSourceHealth() {
     ['INMET · avisos', state.alerts?.status || 'unavailable'],
     ['NOAA · METAR', state.observations?.status || 'unavailable'],
     ['INMET · pluviometria', state.rain?.status || 'unavailable'],
+    ['INMET · arquivo anual', state.archive?.status || 'unavailable'],
     ['Cemaden · pluviometria', state.cemaden?.status || 'unavailable'],
     ['NASA POWER · grade', state.nasa?.status || 'unavailable'],
     ['CPTEC/INPE · previsão', state.cptec?.status || 'unavailable'],
@@ -434,7 +483,8 @@ function renderSourceHealth() {
     unavailable:'Indisponível', not_configured:'Credencial não configurada',
     access_restricted:'Acesso recusado', no_recent_data:'Sem leituras recentes',
     no_recent_reports:'Sem boletins recentes', no_nearby_catalog_stations:'Sem estações próximas',
-    no_recent_publications:'Sem publicações recentes', not_tested:'Não testado'
+    no_recent_publications:'Sem publicações recentes', not_tested:'Não testado',
+    no_nearby_stations:'Sem estações automáticas próximas', fixture_mode:'Teste sintético'
   };
   for (const [name, status] of providers) {
     const item = child('div', 'source-health-item');
@@ -513,6 +563,7 @@ async function selectLocation(slug) {
   renderNasa();
   renderCptec();
   renderDefesa();
+  renderArchive();
   renderSourceHealth();
   renderNoticeArchive();
   clearDetails();
@@ -523,6 +574,7 @@ async function selectLocation(slug) {
     if (detail.location?.id !== slug || detail.source?.id !== 'open-meteo') throw new Error('Inconsistent location data');
     state.detail = detail;
     renderDetail();
+    renderCptec();
   } catch (err) {
     if (requestId !== state.requestId) return;
     console.error('Failed to load municipality data:', err);
@@ -535,7 +587,7 @@ async function boot() {
     const overview = await readJson('./data/latest.json');
     if (!Array.isArray(overview.locations) || overview.schema_version !== 1 || overview.fixture_mode) throw new Error('Invalid or test dataset');
     state.overview = overview;
-    const [stations, history, alerts, observations, rain, noticeArchive, nasa, cemaden, cptec, defesa] = await Promise.all([
+    const [stations, history, alerts, observations, rain, noticeArchive, nasa, cemaden, cptec, defesa, archive] = await Promise.all([
       readJson('./data/stations.json').catch(() => null),
       readJson('./data/history.json').catch(() => null),
       readJson('./data/alerts.json').catch(() => null),
@@ -546,6 +598,7 @@ async function boot() {
       readJson('./data/cemaden.json').catch(() => null),
       readJson('./data/cptec.json').catch(() => null),
       readJson('./data/defesa_civil_sc.json').catch(() => null),
+      readJson('./data/inmet_archive.json').catch(() => null),
     ]);
     state.stations = stations?.schema_version === 1 && stations?.kind === 'station_catalog_metadata_not_measurements' ? stations : null;
     state.history = history?.schema_version === 1 && history?.kind === 'daily_last_model_publication_not_station_observation' ? history : null;
@@ -557,6 +610,7 @@ async function boot() {
     state.cemaden = cemaden?.schema_version === 1 && cemaden?.kind === 'cemaden_recent_observed_station_rainfall_raw' ? cemaden : null;
     state.cptec = cptec?.schema_version === 1 && cptec?.kind === 'cptec_inpe_daily_forecast_nearest_locality_not_station_measurements' ? cptec : null;
     state.defesa = defesa?.schema_version === 1 && defesa?.kind === 'defesa_civil_sc_publications_not_verified_active_alerts' ? defesa : null;
+    state.archive = archive?.schema_version === 1 && archive?.kind === 'inmet_annual_zip_delayed_station_measurements_not_real_time' ? archive : null;
     const select = $('location-select');
     clear(select);
     for (const loc of overview.locations) {
