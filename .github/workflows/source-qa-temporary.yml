@@ -1,0 +1,25 @@
+name: Temporary source QA bundle
+on:
+  push:
+    branches: [feat/observacoes-regionais-qualidade-fontes]
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: source-for-local-qa
+          path: |
+            .github/workflows
+            README.md
+            docs
+            config
+            src
+            scripts
+            tests
+            web
+            pyproject.toml
+          retention-days: 1
