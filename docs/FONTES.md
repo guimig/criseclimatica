@@ -18,3 +18,7 @@
 Para cada fonte futura, validar: cobertura, licenca, autenticacao, quota, data de referencia, frequencia de publicacao, formato, qualidade, possibilidade de redistribuicao e politica de indisponibilidade.
 
 **Atenção:** o adaptador de avisos do INMET usa uma interface não garantida; quando indisponível, o sistema não afirma que não há avisos. METAR mede condições nos aeroportos e não substitui rede de pluviômetros. Não há integração pluviométrica, radar ou hidrológica nesta fase. Ver [Avisos e METAR](AVISOS_E_METAR.md).
+
+## Medições horárias INMET condicionadas a token
+
+Módulo experimental de chuva observada a partir de estações automáticas INMET. Usa somente credencial legítima obtida pelo usuário e guardada em `INMET_API_TOKEN` nos Secrets do GitHub Actions. O padrão de endpoint com token é conhecido por implementações públicas, mas ainda exige validação real no ambiente de implantação. Os dados do INMET são brutos e podem conter marcadores de ausência (`9999`/`Null`). Sem token, o site não publica chuva medida. Mais detalhes em [Chuva e histórico de avisos](CHUVA_E_HISTORICO_AVISOS.md).

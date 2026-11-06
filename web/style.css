@@ -48,3 +48,15 @@
   .observed-metric { display: flex; align-items: center; justify-content: space-between; }
   .observed-metric span { margin: 0; }
 }
+
+/* Optional INMET rainfall and bounded historical notices. */
+.rainfall-panel{margin-top:22px}
+.rain-gauge-list{display:grid;gap:16px;margin-top:14px}
+.rain-station{border-top:1px solid var(--border);padding-top:10px}
+.rain-station .observed-heading{margin:9px 0 12px}
+.rain-station .observed-metrics{margin:0}
+.notice-archive-panel{margin:0 0 48px}
+.notice-archive-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:15px}
+.notice-record{border:1px solid var(--border);border-radius:10px;padding:15px;background:rgba(129,153,178,.05)}
+.notice-record .analysis-foot{margin-top:9px}
+@media(max-width:700px){.notice-archive-list{grid-template-columns:1fr}}

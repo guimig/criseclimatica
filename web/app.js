@@ -1,6 +1,6 @@
 'use strict';
 
-const state = { overview: null, detail: null, stations: null, history: null, alerts: null, observations: null, slug: null, metric: 'temperature_c', requestId: 0 };
+const state = { overview: null, detail: null, stations: null, history: null, alerts: null, observations: null, rain: null, noticeArchive: null, slug: null, metric: 'temperature_c', requestId: 0 };
 const $ = (id) => document.getElementById(id);
 const tz = 'America/Sao_Paulo';
 const units = { temperature_c: '\u00b0C', precipitation_mm: 'mm', gust_kmh: 'km/h' };
@@ -253,6 +253,75 @@ function renderOfficialAlerts() {
     target.append(card);
   }
 }
+function renderRain() {
+  const target = $('rain-gauges');
+  clear(target);
+  const feed = state.rain;
+  const status = feed?.status;
+  if (!feed || status === 'unavailable') {
+    target.append(child('p', 'alert-unknown', 'A consulta pluviométrica do INMET está indisponível. Não é possível confirmar chuva medida nesta publicação.'));
+  } else if (status === 'not_configured') {
+    target.append(child('p', 'loading-label', 'A consulta de medições INMET depende de autorização. Ainda não foi configurada; previsões de chuva continuam disponíveis no painel do modelo.'));
+  } else if (status === 'no_nearby_catalog_stations') {
+    target.append(child('p', 'loading-label', 'Não foram identificadas estações selecionáveis no catálogo disponível.'));
+  } else if (status !== 'available') {
+    target.append(child('p', 'loading-label', 'Nenhuma medição instrumental publicada nesta versão.'));
+  } else {
+    const local = feed.locations?.find((item) => item.location_id === state.slug);
+    const selected = Array.isArray(local?.stations) ? local.stations.slice(0, 4) : [];
+    if (!selected.length) {
+      target.append(child('p', 'loading-label', 'Nenhuma estação com leituras recentes no entorno desta localidade.'));
+    } else {
+      for (const nearby of selected) {
+        const station = feed.stations?.find((s) => s.code === nearby.code);
+        if (!station) continue;
+        const item = child('article', 'rain-station');
+        const head = child('div', 'observed-heading');
+        head.append(child('strong', '', `${station.name} (${station.code})`), child('span', '', `${value(nearby.distance_km, 1)} km em linha reta`));
+        item.append(head);
+        const values = child('div', 'observed-metrics');
+        const summary = [
+          ['ÚLTIMA HORA MEDIDA', Number.isFinite(station.rain_last_hour_mm) ? `${value(station.rain_last_hour_mm, 1)} mm` : 'Sem dado'],
+          ['24 LEITURAS HORÁRIAS', station.rain_24h_complete && Number.isFinite(station.rain_last_24_readings_mm) ? `${value(station.rain_last_24_readings_mm, 1)} mm` : 'Cobertura incompleta'],
+          ['COBERTURA HORÁRIA', `${station.hourly_coverage_24 || 0}/24 leituras`],
+        ];
+        for (const [label, val] of summary) {
+          const metric = child('div', 'observed-metric');
+          metric.append(child('span', '', label), child('strong', '', val));
+          values.append(metric);
+        }
+        item.append(values, child('p', 'analysis-foot', `Medição: ${datetime(station.observed_at)} · dados brutos não validados.`));
+        target.append(item);
+      }
+    }
+  }
+  $('rain-updated').textContent = `INMET · situação: ${status || 'não consultado'} · verificação: ${datetime(feed?.checked_at)} · sem garantia de representatividade municipal.`;
+}
+function renderNoticeArchive() {
+  const target = $('notice-archive-list');
+  clear(target);
+  const archive = state.noticeArchive;
+  if (!archive || !Array.isArray(archive.records)) {
+    target.append(child('p', 'loading-label', 'Histórico de avisos não disponível nesta publicação.'));
+    $('notice-archive-count').textContent = 'Sem arquivo';
+    return;
+  }
+  const local = archive.records.filter((r) => Array.isArray(r.municipality_ids) && r.municipality_ids.includes(state.slug));
+  $('notice-archive-count').textContent = `${local.length} aviso${local.length === 1 ? '' : 's'} arquivado${local.length === 1 ? '' : 's'}`;
+  if (!local.length) {
+    target.append(child('p', 'loading-label', 'Nenhum aviso registrado para este município no período arquivado.'));
+  } else {
+    for (const item of local.slice(0, 6)) {
+      const card = child('article', 'notice-record');
+      const heading = child('div', 'alert-entry-heading');
+      heading.append(child('strong', '', item.type || 'Aviso meteorológico'), child('span', 'alert-severity', item.severity || 'Sem classificação'));
+      card.append(heading, child('p', 'alert-window', `Período informado: ${item.window_as_reported || 'indisponível'}`));
+      card.append(child('p', 'analysis-foot', `Primeiro registro: ${datetime(item.first_seen_at)} · último registro: ${datetime(item.last_seen_at)} · ${item.present_in_latest_successful_feed ? 'constava na última consulta válida' : 'não constava na última consulta válida'}`));
+      target.append(card);
+    }
+  }
+  $('notice-archive-foot').textContent = `Arquivo de avisos oficiais · última consolidação: ${datetime(archive.updated_at)} · ${archive.feed_status === 'available' ? 'fonte consultada' : 'fonte indisponível; não inferir encerramento'}. Não comprova ocorrência de desastres.`;
+}
 function clearDetails() {
   for (const id of ['temp', 'feels', 'humidity', 'wind', 'rain-24', 'rain-now', 'gust-now', 'pressure', 'model-time', 'coordinates', 'source-time']) $(id).textContent = '--';
   $('weather').textContent = 'Dados indispon\u00edveis';
@@ -294,6 +363,8 @@ async function selectLocation(slug) {
   renderHistory();
   renderObservations();
   renderOfficialAlerts();
+  renderRain();
+  renderNoticeArchive();
   clearDetails();
   if (place.status !== 'available') return;
   try {
@@ -314,16 +385,20 @@ async function boot() {
     const overview = await readJson('./data/latest.json');
     if (!Array.isArray(overview.locations) || overview.schema_version !== 1 || overview.fixture_mode) throw new Error('Invalid or test dataset');
     state.overview = overview;
-    const [stations, history, alerts, observations] = await Promise.all([
+    const [stations, history, alerts, observations, rain, noticeArchive] = await Promise.all([
       readJson('./data/stations.json').catch(() => null),
       readJson('./data/history.json').catch(() => null),
       readJson('./data/alerts.json').catch(() => null),
       readJson('./data/observations.json').catch(() => null),
+      readJson('./data/rain_gauges.json').catch(() => null),
+      readJson('./data/notice_history.json').catch(() => null),
     ]);
     state.stations = stations?.schema_version === 1 && stations?.kind === 'station_catalog_metadata_not_measurements' ? stations : null;
     state.history = history?.schema_version === 1 && history?.kind === 'daily_last_model_publication_not_station_observation' ? history : null;
     state.alerts = alerts?.schema_version === 1 && alerts?.kind === 'inmet_official_notices_by_municipality' ? alerts : null;
     state.observations = observations?.schema_version === 1 && observations?.kind === 'aerodrome_metar_observations_not_municipal_measurements' ? observations : null;
+    state.rain = rain?.schema_version === 1 && rain?.kind === 'inmet_automatic_station_hourly_observed_rain_unvalidated' ? rain : null;
+    state.noticeArchive = noticeArchive?.schema_version === 1 && noticeArchive?.kind === 'archive_of_inmet_notices_not_confirmed_weather_events' ? noticeArchive : null;
     const select = $('location-select');
     clear(select);
     for (const loc of overview.locations) {

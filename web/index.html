@@ -90,6 +90,13 @@
       <p class="analysis-foot" id="observed-foot">Fonte: <a href="https://aviationweather.gov/data/api/" target="_blank" rel="noopener noreferrer">Aviation Weather Center (NOAA)</a></p>
     </section>
 
+    <section class="panel rainfall-panel" aria-labelledby="rainfall-title">
+      <div class="panel-top"><div><span class="section-kicker">PLUVIOMETRIA INSTRUMENTAL</span><h3 id="rainfall-title">Chuva medida em estações INMET</h3></div><span class="helper-label">Observação bruta, não validada</span></div>
+      <p class="analysis-explainer">A chuva medida pertence ao ponto da estação, não ao município inteiro. Acumulados de 24 leituras só aparecem com cobertura horária completa. A integração requer autorização do INMET.</p>
+      <div id="rain-gauges" class="rain-gauge-list" aria-live="polite"><span class="loading-label">Verificando integração...</span></div>
+      <p class="analysis-foot" id="rain-updated">Fonte: <a href="https://portal.inmet.gov.br/servicos/esta%C3%A7%C3%B5es-autom%C3%A1ticas" target="_blank" rel="noopener noreferrer">INMET</a> · dados instrumentais brutos.</p>
+    </section>
+
     <section class="lower-grid" aria-label="Fontes e alertas">
       <article class="panel alert-panel" aria-labelledby="alert-title"><span class="section-kicker">AVISOS METEOROLÓGICOS OFICIAIS</span><h3 id="alert-title">Avisos INMET para o município</h3>
         <p class="analysis-explainer">Informações obtidas periodicamente do INMET por código IBGE. A situação pode mudar entre coletas. <strong>Não substitui a Defesa Civil.</strong></p>
@@ -98,6 +105,12 @@
         <div class="reference-links"><a href="https://www.defesacivil.sc.gov.br/" target="_blank" rel="noopener noreferrer">Defesa Civil SC ↗</a><a href="https://alertas2.inmet.gov.br/" target="_blank" rel="noopener noreferrer">Portal INMET ↗</a></div>
       </article>
       <article class="panel source-panel"><span class="section-kicker">TRANSPAR&Ecirc;NCIA</span><h3>Sobre estes dados</h3><p>Os indicadores superiores são estimativas e previsões da Open-Meteo. O bloco METAR contém medições pontuais de aeródromo e os avisos são consultados junto ao INMET. Todas as fontes são independentes; a indisponibilidade de uma não valida a ausência de risco.</p><div class="source-line"><span>MODELO</span><strong>Open-Meteo</strong></div><div class="source-line"><span>HOR&Aacute;RIO</span><strong id="source-time">--</strong></div><div class="source-line"><span>COORDENADAS DO MODELO</span><strong id="coordinates">--</strong></div></article>
+    </section>
+    <section class="panel notice-archive-panel" aria-labelledby="notice-archive-title">
+      <div class="panel-top"><div><span class="section-kicker">MEMÓRIA DOS AVISOS OFICIAIS</span><h3 id="notice-archive-title">Avisos anteriormente publicados</h3></div><span class="helper-label" id="notice-archive-count">Histórico</span></div>
+      <p class="analysis-explainer">Registra avisos que foram retornados pela fonte oficial nas publicações anteriores. Não é comprovação de desastre, nem substitui a consulta aos avisos atualmente vigentes.</p>
+      <div id="notice-archive-list" class="notice-archive-list" aria-live="polite"><span class="loading-label">Consultando histórico...</span></div>
+      <p class="analysis-foot" id="notice-archive-foot">Registro progressivo e limitado, recuperado das publicações do site.</p>
     </section>
   </main>
   <footer class="site-footer"><div class="shell footer-inner"><div><strong>OBSERVAT&Oacute;RIO / TEMPO &amp; CLIMA</strong><p>Projeto aberto e independente. N&atilde;o substitui alertas e orienta&ccedil;&otilde;es da Defesa Civil.</p></div><div><span>Dados meteorol&oacute;gicos: <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a></span><span><a href="https://github.com/guimig/criseclimatica" target="_blank" rel="noopener noreferrer">Reposit&oacute;rio no GitHub ↗</a></span></div></div></footer>

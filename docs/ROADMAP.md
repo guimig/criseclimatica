@@ -16,8 +16,8 @@ O usuario confirmou a publicacao e o funcionamento do site. A comprovacao de cic
 1. **Implementado em PR:** catalogo publico de estacoes INMET (metadados e proximidade; nao medidas).
 2. **Implementado:** avisos do INMET associados por código municipal IBGE, com estado de indisponibilidade e sem inferência de fuso.
 3. **Implementado:** boletins METAR dos aeroportos SBJV/SBNF, com identificação da estação e conversão de unidades.
-4. **Pendente:** integrar medições de pluviômetros (INMET/Cemaden/Epagri), validar funcionamento real das novas APIs e comparar com os modelos.
-5. **Parcial:** falha do aviso/METAR não paralisa a previsão, mas a informação secundária fica marcada como indisponível.
+4. **Parcial:** adaptador opcional de precipitação horária INMET desenvolvido; exige token e validação real. Integrações Cemaden/Epagri seguem pendentes.
+5. **Implementado:** falhas de avisos, METAR e do adaptador INMET não paralisam a previsão e são identificadas na interface.
 6. Revisao de coordenadas e representatividade territorial.
 
 ## Fase 2 - Historicos e armazenamento sem banco pago
@@ -26,7 +26,7 @@ O usuario confirmou a publicacao e o funcionamento do site. A comprovacao de cic
 2. **Parcial:** historico compacto de uma estimativa de modelo publicada por dia no Pages (366 dias), sem confundir com medidas; JSONL.GZ externo ainda pendente.
 3. Criterios de retencao por fonte, escala temporal e uso efetivo.
 4. Registrar metadados, latencia, cobertura e indicadores de qualidade.
-5. Preservar episodios relevantes e dias normais para comparacoes.
+5. **Parcial:** arquivo progressivo de avisos oficiais, que não deve ser interpretado como catálogo de desastres confirmados; séries detalhadas de episódios medidos ainda pendentes.
 6. Benchmarks de leitura, escrita, recuperacao e uso de armazenamento.
 
 ## Fase 3 - Hidrologia, litoral e analise
@@ -41,3 +41,5 @@ O usuario confirmou a publicacao e o funcionamento do site. A comprovacao de cic
 Ver [Histórico e estações](HISTORICO_E_ESTACOES.md) para a distinção entre catálogo INMET, observações e estimativas de modelo.
 
 Para esta fase, consultar [Avisos INMET e METAR](AVISOS_E_METAR.md).
+
+Ver também [Chuva observada e histórico de avisos](CHUVA_E_HISTORICO_AVISOS.md).
