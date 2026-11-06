@@ -2,6 +2,10 @@
 
 Portal meteorológico aberto com prioridade em Araquari e cobertura de vinte municípios de Santa Catarina e Paraná. Python coleta e processa dados no GitHub Actions; GitHub Pages publica HTML, CSS, JavaScript e JSON. Sem banco pago, Google Sheets, backend no navegador ou credenciais públicas.
 
+## Síntese consultiva de Araquari
+
+O painel principal reúne chuva observada, concentração de chuva prevista em 3/6 h, picos de vento/rajada, persistência descritiva de calor, avisos oficiais e sugestões fundamentadas. **Araquari é o foco fixo para o IFC**; os demais municípios permanecem complementares. Sugestões vencidas são retiradas, sem inferir melhora pela falta de dados. Revisões usam a última previsão publicada para os mesmos horários, em estado compacto separado do histórico diário de publicações. Nenhuma decisão institucional ou classificação automática do protocolo é produzida. Veja [métodos, validade e limitações](docs/SINTESE_CONSULTIVA_ARAQUARI.md).
+
 ## O que está implementado
 
 - Open-Meteo: estimativas atuais e previsão horária/diária, com identificação explícita de modelo.

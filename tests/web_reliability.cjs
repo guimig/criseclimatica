@@ -97,3 +97,50 @@ clock = Date.parse('2026-11-07T12:30:00Z');
 run('renderTerritorialAlignment();');
 assert.match(text('alignment-data'), /referências vencidas/);
 console.log('Browser reliability scenarios passed: freshness, municipal failure, expired readings, partial publication.');
+
+// The institutional summary must stay on Araquari while another city is selected.
+clock = Date.parse('2026-11-06T12:30:00Z');
+run(`state.slug = 'joinville'; state.analysis = {
+  generated_at:'2026-11-06T12:00:00Z', primary_location_id:'araquari', locations:[
+  {location_id:'araquari', name:'Araquari', role:'primary_ifc_reference',status:'evidence_available',valid_until:'2026-11-06T15:00:00Z',
+   observed_rain:{status:'no_recent_data',stations:[]},
+   forecast:{status:'available',rain:{status:'complete',total_mm:12,start_at:'2026-11-06T12:00:00Z',end_at:'2026-11-07T12:00:00Z'},rain_peaks:[],wind:{}},
+   official_notices:{status:'unavailable',notices:[]},
+   suggestions:[{id:'rain_timing',text:'Pode ser pertinente avaliar atividades externas.',evidence:'forecast.rain_peaks',scope:'Araquari',limitation:'Condições locais desconhecidas.'}],limitations:[]},
+  {location_id:'joinville',name:'Joinville',role:'complementary_regional_context',valid_until:'2026-11-06T15:00:00Z',
+   forecast:{status:'available',rain:{status:'complete',total_mm:99,start_at:'2026-11-06T12:00:00Z',end_at:'2026-11-07T12:00:00Z'}},official_notices:{status:'available',notices:[]}}
+]}; renderSynthesis();`);
+assert.match(text('synthesis-data'), /12,0 mm previstos/);
+assert.doesNotMatch(text('synthesis-data'), /99,0 mm previstos/);
+assert.match(text('regional-synthesis'), /99,0 mm previstos/);
+assert.match(text('synthesis-data'), /Sem leitura recente válida/);
+assert.match(text('synthesis-data'), /Pode ser pertinente avaliar atividades externas/);
+clock = Date.parse('2026-11-06T15:01:00Z');
+run('renderSynthesis();');
+assert.match(text('synthesis-data'), /sugestões foram retiradas/);
+assert.doesNotMatch(text('synthesis-data'), /Pode ser pertinente avaliar atividades externas/);
+assert.doesNotMatch(text('regional-synthesis'), /99,0 mm previstos/);
+clock = Date.parse('2026-11-06T12:30:00Z');
+run(`state.analysis.locations = state.analysis.locations.filter(row => row.location_id !== 'araquari'); renderSynthesis();`);
+assert.match(text('synthesis-data'), /Não há síntese verificável de Araquari/);
+assert.doesNotMatch(text('synthesis-data'), /99,0/);
+run(`state.slug='araquari'; state.cptec={status:'available',checked_at:'2026-11-06T12:00:00Z',locations:[
+ {location_id:'araquari',status:'available',nearest_cptec_locality:'Araquari',days:[{day:'2026-11-06',maximum_c:30,minimum_c:20}]}]};
+ state.detail={collected_at:'2026-11-06T12:00:00Z',current:{time:'2026-11-06T12:00:00Z'},daily:[{time:'2026-11-06',temp_max_c:27}]};renderCptec();`);
+assert.match(text('cptec-data'), /Limites do dia CPTEC não conciliados/);
+assert.doesNotMatch(text('cptec-data'), /Diferença máx/);
+console.log('Advisory scenarios passed: Araquari priority, regional complement, expiry, missing primary, daily-period compatibility.');
+
+(async () => {
+  clock = Date.parse('2026-11-06T12:30:00Z');
+  context.fetch = async url => ({ok:url === './data/latest.json', status:404,
+    async json() { return {schema_version:1,generated_at:'2026-11-06T12:00:00Z',available_locations:1,total_locations:2,
+      locations:[{id:'araquari',name:'Araquari',state:'SC',status:'unavailable',featured:true},
+                 {id:'joinville',name:'Joinville',state:'SC',status:'available',current:{temperature_c:23,time:'2026-11-06T12:00:00Z'}}]}; }});
+  run('state.slug = null;');
+  await run('boot()');
+  assert.equal(run('state.slug'), 'araquari');
+  assert.match(text('place-title'), /Araquari/);
+  assert.match(text('place-subtitle'), /Referência principal/);
+  console.log('Initial selection passed: Araquari stays primary during its model outage.');
+})().catch(err => { console.error(err); process.exitCode = 1; });

@@ -19,7 +19,7 @@
         <span class="brand-copy"><strong>OBSERVAT&Oacute;RIO</strong><small>TEMPO &amp; CLIMA</small></span>
       </a>
       <div class="header-right">
-        <span class="location-tag"><span class="green-dot"></span> LITORAL NORTE / SC</span>
+        <span class="location-tag"><span class="green-dot"></span> ARAQUARI / SC</span>
         <a href="https://github.com/guimig/criseclimatica" target="_blank" rel="noopener noreferrer" class="header-link">C&oacute;digo aberto <span aria-hidden="true">↗</span></a>
       </div>
     </div>
@@ -28,7 +28,7 @@
     <section class="hero" aria-labelledby="headline">
       <div class="hero-eyebrow"><span class="tiny-rule"></span> INTELIG&Ecirc;NCIA METEOROL&Oacute;GICA REGIONAL</div>
       <div class="hero-row">
-        <div><h1 id="headline">O tempo muda.<br><em>Entenda o contexto.</em></h1><p>Previs&otilde;es abertas, territ&oacute;rios conectados e dados com origem identificada. Um olhar atento sobre Araquari e o litoral norte catarinense.</p></div>
+        <div><h1 id="headline">O tempo muda.<br><em>Entenda o contexto.</em></h1><p>Previs&otilde;es abertas, territ&oacute;rios conectados e dados com origem identificada. Araquari é a referência principal para apoiar a avaliação das atividades do IFC; os demais municípios oferecem contexto regional.</p></div>
         <div class="hero-badge" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="orbit-center">☀</div></div>
       </div>
       <div class="update-bar">
@@ -37,12 +37,20 @@
       </div>
     </section>
 
+    <section class="panel synthesis-panel" aria-labelledby="synthesis-title">
+      <div class="panel-top"><div><span class="section-kicker">FOCO PRINCIPAL · IFC EM ARAQUARI</span><h2 id="synthesis-title">Síntese meteorológica de Araquari</h2></div><span class="helper-label" id="synthesis-status">Verificando evidências</span></div>
+      <p class="analysis-explainer">Evidências do município e de estações identificadas no entorno para subsidiar a avaliação humana. <strong>Esta síntese permanece em Araquari quando outro município é consultado.</strong></p>
+      <div id="synthesis-data" aria-live="polite"><p class="loading-label">Carregando análise publicada...</p></div>
+      <details class="synthesis-evidence"><summary>Municípios complementares · contexto regional</summary><p class="analysis-explainer">As informações de outras localidades não substituem dados ausentes de Araquari nem representam as condições do campus.</p><div id="regional-synthesis" class="regional-summary"></div></details>
+      <p class="analysis-foot" id="synthesis-updated">A síntese não determina suspensão, permanência abrigada ou liberação para saída.</p>
+    </section>
+
     <section class="location-head" aria-label="Selecao de municipio">
-      <div><span class="section-kicker">PAINEL LOCAL</span><h2 id="place-title">Araquari <span class="state">/ SC</span></h2><p id="place-subtitle">Selecione um munic&iacute;pio para visualizar os dados do modelo.</p></div>
+      <div><span class="section-kicker">PAINEL LOCAL</span><h2 id="place-title">Araquari <span class="state">/ SC</span></h2><p id="place-subtitle">Araquari é o foco principal. Consulte os demais municípios como contexto complementar.</p></div>
       <div class="select-wrap"><label for="location-select">MUNIC&Iacute;PIO</label><select id="location-select" aria-label="Municipio selecionado" disabled><option>Carregando...</option></select></div>
     </section>
 
-    <div class="disclaimer" role="note"><span class="information-icon">i</span><div><strong>Dados estimados por modelo.</strong> As condi&ccedil;&otilde;es atuais e as proje&ccedil;&otilde;es desta vers&atilde;o v&ecirc;m da Open-Meteo. N&atilde;o s&atilde;o medi&ccedil;&otilde;es de esta&ccedil;&otilde;es nem alertas oficiais.</div></div>
+    <div class="disclaimer" role="note"><span class="information-icon">i</span><div><strong>Dados estimados por modelo.</strong> Os indicadores de modelo abaixo e suas projeções vêm da Open-Meteo. N&atilde;o s&atilde;o medi&ccedil;&otilde;es de esta&ccedil;&otilde;es nem alertas oficiais.</div></div>
 
     <section class="panel coverage-panel" aria-labelledby="coverage-title">
       <div class="panel-top"><div><span class="section-kicker">COBERTURA DESTA LOCALIDADE</span><h3 id="coverage-title">Quais dados estão disponíveis?</h3></div></div>
@@ -71,12 +79,12 @@
       </section>
       <section class="panel detail-panel" aria-labelledby="detail-title">
         <div class="panel-top"><div><span class="section-kicker">DETALHAMENTO</span><h3 id="detail-title">Condi&ccedil;&otilde;es previstas</h3></div><span class="panel-icon" aria-hidden="true">☁</span></div>
-        <div class="detail-stats"><div><span>CHUVA PREVISTA · JANELA DE 24H</span><strong id="rain-24">--</strong><small id="rain-coverage">Sem janela completa publicada</small></div><div><span>PRECIPITA&Ccedil;&Atilde;O NA HORA</span><strong id="rain-now">--</strong></div><div><span>RAJADA ESTIMADA</span><strong id="gust-now">--</strong></div><div><span>PRESS&Atilde;O AO N&Iacute;VEL DO MAR</span><strong id="pressure">--</strong></div></div>
+        <div class="detail-stats"><div><span>CHUVA PREVISTA · JANELA DE 24H</span><strong id="rain-24">--</strong><small id="rain-coverage">Sem janela completa publicada</small></div><div><span>PRECIPITAÇÃO · INTERVALO DO MODELO</span><strong id="rain-now">--</strong><small id="rain-interval">Intervalo não informado</small></div><div><span>RAJADA ESTIMADA</span><strong id="gust-now">--</strong></div><div><span>PRESS&Atilde;O AO N&Iacute;VEL DO MAR</span><strong id="pressure">--</strong></div></div>
         <div class="detail-bottom"><span class="info-line">◉ Fonte: <a href="https://open-meteo.com/en/docs" target="_blank" rel="noopener noreferrer">Open-Meteo</a></span><span id="model-time">Refer&ecirc;ncia: --</span></div>
       </section>
     </div>
 
-    <section class="panel daily-panel" aria-labelledby="daily-title"><div class="panel-top"><div><span class="section-kicker">TEND&Ecirc;NCIA</span><h3 id="daily-title">Pr&oacute;ximos dias</h3></div><span class="helper-label">Previs&atilde;o por modelo</span></div><div class="daily-grid" id="daily-grid"><span class="loading-label">Carregando previs&atilde;o...</span></div></section>
+    <section class="panel daily-panel" aria-labelledby="daily-title"><div class="panel-top"><div><span class="section-kicker">TEND&Ecirc;NCIA</span><h3 id="daily-title">Pr&oacute;ximos dias</h3></div><span class="helper-label">Previsão por modelo · dias em UTC</span></div><div class="daily-grid" id="daily-grid"><span class="loading-label">Carregando previs&atilde;o...</span></div></section>
 
     <section class="panel cptec-panel" aria-labelledby="cptec-title">
       <div class="panel-top"><div><span class="section-kicker">PREVISÃO OFICIAL / INPE</span><h3 id="cptec-title">CPTEC — previsão independente</h3></div><span class="helper-label">Até 7 dias · XML</span></div>
@@ -85,7 +93,7 @@
       <p class="analysis-foot" id="cptec-updated"><a href="https://servicos.cptec.inpe.br/XML/" rel="noopener noreferrer" target="_blank">Serviço XML CPTEC/INPE</a></p>
     </section>
 
-    <section class="territory-section" aria-labelledby="territory-title"><div class="section-heading"><div><span class="section-kicker">VIS&Atilde;O DO TERRIT&Oacute;RIO</span><h2 id="territory-title">Núcleos de Santa Catarina e Paraná</h2><p>Vinte pontos municipais comuns às consultas, organizados em quatro núcleos territoriais.</p></div><span class="helper-label" id="territory-count">-- localidades</span></div><div class="territory-grid" id="territory-grid"></div></section>
+    <section class="territory-section" aria-labelledby="territory-title"><div class="section-heading"><div><span class="section-kicker">VIS&Atilde;O DO TERRIT&Oacute;RIO</span><h2 id="territory-title">Contexto complementar de Santa Catarina e Paraná</h2><p>Araquari é a referência principal. Os demais pontos municipais ajudam a contextualizar as condições regionais.</p></div><span class="helper-label" id="territory-count">-- localidades</span></div><div class="territory-grid" id="territory-grid"></div></section>
 
     <section class="analysis-grid" aria-label="Redes observacionais e historico">
       <article class="panel station-panel" aria-labelledby="stations-title">
@@ -156,7 +164,7 @@
     </div>
     <section class="panel" aria-labelledby="cemaden-sensors-title">
       <div class="panel-top"><div><span class="section-kicker">SENSORES / CEMADEN PED</span><h3 id="cemaden-sensors-title">Medições instrumentais recentes no entorno</h3></div><span class="helper-label">Dados de estação · últimas 3 horas</span></div>
-      <p class="analysis-explainer">Consulta regional da rede de sensores Cemaden em Santa Catarina. Mostra apenas sensores com leituras válidas e estações geograficamente próximas. <strong>Não é previsão, não representa todo o município e não oferece monitoramento contínuo em tempo real.</strong> A atualização do site está sujeita à agenda do GitHub Actions.</p>
+      <p class="analysis-explainer">Consulta regional da rede de sensores Cemaden em Santa Catarina e Paraná. Mostra apenas sensores com leituras válidas e estações geograficamente próximas. <strong>Não é previsão, não representa todo o município e não oferece monitoramento contínuo em tempo real.</strong> A atualização do site está sujeita à agenda do GitHub Actions.</p>
       <div id="cemaden-sensors-data" aria-live="polite"><span class="loading-label">Verificando leituras...</span></div>
       <p class="analysis-foot" id="cemaden-sensors-updated">DADOS DA REDE OBSERVACIONAL DO CEMADEN/MCTIC · <a href="https://sws.cemaden.gov.br/PED/api/ui/" rel="noopener noreferrer" target="_blank">Catálogo oficial</a></p>
     </section>

@@ -238,7 +238,8 @@ def unavailable(locations: list[dict], stamp: str, status: str, *, reason: str |
 def collect(locations: list[dict], stamp: str, *, session: SgaaSession | None = None,
             token: str | None = None, on_request: Callable[[], None] | None = None,
             recent_fetcher: Callable[[str], Any] | None = None,
-            sensor_fetcher: Callable[[str], Any] = fetch_sensor_types) -> dict:
+            sensor_fetcher: Callable[[str], Any] = fetch_sensor_types,
+            now: datetime | None = None) -> dict:
     """Fetch regional sensor observations with a common, rate-limited SGAA JWT."""
     if token is None:
         email = os.environ.get("CEMADEN_PED_EMAIL", "")
@@ -297,7 +298,7 @@ def collect(locations: list[dict], stamp: str, *, session: SgaaSession | None = 
                 result = unavailable(locations, stamp, "unavailable", reason="all_state_queries_failed")
                 result["state_queries"] = state_status
                 return result
-        result = normalize_recent(rows, sensor_labels, locations, stamp)
+        result = normalize_recent(rows, sensor_labels, locations, stamp, now=now)
         result["state_queries"] = state_status
         if any(status != "available" for status in state_status.values()):
             result["diagnostic"] = "partial_state_coverage"

@@ -112,3 +112,25 @@
 .more-stations{grid-column:1/-1;width:100%;min-width:0}.more-stations summary{cursor:pointer;color:var(--bright);padding:12px 0}.more-stations .rain-station{margin:12px 0}
 
 .alignment-panel{margin-bottom:19px}.alignment-panel .coverage-card{margin:12px 0}.alignment-panel p{overflow-wrap:anywhere}
+
+/* Primary advisory reading; regional context remains secondary. */
+.synthesis-panel { margin: 0 0 28px; border-top: 3px solid var(--accent, #46d8b1); }
+.synthesis-panel h2 { margin: 6px 0; font-size: clamp(1.25rem, 3vw, 1.7rem); }
+.synthesis-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 20px 0; }
+.synthesis-card { min-width: 0; padding: 16px; border: 1px solid #314455; border-radius: 12px; }
+.synthesis-card h3 { margin: 9px 0; font-size: 1rem; }
+.synthesis-card p, .synthesis-suggestion { font-size: .9rem; line-height: 1.6; }
+.synthesis-card small, .synthesis-suggestion small { display: block; font-size: .78rem; line-height: 1.6; opacity: .85; }
+.observed-evidence { border-top: 3px solid #53cdb3; }
+.forecast-evidence { border-top: 3px solid #85aaff; }
+.official-evidence { border-top: 3px solid #e2bb73; }
+.synthesis-suggestions { margin: 20px 0; }
+.synthesis-evidence { margin-top: 18px; padding: 12px 0; border-top: 1px solid #314455; }
+.synthesis-evidence summary { cursor: pointer; font-weight: 600; line-height: 1.5; }
+.synthesis-evidence p { font-size: .85rem; line-height: 1.6; overflow-wrap: anywhere; }
+.regional-summary { overflow-x: auto; }
+.synthesis-table { width: 100%; text-align: left; border-collapse: collapse; font-size: .8rem; }
+.synthesis-table th, .synthesis-table td { padding: 12px 9px; border-bottom: 1px solid #314455; vertical-align: top; }
+.regional-link { color: inherit; background: transparent; border: 0; text-decoration: underline; cursor: pointer; padding: 0; font: inherit; text-align: left; }
+.regional-link:focus-visible, .synthesis-evidence summary:focus-visible { outline: 2px solid #85aaff; outline-offset: 4px; }
+@media (max-width: 800px) { .synthesis-grid { grid-template-columns: 1fr; } .synthesis-table { min-width: 540px; } }
