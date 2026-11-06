@@ -62,4 +62,23 @@ assert.match(text('system-status'), /Open-Meteo indisponível/);
 clock = Date.parse('2026-11-07T12:30:00Z');
 run('refreshPublicationStatus();');
 assert.match(text('system-status'), /desatualizada/);
+clock = Date.parse('2026-11-06T12:30:00Z');
+run(`state.observations = {status:'available',retrieved_at:'2026-11-06T12:00:00Z',
+selection:{regional_radius_km:180},queried_stations:[],
+locations:[{location_id:'araquari',status:'available',stations:[
+{icao:'SBJV',distance_km:20,scope:'nearby_aerodrome'},
+{icao:'SBFL',distance_km:145,scope:'regional_context_only'}]}],
+stations:[{icao:'SBJV',name:'Joinville',observed_at:'2026-11-06T12:00:00Z',temperature_c:24},
+{icao:'SBFL',name:'Florianópolis',observed_at:'2026-11-06T12:00:00Z',temperature_c:25}]};
+renderObservations();`);
+assert.match(text('observed-data'), /Joinville/);
+assert.match(text('observed-data'), /Florianópolis/);
+assert.match(text('observed-data'), /Contexto regional/);
+clock = Date.parse('2026-11-07T12:30:00Z');
+run('renderObservations();');
+assert.doesNotMatch(text('observed-data'), /25,0/);
+run(`appendStationCards(document.getElementById('expanded-test'),
+Array.from({length:25}, (_, i)=>child('article','', 'Estação '+i)));`);
+assert.match(text('expanded-test'), /Estação 24/);
+assert.match(text('expanded-test'), /Ver mais 19 estações/);
 console.log('Browser reliability scenarios passed: freshness, municipal failure, expired readings, partial publication.');

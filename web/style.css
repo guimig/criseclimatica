@@ -108,3 +108,5 @@
 
 
 .coverage-panel{margin-bottom:19px}.coverage-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px}.coverage-card{border:1px solid var(--border);border-radius:9px;padding:14px;overflow-wrap:anywhere}.coverage-card p{margin:7px 0;font-size:12px}#rain-coverage{display:block;margin-top:8px;font-size:11px;color:var(--muted);overflow-wrap:anywhere}.source-health-item{flex-wrap:wrap}.source-health-item small{flex-basis:100%}
+
+.more-stations{grid-column:1/-1;width:100%;min-width:0}.more-stations summary{cursor:pointer;color:var(--bright);padding:12px 0}.more-stations .rain-station{margin:12px 0}

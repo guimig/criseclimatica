@@ -18,7 +18,14 @@ from .inmet import haversine_km
 
 API_URL = "https://aviationweather.gov/api/data/metar"
 DOCS_URL = "https://aviationweather.gov/data/api/"
-STATIONS = frozenset({"SBJV", "SBNF"})  # Joinville and Navegantes; no implied municipal coverage.
+STATION_NAMES = {
+    "SBJV": "Joinville", "SBNF": "Navegantes", "SSBL": "Blumenau",
+    "SBFL": "Florianópolis", "SBCT": "Afonso Pena / São José dos Pinhais",
+    "SBBI": "Bacacheri / Curitiba",
+}
+STATIONS = frozenset(STATION_NAMES)
+PRIMARY_RADIUS_KM = 100.0
+REGIONAL_RADIUS_KM = 180.0
 KIND = "aerodrome_metar_observations_not_municipal_measurements"
 
 
@@ -87,15 +94,22 @@ def normalize_metars(raw: Any, locations: list[dict[str, Any]], collected_at: st
             ((haversine_km(place["latitude"], place["longitude"], r["latitude"], r["longitude"]), r) for r in stations.values()),
             key=lambda pair: pair[0],
         )
-        if nearest and nearest[0][0] <= 100:
+        references = [{"icao": row["icao"], "distance_km": round(distance, 1),
+                       "scope": "nearby_aerodrome" if distance <= PRIMARY_RADIUS_KM else "regional_context_only"}
+                      for distance, row in nearest if distance <= REGIONAL_RADIUS_KM]
+        if nearest and nearest[0][0] <= PRIMARY_RADIUS_KM:
             distance, record = nearest[0]
-            by_location.append({"location_id": place["id"], "status": "available", "distance_km": round(distance, 1), "observation": record})
+            by_location.append({"location_id": place["id"], "status": "available", "distance_km": round(distance, 1), "observation": record, "stations": references})
         else:
-            by_location.append({"location_id": place["id"], "status": "no_recent_report", "distance_km": None, "observation": None})
+            by_location.append({"location_id": place["id"], "status": "no_recent_report", "distance_km": None, "observation": None, "stations": references})
     return {
         "schema_version": 1, "kind": KIND,
         "status": "available" if stations else "no_recent_reports",
         "retrieved_at": collected_at,
+        "selection": {"primary_radius_km": PRIMARY_RADIUS_KM, "regional_radius_km": REGIONAL_RADIUS_KM},
+        "queried_stations": [{"icao": code, "name": STATION_NAMES[code],
+                              "status": "available" if code in stations else "no_recent_report"}
+                             for code in sorted(STATIONS)],
         "source": {"id": "aviation-weather-center", "name": "Aviation Weather Center (NOAA)", "url": DOCS_URL},
         "limitations": "Medição em aeródromo; não equivale a observação municipal. METAR não fornece chuva acumulada em mm.",
         "stations": sorted(stations.values(), key=lambda x: x["icao"]),
@@ -108,8 +122,10 @@ def unavailable_metars(locations: list[dict[str, Any]], checked_at: str) -> dict
         "schema_version": 1, "kind": KIND, "status": "unavailable", "retrieved_at": None, "checked_at": checked_at,
         "source": {"id": "aviation-weather-center", "name": "Aviation Weather Center (NOAA)", "url": DOCS_URL},
         "limitations": "Medições indisponíveis; não inferir valores do modelo.",
+        "queried_stations": [{"icao": code, "name": STATION_NAMES[code], "status": "unavailable"}
+                             for code in sorted(STATIONS)],
         "stations": [],
-        "locations": [{"location_id": loc["id"], "status": "unavailable", "distance_km": None, "observation": None} for loc in locations],
+        "locations": [{"location_id": loc["id"], "status": "unavailable", "distance_km": None, "observation": None, "stations": []} for loc in locations],
     }
 
 
@@ -131,3 +147,4 @@ def fetch_metars(*, timeout: int = 20) -> list[dict[str, Any]]:
         return data
     except (HTTPError, URLError, OSError, TimeoutError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise MetarSourceError(f"METAR request failed: {type(exc).__name__}") from exc
+

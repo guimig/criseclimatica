@@ -15,10 +15,10 @@ A nova camada **não** fornece acumulados de chuva medidos por pluviômetros, ne
 |---|---|---|---|
 | INMET avisos | `https://apiprevmet3.inmet.gov.br/avisos/ativos` | JSON `hoje`/`futuro` | Endpoint utilizado por terceiros, porém **sem contrato público de estabilidade confirmado**. Falhas geram estado `unavailable`; jamais viram “sem avisos”. |
 | INMET portal | https://alertas2.inmet.gov.br/ | Visualização oficial | Conferência necessária para decisões de proteção civil. |
-| Aviation Weather Center | `https://aviationweather.gov/api/data/metar?ids=SBJV%2CSBNF&format=json&hours=6` | JSON | API pública documentada; boletins geralmente horários; recomendável consultar de forma parcimoniosa. |
+| Aviation Weather Center | `https://aviationweather.gov/api/data/metar?ids=SBBI%2CSBCT%2CSBFL%2CSBJV%2CSBNF%2CSSBL&format=json&hours=6` | JSON | API pública documentada; boletins geralmente horários; recomendável consultar de forma parcimoniosa. |
 | Dados geográficos IBGE | https://www.ibge.gov.br/explica/codigos-dos-municipios.php | Cadastro nacional | Filtro de alertas baseado em códigos exatos de sete dígitos. |
 
-Códigos ICAO usados: `SBJV` (aeroporto de Joinville) e `SBNF` (Navegantes). O sistema seleciona o boletim recente mais próximo de cada ponto de referência, se houver aeroporto observado num raio de até 100 km. **A distância não significa representatividade meteorológica.**
+Códigos ICAO consultados em uma chamada: `SBJV` (Joinville), `SBNF` (Navegantes), `SSBL` (Blumenau), `SBFL` (Florianópolis), `SBCT` (Afonso Pena) e `SBBI` (Bacacheri). A observação principal continua sendo a mais próxima até 100 km. Referências adicionais até 180 km aparecem individualmente; acima de 100 km são exclusivamente contexto regional. Cada aeródromo conserva horário e distância. **A distância não significa representatividade meteorológica.**
 
 ### Particularidades dos avisos do INMET
 
@@ -69,3 +69,4 @@ A disponibilidade das APIs INMET e Aviation Weather Center, e o formato retornad
 - Preservar os detalhes das observações de interesse em um repositório histórico externo e particionado.
 - Projetar eventos hidrometeorológicos a partir de séries medidas, com controle de qualidade, sem confundi-los com avisos oficiais.
 - Avaliar maior frequência para consultas de avisos quando as quotas e a estabilidade forem verificadas, sem prometer atualização em tempo real.
+

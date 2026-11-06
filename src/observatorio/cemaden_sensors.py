@@ -27,8 +27,8 @@ KIND = "cemaden_recent_instrumental_sensor_readings_not_model_forecast"
 STATION_CODE = re.compile(r"[A-Za-z0-9-]{4,25}")
 MAX_BODY_BYTES = 12_000_000
 MAX_RECORDS = 30_000
-MAX_NEARBY_KM = 85.0
-MAX_STATIONS_PER_PLACE = 6
+MAX_NEARBY_KM = 130.0
+MAX_STATIONS_PER_PLACE = 24
 MAX_READINGS_PER_STATION = 12
 MAX_AGE = timedelta(hours=3, minutes=20)
 # Confirmed by the official PED Swagger sensor-index examples; unknown sensors
@@ -208,7 +208,7 @@ def normalize_recent(payload: Any, sensor_labels: dict[int, str], locations: lis
         } for row in stations if haversine_km(place["latitude"], place["longitude"],
                                              row["latitude"], row["longitude"]) <= MAX_NEARBY_KM),
             key=lambda x: (x["distance_km"], x["code"]))
-        regional.append({"location_id": place["id"], "stations": matches[:MAX_STATIONS_PER_PLACE]})
+        regional.append({"location_id": place["id"], "eligible_station_count": len(matches), "stations": matches[:MAX_STATIONS_PER_PLACE]})
     return {
         "schema_version": 1, "kind": KIND,
         "status": "available" if stations else "no_recent_data",
@@ -218,6 +218,8 @@ def normalize_recent(payload: Any, sensor_labels: dict[int, str], locations: lis
         "station_data_kind": "raw_station_sensor_values_last_three_hours_not_local_forecast",
         "geography": "SC; leitura de uma estação próxima não representa o município inteiro",
         "catalog_status": "available" if sensor_labels else "unavailable",
+        "selection": {"radius_km": MAX_NEARBY_KM, "max_stations_per_location": MAX_STATIONS_PER_PLACE,
+                      "regional_station_count": len(stations)},
         "stations": stations, "locations": regional,
     }
 
@@ -279,3 +281,4 @@ def collect(locations: list[dict], stamp: str, *, session: SgaaSession | None = 
         reason = exc.reason
         status = "access_restricted" if reason in ("token_expired", "bad_request", "access_restricted") else "unavailable"
         return unavailable(locations, stamp, status, reason=reason)
+

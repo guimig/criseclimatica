@@ -100,6 +100,19 @@ def validate(output: Path, *, fixture: bool = False) -> None:
         raise ValueError("INMET alerts classification or status invalid")
     if observations.get("kind") != "aerodrome_metar_observations_not_municipal_measurements" or observations.get("status") not in ("available", "no_recent_reports", "unavailable"):
         raise ValueError("METAR observations classification or status invalid")
+    metar_codes = {row["icao"] for row in observations.get("stations", [])}
+    for local in observations.get("locations", []):
+        refs = local.get("stations", [])
+        if not isinstance(refs, list) or len(refs) > 6 or len({r.get("icao") for r in refs}) != len(refs):
+            raise ValueError("Invalid regional METAR station references")
+        for ref in refs:
+            distance = ref.get("distance_km")
+            if (ref.get("icao") not in metar_codes or ref.get("scope") not in ("nearby_aerodrome", "regional_context_only")
+                    or not isinstance(distance, (int, float)) or isinstance(distance, bool)
+                    or not math.isfinite(distance) or not 0 <= distance <= 180.05):
+                raise ValueError("Invalid regional METAR station distance or scope")
+        if local.get("observation") and (local.get("distance_km") is None or local["distance_km"] > 100.05):
+            raise ValueError("Distant METAR cannot be primary local observation")
     if rain.get("kind") != "inmet_automatic_station_hourly_observed_rain_unvalidated" or rain.get("status") not in ("available", "unavailable", "not_configured", "no_nearby_catalog_stations", "access_restricted", "no_recent_data", "fixture_mode"):
         raise ValueError("INMET measured precipitation classification invalid")
     if rain["status"] == "fixture_mode" and not fixture:
@@ -130,6 +143,16 @@ def validate(output: Path, *, fixture: bool = False) -> None:
             {row.get("location_id") for row in cemaden_sensors["locations"]} !=
             {row["id"] for row in overview.get("locations", [])}):
         raise ValueError("Cemaden sensor geographical coverage incomplete")
+    sensor_codes = {row["code"] for row in cemaden_sensors.get("stations", [])}
+    for local in cemaden_sensors["locations"]:
+        refs = local.get("stations", [])
+        if len(refs) > 24 or len({r.get("code") for r in refs}) != len(refs):
+            raise ValueError("Cemaden station selection exceeds regional limit")
+        for ref in refs:
+            distance = ref.get("distance_km")
+            if (ref.get("code") not in sensor_codes or not isinstance(distance, (int, float))
+                    or isinstance(distance, bool) or not math.isfinite(distance) or not 0 <= distance <= 130.05):
+                raise ValueError("Invalid regional Cemaden station distance")
     for station in cemaden_sensors.get("stations", []):
         if not isinstance(station.get("readings"), list) or not station.get("readings"):
             raise ValueError("Cemaden station has no readings")

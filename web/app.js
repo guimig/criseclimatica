@@ -53,6 +53,15 @@ function child(tag, className, text) {
   return node;
 }
 function clear(element) { element.replaceChildren(); }
+function appendStationCards(target, cards, previewCount = 6) {
+  for (const card of cards.slice(0, previewCount)) target.append(card);
+  if (cards.length > previewCount) {
+    const more = child('details', 'more-stations');
+    more.append(child('summary', '', `Ver mais ${cards.length - previewCount} estações (${cards.length} no total)`));
+    for (const card of cards.slice(previewCount)) more.append(card);
+    target.append(more);
+  }
+}
 async function readJson(url) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
@@ -430,34 +439,42 @@ function renderObservations() {
   clear(target);
   const feed = state.observations;
   const record = feed?.locations?.find((item) => item.location_id === state.slug);
-  const observation = record?.status === 'available' ? record.observation : null;
-  const timestamp = observation?.observed_at ? Date.parse(observation.observed_at) : NaN;
-  const fresh = Number.isFinite(timestamp) && timestamp <= Date.now() + 10 * 60 * 1000 && Date.now() - timestamp <= 6 * 3600 * 1000;
-  if (feed?.status === 'unavailable' || !feed) {
+  if (!feed || feed.status === 'unavailable') {
     target.append(child('p', 'loading-label', 'Consulta METAR indisponível. Não há medição confirmada para exibir.'));
     $('observed-foot').textContent = 'Fonte: Aviation Weather Center (NOAA) · consulta indisponível';
     return;
   }
-  if (!observation || !fresh) {
-    target.append(child('p', 'loading-label', 'Nenhum boletim METAR recente de aeródromo próximo para esta localidade.'));
-    $('observed-foot').textContent = `Consulta aeronáutica: ${datetime(feed.retrieved_at)} · sem boletim recente aplicável`;
-    return;
+  const references = Array.isArray(record?.stations) ? record.stations :
+    record?.observation ? [{icao: record.observation.icao, distance_km: record.distance_km, scope: 'nearby_aerodrome'}] : [];
+  const cards = [];
+  for (const ref of references) {
+    const observation = feed.stations?.find((row) => row.icao === ref.icao) ||
+      (record?.observation?.icao === ref.icao ? record.observation : null);
+    if (!observation || !freshAt(observation.observed_at) || !freshAt(feed.retrieved_at)) continue;
+    const card = child('article', 'rain-station');
+    const heading = child('div', 'observed-heading');
+    heading.append(child('strong', '', `${observation.name} (${observation.icao})`),
+      child('span', '', `${value(ref.distance_km, 1)} km em linha reta`));
+    card.append(heading);
+    if (ref.scope === 'regional_context_only') card.append(child('p', 'alert-unknown', 'Contexto regional: aeródromo a mais de 100 km. Não descreve as condições desta localidade.'));
+    const metrics = child('div', 'observed-metrics');
+    for (const [label, amount] of [
+      ['TEMPERATURA MEDIDA', Number.isFinite(observation.temperature_c) ? `${value(observation.temperature_c, 1)} °C` : '--'],
+      ['VENTO MEDIDO', Number.isFinite(observation.wind_kmh) ? `${value(observation.wind_kmh, 1)} km/h` : '--'],
+      ['RAJADA MEDIDA', Number.isFinite(observation.gust_kmh) ? `${value(observation.gust_kmh, 1)} km/h` : '--'],
+    ]) {
+      const tile = child('div', 'observed-metric');
+      tile.append(child('span', '', label), child('strong', '', amount));
+      metrics.append(tile);
+    }
+    card.append(metrics, child('p', 'analysis-foot', `Medição no aeródromo: ${datetime(observation.observed_at)} · boletim METAR (NOAA). Não equivale à condição de todo o município.`));
+    cards.push(card);
   }
-  const heading = child('div', 'observed-heading');
-  heading.append(child('strong', '', `${observation.name} (${observation.icao})`), child('span', '', `${value(record.distance_km, 1)} km em linha reta`));
-  target.append(heading);
-  const metrics = child('div', 'observed-metrics');
-  for (const [label, amount] of [
-    ['TEMPERATURA MEDIDA', Number.isFinite(observation.temperature_c) ? `${value(observation.temperature_c, 1)} °C` : '--'],
-    ['VENTO MEDIDO', Number.isFinite(observation.wind_kmh) ? `${value(observation.wind_kmh, 1)} km/h` : '--'],
-    ['RAJADA MEDIDA', Number.isFinite(observation.gust_kmh) ? `${value(observation.gust_kmh, 1)} km/h` : '--'],
-  ]) {
-    const tile = child('div', 'observed-metric');
-    tile.append(child('span', '', label), child('strong', '', amount));
-    metrics.append(tile);
-  }
-  target.append(metrics);
-  $('observed-foot').textContent = `Medição no aeródromo: ${datetime(observation.observed_at)} · boletim METAR (NOAA). Não equivale à condição de todo o município.`;
+  if (cards.length) appendStationCards(target, cards);
+  else target.append(child('p', 'loading-label', 'Nenhum boletim METAR recente no raio regional para esta localidade. Isso não significa ausência de estações ou de risco.'));
+  const queried = feed.queried_stations || [];
+  const missing = queried.filter((row) => row.status !== 'available').map((row) => row.icao);
+  $('observed-foot').textContent = `NOAA · ${cards.length} aeródromo(s) com leitura válida até ${feed.selection?.regional_radius_km || 180} km · consulta: ${datetime(feed.retrieved_at)}${queried.length ? ` · ${queried.length} consultados na rede` : ''}${missing.length ? ` · sem boletim recente: ${missing.join(', ')}` : ''}. METAR não fornece chuva acumulada em mm.`;
 }
 function renderOfficialAlerts() {
   const target = $('official-alerts');
@@ -567,7 +584,8 @@ function renderCemaden() {
     const rows = allRows.filter((row) => freshAt(data.checked_at) && freshAt(row.observed_at));
     if (allRows.length && rows.length < allRows.length) target.append(child('p', 'alert-unknown', 'Há leituras desatualizadas, omitidas dos acumulados atuais. Consulte a fonte oficial.'));
     if (!allRows.length) target.append(child('p', 'loading-label', 'Nenhum pluviômetro Cemaden com leitura recente para este município. A ausência de leitura não significa chuva zero.'));
-    for (const station of rows.slice(0, 6)) {
+    const cards = [];
+    for (const station of rows) {
       const item = child('article', 'rain-station');
       item.append(child('strong', '', `Estação ${station.code}`));
       const metrics = child('div', 'observed-metrics');
@@ -585,8 +603,10 @@ function renderCemaden() {
         metrics.append(tile);
       }
       item.append(metrics, child('p', 'analysis-foot', `Registro da estação: ${datetime(station.observed_at)} · medição bruta.`));
-      target.append(item);
+      cards.push(item);
     }
+    if (cards.length) target.append(child('p', 'analysis-foot', `${cards.length} pluviômetro(s) com leitura válida neste município.`));
+    appendStationCards(target, cards);
   }
   $('cemaden-updated').textContent = `Cemaden PED · estado: ${status || 'indisponível'} · consulta: ${datetime(data?.checked_at)}. DADOS DA REDE OBSERVACIONAL DO CEMADEN/MCTIC · Credenciais nunca são enviadas ao navegador.`;
 }
@@ -612,7 +632,8 @@ function renderCemadenSensors() {
         : messages[status] || 'Integração de sensores não disponível.'));
   } else {
     const local = feed.locations?.find((row) => row.location_id === state.slug);
-    const nearby = Array.isArray(local?.stations) ? local.stations.slice(0, 5) : [];
+    const nearby = Array.isArray(local?.stations) ? local.stations : [];
+    const cards = [];
     if (!nearby.length) target.append(child('p', 'loading-label', messages.no_recent_data));
     for (const match of nearby) {
       const station = feed.stations?.find((item) => item.code === match.code);
@@ -634,8 +655,10 @@ function renderCemadenSensors() {
         metrics.append(metric);
       }
       card.append(metrics);
-      target.append(card);
+      cards.push(card);
     }
+    if (cards.length) target.append(child('p', 'analysis-foot', `${cards.length} estação(ões) selecionada(s) de ${local?.eligible_station_count ?? nearby.length} com leitura na área · raio de ${feed.selection?.radius_km || 130} km. Não representa cobertura de todo o município.`));
+    appendStationCards(target, cards);
   }
   $('cemaden-sensors-updated').textContent = `Cemaden PED · ${status || 'indisponível'} · consulta: ${datetime(feed?.checked_at)} · medições pontuais das últimas 3 horas quando válidas. DADOS DA REDE OBSERVACIONAL DO CEMADEN/MCTIC.`;
 }
@@ -727,6 +750,7 @@ function renderCoverage() {
     card.append(child('strong', '', product.name), child('p', 'analysis-foot', statuses[status] || status));
     const count = product.station_count === null ? 'Modelo numérico' : `${product.station_count} estação(ões) com dados na coleta`;
     card.append(child('p', '', count), child('p', '', product.variables.join(' · ') || 'Sem variável disponível'));
+    if (product.regional_context_only_count) card.append(child('p', 'analysis-foot', `${product.regional_context_only_count} aeródromo(s) apenas como contexto regional (>100 km).`));
     if (Number.isFinite(product.nearest_distance_km)) card.append(child('p', 'analysis-foot', `Mais próxima: ${value(product.nearest_distance_km, 1)} km em linha reta`));
     card.append(child('p', 'analysis-foot', `Referência mais recente: ${datetime(product.reference_at)} · consulta: ${datetime(product.checked_at)}. A idade varia por leitura; confira os painéis abaixo.`));
     target.append(card);
