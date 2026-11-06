@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#091521">
+  <meta name="description" content="Observatorio independente do tempo e clima do Litoral Norte de Santa Catarina, com previsoes modeladas e fontes identificadas.">
+  <title>Observat&oacute;rio | Tempo e Clima</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css">
+  <script defer src="./app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Ir para o conte&uacute;do</a>
+  <header class="site-header">
+    <div class="shell header-inner">
+      <a class="brand" href="./" aria-label="Observatorio do Tempo e Clima: inicio">
+        <span class="brand-mark" aria-hidden="true">◌</span>
+        <span class="brand-copy"><strong>OBSERVAT&Oacute;RIO</strong><small>TEMPO &amp; CLIMA</small></span>
+      </a>
+      <div class="header-right">
+        <span class="location-tag"><span class="green-dot"></span> LITORAL NORTE / SC</span>
+        <a href="https://github.com/guimig/criseclimatica" target="_blank" rel="noopener noreferrer" class="header-link">C&oacute;digo aberto <span aria-hidden="true">↗</span></a>
+      </div>
+    </div>
+  </header>
+  <main class="shell" id="main">
+    <section class="hero" aria-labelledby="headline">
+      <div class="hero-eyebrow"><span class="tiny-rule"></span> INTELIG&Ecirc;NCIA METEOROL&Oacute;GICA REGIONAL</div>
+      <div class="hero-row">
+        <div><h1 id="headline">O tempo muda.<br><em>Entenda o contexto.</em></h1><p>Previs&otilde;es abertas, territ&oacute;rios conectados e dados com origem identificada. Um olhar atento sobre Araquari e o litoral norte catarinense.</p></div>
+        <div class="hero-badge" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="orbit-center">☀</div></div>
+      </div>
+      <div class="update-bar">
+        <div class="update-left"><span class="signal" id="signal"></span><span id="system-status" role="status" aria-live="polite">Carregando dados...</span></div>
+        <div class="update-right"><span id="updated-at">--</span><button id="reload" type="button" title="Recarregar dados">↻ <span>Atualizar</span></button></div>
+      </div>
+    </section>
+
+    <section class="location-head" aria-label="Selecao de municipio">
+      <div><span class="section-kicker">PAINEL LOCAL</span><h2 id="place-title">Araquari <span class="state">/ SC</span></h2><p id="place-subtitle">Selecione um munic&iacute;pio para visualizar os dados do modelo.</p></div>
+      <div class="select-wrap"><label for="location-select">MUNIC&Iacute;PIO</label><select id="location-select" aria-label="Municipio selecionado" disabled><option>Carregando...</option></select></div>
+    </section>
+
+    <div class="disclaimer" role="note"><span class="information-icon">i</span><div><strong>Dados estimados por modelo.</strong> As condi&ccedil;&otilde;es atuais e as proje&ccedil;&otilde;es desta vers&atilde;o v&ecirc;m da Open-Meteo. N&atilde;o s&atilde;o medi&ccedil;&otilde;es de esta&ccedil;&otilde;es nem alertas oficiais.</div></div>
+
+    <section class="metrics" aria-label="Indicadores meteorologicos atuais">
+      <article class="metric metric-primary"><div class="metric-label">TEMPERATURA ESTIMADA <span aria-hidden="true">↗</span></div><div class="metric-number" id="temp">--</div><div class="metric-detail" id="weather">Sem informa&ccedil;&atilde;o</div></article>
+      <article class="metric"><div class="metric-label">SENSA&Ccedil;&Atilde;O T&Eacute;RMICA</div><div class="metric-number" id="feels">--</div><div class="metric-detail">Estimativa &agrave; superf&iacute;cie</div></article>
+      <article class="metric"><div class="metric-label">UMIDADE RELATIVA</div><div class="metric-number" id="humidity">--</div><div class="metric-detail">Pr&oacute;ximo da superf&iacute;cie</div></article>
+      <article class="metric"><div class="metric-label">VENTO / RAJADAS</div><div class="metric-number small-number" id="wind">--</div><div class="metric-detail">km/h &bull; estimativa do modelo</div></article>
+    </section>
+
+    <div class="dashboard-grid">
+      <section class="panel chart-panel" aria-labelledby="chart-title">
+        <div class="panel-top"><div><span class="section-kicker">EVOLU&Ccedil;&Atilde;O HOR&Aacute;RIA</span><h3 id="chart-title">Pr&oacute;ximas 24 horas</h3></div><div class="segmented" role="group" aria-label="Variavel do grafico"><button type="button" class="active" data-metric="temperature_c" aria-pressed="true">Temperatura</button><button type="button" data-metric="precipitation_mm" aria-pressed="false">Chuva</button><button type="button" data-metric="gust_kmh" aria-pressed="false">Rajadas</button></div></div>
+        <div class="chart-frame" id="chart" role="img" aria-label="Grafico das proximas 24 horas"><span class="loading-label">Carregando gr&aacute;fico...</span></div>
+        <div class="chart-footer"><span class="legend-dot"></span><span id="chart-legend">Dados de previs&atilde;o, n&atilde;o de esta&ccedil;&atilde;o</span></div>
+      </section>
+      <section class="panel detail-panel" aria-labelledby="detail-title">
+        <div class="panel-top"><div><span class="section-kicker">DETALHAMENTO</span><h3 id="detail-title">Condi&ccedil;&otilde;es previstas</h3></div><span class="panel-icon" aria-hidden="true">☁</span></div>
+        <div class="detail-stats"><div><span>CHUVA NAS PR&Oacute;X. 24H</span><strong id="rain-24">--</strong></div><div><span>PRECIPITA&Ccedil;&Atilde;O NA HORA</span><strong id="rain-now">--</strong></div><div><span>RAJADA ESTIMADA</span><strong id="gust-now">--</strong></div><div><span>PRESS&Atilde;O AO N&Iacute;VEL DO MAR</span><strong id="pressure">--</strong></div></div>
+        <div class="detail-bottom"><span class="info-line">◉ Fonte: <a href="https://open-meteo.com/en/docs" target="_blank" rel="noopener noreferrer">Open-Meteo</a></span><span id="model-time">Refer&ecirc;ncia: --</span></div>
+      </section>
+    </div>
+
+    <section class="panel daily-panel" aria-labelledby="daily-title"><div class="panel-top"><div><span class="section-kicker">TEND&Ecirc;NCIA</span><h3 id="daily-title">Pr&oacute;ximos dias</h3></div><span class="helper-label">Previs&atilde;o por modelo</span></div><div class="daily-grid" id="daily-grid"><span class="loading-label">Carregando previs&atilde;o...</span></div></section>
+
+    <section class="territory-section" aria-labelledby="territory-title"><div class="section-heading"><div><span class="section-kicker">VIS&Atilde;O DO TERRIT&Oacute;RIO</span><h2 id="territory-title">Litoral Norte de Santa Catarina</h2><p>Uma leitura comparativa de sete pontos de refer&ecirc;ncia regionais.</p></div><span class="helper-label" id="territory-count">-- localidades</span></div><div class="territory-grid" id="territory-grid"></div></section>
+
+    <section class="lower-grid" aria-label="Fontes e alertas">
+      <article class="panel alert-panel"><span class="section-kicker">SEGURAN&Ccedil;A E DEFESA CIVIL</span><h3>Avisos oficiais</h3><p>A integra&ccedil;&atilde;o autom&aacute;tica de alertas est&aacute; planejada, mas ainda n&atilde;o foi validada. Consulte as autoridades antes de tomar decis&otilde;es de seguran&ccedil;a.</p><div class="reference-links"><a href="https://www.defesacivil.sc.gov.br/" target="_blank" rel="noopener noreferrer">Defesa Civil SC ↗</a><a href="https://alertas2.inmet.gov.br/" target="_blank" rel="noopener noreferrer">Avisos INMET ↗</a></div></article>
+      <article class="panel source-panel"><span class="section-kicker">TRANSPAR&Ecirc;NCIA</span><h3>Sobre estes dados</h3><p>Os valores da primeira vers&atilde;o s&atilde;o estimativas e previs&otilde;es de modelo. Observa&ccedil;&otilde;es de esta&ccedil;&otilde;es, hidrologia e radar dependem de integra&ccedil;&otilde;es futuras.</p><div class="source-line"><span>FONTE</span><strong>Open-Meteo</strong></div><div class="source-line"><span>HOR&Aacute;RIO</span><strong id="source-time">--</strong></div><div class="source-line"><span>LOCALIZA&Ccedil;&Atilde;O</span><strong id="coordinates">--</strong></div></article>
+    </section>
+  </main>
+  <footer class="site-footer"><div class="shell footer-inner"><div><strong>OBSERVAT&Oacute;RIO / TEMPO &amp; CLIMA</strong><p>Projeto aberto e independente. N&atilde;o substitui alertas e orienta&ccedil;&otilde;es da Defesa Civil.</p></div><div><span>Dados meteorol&oacute;gicos: <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a></span><span><a href="https://github.com/guimig/criseclimatica" target="_blank" rel="noopener noreferrer">Reposit&oacute;rio no GitHub ↗</a></span></div></div></footer>
+</body>
+</html>

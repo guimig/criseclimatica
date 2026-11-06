@@ -1,0 +1,27 @@
+name: Quality checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test Python modules
+        run: python -m unittest discover -s tests -v
+      - name: Verify Python syntax
+        run: python -m compileall -q src scripts
+      - name: Verify browser JavaScript syntax
+        run: node --check web/app.js
+      - name: Build offline synthetic fixture for smoke test
+        run: python scripts/build_site.py --fixture tests/fixtures/open_meteo.json --output dist
