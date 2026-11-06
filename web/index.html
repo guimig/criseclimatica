@@ -68,6 +68,21 @@
 
     <section class="territory-section" aria-labelledby="territory-title"><div class="section-heading"><div><span class="section-kicker">VIS&Atilde;O DO TERRIT&Oacute;RIO</span><h2 id="territory-title">Litoral Norte de Santa Catarina</h2><p>Uma leitura comparativa de sete pontos de refer&ecirc;ncia regionais.</p></div><span class="helper-label" id="territory-count">-- localidades</span></div><div class="territory-grid" id="territory-grid"></div></section>
 
+    <section class="analysis-grid" aria-label="Redes observacionais e historico">
+      <article class="panel station-panel" aria-labelledby="stations-title">
+        <div class="panel-top"><div><span class="section-kicker">REDE OBSERVACIONAL</span><h3 id="stations-title">Estações próximas</h3></div><span class="helper-label" id="station-count">Cadastro INMET</span></div>
+        <p class="analysis-explainer">Distâncias em linha reta até estações cadastradas pelo INMET. O estado cadastral não confirma transmissão atual e <strong>não há medições instrumentais nesta versão.</strong></p>
+        <div class="station-grid" id="station-grid" aria-live="polite"><span class="loading-label">Carregando cadastro...</span></div>
+        <p class="analysis-foot" id="station-updated">Fonte: <a href="https://apitempo.inmet.gov.br/estacoes/T" target="_blank" rel="noopener noreferrer">Catálogo INMET ↗</a></p>
+      </article>
+      <article class="panel history-panel" aria-labelledby="history-title">
+        <div class="panel-top"><div><span class="section-kicker">HISTÓRICO DE PUBLICAÇÕES</span><h3 id="history-title">Evolução das estimativas</h3></div><span class="helper-label" id="history-count">-- dias</span></div>
+        <p class="analysis-explainer">Uma estimativa de temperatura por dia publicado (última coleta do dia). <strong>Não representa a média ou a máxima diária, nem observações climáticas.</strong></p>
+        <div class="history-chart" id="history-chart" role="img" aria-label="Ultimas estimativas diarias de temperatura"><span class="loading-label">Carregando histórico...</span></div>
+        <p class="analysis-foot" id="history-updated">Histórico progressivo, conservado entre publicações disponíveis.</p>
+      </article>
+    </section>
+
     <section class="lower-grid" aria-label="Fontes e alertas">
       <article class="panel alert-panel"><span class="section-kicker">SEGURAN&Ccedil;A E DEFESA CIVIL</span><h3>Avisos oficiais</h3><p>A integra&ccedil;&atilde;o autom&aacute;tica de alertas est&aacute; planejada, mas ainda n&atilde;o foi validada. Consulte as autoridades antes de tomar decis&otilde;es de seguran&ccedil;a.</p><div class="reference-links"><a href="https://www.defesacivil.sc.gov.br/" target="_blank" rel="noopener noreferrer">Defesa Civil SC ↗</a><a href="https://alertas2.inmet.gov.br/" target="_blank" rel="noopener noreferrer">Avisos INMET ↗</a></div></article>
       <article class="panel source-panel"><span class="section-kicker">TRANSPAR&Ecirc;NCIA</span><h3>Sobre estes dados</h3><p>Os valores da primeira vers&atilde;o s&atilde;o estimativas e previs&otilde;es de modelo. Observa&ccedil;&otilde;es de esta&ccedil;&otilde;es, hidrologia e radar dependem de integra&ccedil;&otilde;es futuras.</p><div class="source-line"><span>FONTE</span><strong>Open-Meteo</strong></div><div class="source-line"><span>HOR&Aacute;RIO</span><strong id="source-time">--</strong></div><div class="source-line"><span>LOCALIZA&Ccedil;&Atilde;O</span><strong id="coordinates">--</strong></div></article>

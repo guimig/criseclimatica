@@ -28,7 +28,9 @@ jobs:
       - name: Validate code before collecting
         run: python -m unittest discover -s tests -v
       - name: Fetch live forecast and build static site
-        run: python scripts/build_site.py --output dist
+        run: python scripts/build_site.py --output dist --previous-url https://guimig.github.io/criseclimatica/
+      - name: Verify dataset integrity
+        run: python scripts/validate_site.py --output dist
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
       - name: Upload site artifact

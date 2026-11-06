@@ -1,6 +1,6 @@
 'use strict';
 
-const state = { overview: null, detail: null, slug: null, metric: 'temperature_c', requestId: 0 };
+const state = { overview: null, detail: null, stations: null, history: null, slug: null, metric: 'temperature_c', requestId: 0 };
 const $ = (id) => document.getElementById(id);
 const tz = 'America/Sao_Paulo';
 const units = { temperature_c: '\u00b0C', precipitation_mm: 'mm', gust_kmh: 'km/h' };
@@ -134,6 +134,57 @@ function renderChart() {
   frame.append(root);
   $('chart-legend').textContent = `${descriptors[state.metric]} (${units[state.metric]}) \u2022 fonte Open-Meteo`;
 }
+function renderStations() {
+  const target = $('station-grid');
+  clear(target);
+  const catalog = state.stations;
+  const record = catalog?.locations?.find((item) => item.location_id === state.slug);
+  const stations = Array.isArray(record?.stations) ? record.stations : [];
+  $('station-count').textContent = stations.length ? `${stations.length} estações no entorno` : 'Sem estações disponíveis';
+  $('station-updated').textContent = catalog?.retrieved_at ? `Catálogo INMET: ${datetime(catalog.retrieved_at)} (${catalog.catalog_status === 'stale' ? 'cópia desatualizada' : 'metadados'})` : 'Catálogo INMET indisponível para consulta automatizada';
+  if (!stations.length) { target.append(child('p', 'loading-label', 'Não foi possível identificar estações próximas nesta publicação.')); return; }
+  for (const station of stations) {
+    const item = child('div', 'station-item');
+    const heading = child('div', 'station-main');
+    heading.append(child('strong', '', station.name), child('span', '', station.code));
+    const distance = child('span', 'station-distance', `${value(station.distance_km, 1)} km`);
+    const status = child('span', 'station-status', `Cadastro: ${station.catalog_status || 'não informado'}`);
+    item.append(heading, distance, status);
+    target.append(item);
+  }
+}
+function renderHistory() {
+  const target = $('history-chart');
+  clear(target);
+  const history = state.history;
+  const rows = history?.records?.filter((row) => row.location_id === state.slug && Number.isFinite(row.temperature_c)).slice(-35) || [];
+  $('history-count').textContent = `${rows.length} dia${rows.length === 1 ? '' : 's'} registrado${rows.length === 1 ? '' : 's'}`;
+  $('history-updated').textContent = rows.length ? `De ${rows[0].day_local} a ${rows[rows.length - 1].day_local} · valores de modelo (não medidos)` : 'O histórico é formado progressivamente a cada nova publicação.';
+  if (!rows.length) { target.append(child('p', 'loading-label', 'O histórico começará a aparecer após a primeira publicação com dados.')); return; }
+  if (rows.length === 1) {
+    target.append(child('p', 'history-single', `${value(rows[0].temperature_c, 1)} °C`));
+    target.append(child('p', 'loading-label', `Referência do modelo: ${datetime(rows[0].model_reference_at)}`));
+    return;
+  }
+  const w = 600, h = 180, left = 42, right = 12, top = 14, bottom = 34;
+  const vals = rows.map((r) => r.temperature_c);
+  let min = Math.floor(Math.min(...vals) - 2), max = Math.ceil(Math.max(...vals) + 2);
+  if (max <= min) max = min + 1;
+  const x = (i) => left + i * (w - left - right) / (rows.length - 1);
+  const y = (v) => top + (h - top - bottom) * (1 - (v - min) / (max - min));
+  const root = svg('svg', { viewBox: `0 0 ${w} ${h}`, role: 'img', 'aria-label': `Ultimas ${rows.length} temperaturas estimadas, de ${value(vals[0], 1)} a ${value(vals[vals.length-1], 1)} graus` });
+  for (let n = 0; n <= 4; n++) {
+    const v = min + n * (max - min) / 4;
+    const py = y(v);
+    root.append(svg('line', {x1: left, x2: w-right, y1: py, y2: py, class: 'chart-grid'}));
+    root.append(svg('text', {x: left-7, y: py+4, 'text-anchor': 'end', class: 'chart-label'}, value(v, 0)));
+  }
+  root.append(svg('path', {d: rows.map((r, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(r.temperature_c).toFixed(1)}`).join(' '), class: 'chart-curve'}));
+  [0, Math.floor((rows.length - 1) / 2), rows.length - 1].forEach((i) => {
+    root.append(svg('text', {x: x(i), y: h - 9, 'text-anchor': 'middle', class: 'chart-label'}, rows[i].day_local.slice(5).replace('-', '/')));
+  });
+  target.append(root);
+}
 function clearDetails() {
   for (const id of ['temp', 'feels', 'humidity', 'wind', 'rain-24', 'rain-now', 'gust-now', 'pressure', 'model-time', 'coordinates', 'source-time']) $(id).textContent = '--';
   $('weather').textContent = 'Dados indispon\u00edveis';
@@ -171,6 +222,8 @@ async function selectLocation(slug) {
   $('place-subtitle').textContent = 'Ponto de refer\u00eancia para o modelo meteorol\u00f3gico';
   $('location-select').value = slug;
   renderTerritory();
+  renderStations();
+  renderHistory();
   clearDetails();
   if (place.status !== 'available') return;
   try {
@@ -191,6 +244,12 @@ async function boot() {
     const overview = await readJson('./data/latest.json');
     if (!Array.isArray(overview.locations) || overview.schema_version !== 1 || overview.fixture_mode) throw new Error('Invalid or test dataset');
     state.overview = overview;
+    const [stations, history] = await Promise.all([
+      readJson('./data/stations.json').catch(() => null),
+      readJson('./data/history.json').catch(() => null),
+    ]);
+    state.stations = stations?.schema_version === 1 && stations?.kind === 'station_catalog_metadata_not_measurements' ? stations : null;
+    state.history = history?.schema_version === 1 && history?.kind === 'daily_last_model_publication_not_station_observation' ? history : null;
     const select = $('location-select');
     clear(select);
     for (const loc of overview.locations) {
