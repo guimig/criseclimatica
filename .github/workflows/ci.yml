@@ -24,4 +24,6 @@ jobs:
       - name: Verify browser JavaScript syntax
         run: node --check web/app.js
       - name: Build offline synthetic fixture for smoke test
-        run: python scripts/build_site.py --fixture tests/fixtures/open_meteo.json --output dist
+        run: python scripts/build_site.py --fixture tests/fixtures/open_meteo.json --stations-fixture tests/fixtures/inmet_catalog.json --output dist
+      - name: Validate generated datasets
+        run: python scripts/validate_site.py --output dist --fixture

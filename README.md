@@ -8,12 +8,12 @@ Projeto aberto de monitoramento meteorologico, com foco em Araquari e no Litoral
 
 - `src/observatorio/`: adaptadores, normalizacao, validacao, consolidacao e armazenamento local portavel.
 - `config/locations.json`: sete coordenadas aproximadas usadas para amostragem do modelo. **Nao representam o limite municipal**.
-- `scripts/build_site.py`: consulta Open-Meteo e gera `dist/` para publicacao.
+- `scripts/build_site.py`: consulta Open-Meteo, prepara histórico diário de publicações, inventaria estações INMET e gera `dist/`.
 - `web/`: frontend HTML/CSS/JavaScript sem backend de navegador.
 - `tests/`: testes automatizados offline, com respostas ficticias.
 - `.github/workflows/ci.yml`: testes em pushes e pull requests.
 - `.github/workflows/pages.yml`: consulta real e publicacao a cada tres horas, com disparo manual.
-- `docs/`: arquitetura, fontes e roadmap de integracao.
+- `docs/`: arquitetura, fontes, roadmap, retenção e política de integração.
 
 Nenhuma credencial e enviada ao navegador; o provedor inicial nao exige token para uso nao comercial. O processamento e executado no servidor temporario do GitHub Actions, e os arquivos JSON resultantes sao publicados estaticamente. Quando uma fonte falha por completo, a compilacao falha e a implantacao anterior nao deve ser substituida.
 
@@ -34,7 +34,8 @@ Abra `http://localhost:8000`. O comando de coleta real exige conexao HTTPS e dis
 Para compilar sem acesso a internet, usando **dados sinteticos exclusivamente para testes**:
 
 ```bash
-python scripts/build_site.py --fixture tests/fixtures/open_meteo.json --output dist
+python scripts/build_site.py --fixture tests/fixtures/open_meteo.json --stations-fixture tests/fixtures/inmet_catalog.json --output dist
+python scripts/validate_site.py --output dist --fixture
 ```
 
 O site com `fixture_mode` nunca deve ser publicado: o navegador recusa o conjunto sinalizado como teste.
@@ -51,7 +52,7 @@ O Pages nao executa Python quando alguem abre o site. O Python roda apenas duran
 
 ## Armazenamento e historicos
 
-A entrega inicial **nao usa banco, Drive ou planilhas**. Gera snapshots JSON pequenos para o site e inclui primitivas testadas para gravar e recuperar JSONL.GZ no disco, sem persistencia historica automatica entre workflows. GitHub Pages tambem nao constitui um repositorio historico permanente.
+A fase incremental publica um **histórico progressivo de um snapshot de modelo por dia e localidade, limitado aos últimos 366 dias**, recuperando o arquivo da publicação anterior no GitHub Pages. Isso **não é backup independente** e não representa uma série de observações meteorológicas. O código também mantém as primitivas JSONL.GZ locais; integração a armazenamento externo permanente ainda depende de credenciais e validação. Não são utilizados banco pago, Drive ou planilhas no fluxo padrão.
 
 A fase seguinte contemplara retenção seletiva (arquivo recente, resumo horario/diario/mensal, eventos) com backend externo gratuito quando a conectividade e o armazenamento forem validados. Nao se pretende registrar snapshots a cada tres horas em commits, pois isso aumenta desnecessariamente o historico Git. Consulte [Arquitetura](docs/ARQUITETURA.md).
 
@@ -65,9 +66,11 @@ Dados numericos: [Open-Meteo](https://open-meteo.com/en/docs) (uso gratuito nao 
 - [x] Build estatico e frontend responsivo por municipio.
 - [x] Testes automatizados e pipeline de publicacao.
 - [x] Primitivas para arquivos JSONL.GZ.
-- [ ] Validar execucao real da API no GitHub Actions e publicar Pages.
+- [x] Usuario confirmou publicação e funcionamento inicial do GitHub Pages.
+- [x] Inventário de estações INMET próximas, usando apenas metadados oficiais (sem medidas).
+- [x] Histórico progressivo de publicações do modelo (não séries observadas).
 - [ ] Integrar observacoes instrumentais e alertas oficiais.
 - [ ] Persistencia historica externa e retencao automatica completa.
 - [ ] Dados hidrologicos, estações, mapas e comparacao de modelos.
 
-Para o detalhamento, consulte [Roadmap](docs/ROADMAP.md) e [Fontes](docs/FONTES.md).
+Para o detalhamento, consulte [Roadmap](docs/ROADMAP.md), [Fontes](docs/FONTES.md) e [Histórico e estações](docs/HISTORICO_E_ESTACOES.md).
