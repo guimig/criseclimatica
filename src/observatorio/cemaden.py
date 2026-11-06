@@ -17,11 +17,24 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
+from .cemaden_auth import SgaaAuthError, SgaaSession
+
 API = "https://sws.cemaden.gov.br/PED/rest/pcds-acum/acumulados-recentes"
 DOCS = "https://sws.cemaden.gov.br/PED/api/ui/"
 KIND = "cemaden_recent_observed_station_rainfall_raw"
 IBGE = re.compile(r"\d{7}")
 STATION = re.compile(r"[A-Za-z0-9-]{4,25}")
+ACCUMULATION_FIELDS = {
+    "acc1hr": ("rain_1h_mm", 500),
+    "acc3hr": ("rain_3h_mm", 750),
+    "acc6hr": ("rain_6h_mm", 1000),
+    "acc12hr": ("rain_12h_mm", 1200),
+    "acc24hr": ("rain_24h_mm", 1500),
+    "acc48hr": ("rain_48h_mm", 2500),
+    "acc72hr": ("rain_72h_mm", 3500),
+    "acc96hr": ("rain_96h_mm", 4500),
+    "acc120hr": ("rain_120h_mm", 5500),
+}
 
 
 class CemadenError(RuntimeError):
@@ -53,7 +66,10 @@ def fetch(ibge: str, token: str, *, timeout: int = 12) -> list[dict[str, Any]]:
             raise CemadenError("Cemaden API returned an invalid dataset")
         return raw
     except HTTPError as exc:
-        reason = "access_restricted" if exc.code in (401, 403) else "unavailable"
+        reason = ("token_expired" if exc.code == 401 else
+                  "bad_request" if exc.code == 400 else
+                  "access_restricted" if exc.code == 403 else
+                  "rate_limited" if exc.code == 429 else "unavailable")
         raise CemadenError("Cemaden request rejected", reason) from None
     except (URLError, TimeoutError, OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as exc:
         raise CemadenError("Cemaden request could not be completed") from None
@@ -93,12 +109,12 @@ def normalize(raw: Any, ibge: str, now: datetime) -> list[dict[str, Any]]:
             continue
         if not -timedelta(minutes=10) <= now - time <= timedelta(hours=6):
             continue
-        r1 = _number(item.get("acc1hr"), 500)
-        r24 = _number(item.get("acc24hr"), 1500)
-        if r1 is None and r24 is None:
+        accumulations = {field: _number(item.get(api_field), upper)
+                         for api_field, (field, upper) in ACCUMULATION_FIELDS.items()}
+        if all(value is None for value in accumulations.values()):
             continue
         entry = {"code": code, "observed_at": time.isoformat(timespec="seconds").replace("+00:00", "Z"),
-                 "rain_1h_mm": r1, "rain_24h_mm": r24,
+                 **accumulations,
                  "quality": "cemaden_raw_station_accumulations_not_municipality_averages"}
         old = by_station.get(code)
         if old is None or entry["observed_at"] > old["observed_at"]:
