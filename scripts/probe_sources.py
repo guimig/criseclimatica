@@ -18,6 +18,8 @@ sys.path.insert(0, str(ROOT / "src"))
 from observatorio.config import load_locations  # noqa: E402
 from observatorio.defesa_civil_sc import collect as collect_defesa  # noqa: E402
 from observatorio.inmet_archive import ARCHIVE_ROOT  # noqa: E402
+from observatorio.epagri_geo import collect as collect_geo  # noqa: E402
+from observatorio.epagri_notices import collect as collect_advisories  # noqa: E402
 
 
 def main() -> int:
@@ -37,6 +39,11 @@ def main() -> int:
         print(f"INMET annual ZIP HEAD: HTTP {exc.code}; HEAD may be unsupported; no download attempted")
     except (URLError, TimeoutError, OSError) as exc:
         print(f"INMET annual ZIP HEAD: unavailable ({type(exc).__name__}); no download attempted")
+    geo = collect_geo(locations, stamp)
+    registry_count = sum(len(item.get("stations", [])) for item in geo.get("locations", []))
+    print(f"Epagri ArcGIS registry: {geo['status']}; nearby listings={registry_count}; source is metadata only")
+    advisories = collect_advisories(stamp)
+    print(f"Epagri/Ciram RSS advisories: {advisories['status']}; publications={len(advisories.get('notices', []))}")
     print("Network probes are informational; validate actual datasets after publishing.")
     return 0
 

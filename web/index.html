@@ -91,6 +91,13 @@
       </article>
     </section>
 
+    <section class="panel epagri-registry-panel" aria-labelledby="epagri-registry-title">
+      <div class="panel-top"><div><span class="section-kicker">REDE AMBIENTAL REGIONAL / EPAGRI</span><h3 id="epagri-registry-title">Estações ambientais próximas</h3></div><span class="helper-label" id="epagri-registry-count">Cadastro geográfico</span></div>
+      <p class="analysis-explainer">Cadastro georreferenciado de estações meteorológicas e agrometeorológicas publicado pela Epagri. <strong>Estar cadastrado não confirma funcionamento atual nem disponibilidade de medições.</strong> Inclui identificação, classe, responsável e distância em linha reta, quando disponíveis.</p>
+      <div class="station-grid" id="epagri-registry-list" aria-live="polite"><span class="loading-label">Verificando cadastro Epagri...</span></div>
+      <p class="analysis-foot" id="epagri-registry-updated">Fonte: <a href="https://gis.epagri.sc.gov.br/arcgis/rest/services/Zoneamento/Potencial_estacoes/MapServer/1" target="_blank" rel="noopener noreferrer">Catálogo geográfico Epagri/SC</a>. Sem dados meteorológicos ao vivo.</p>
+    </section>
+
     <section class="panel observed-panel" aria-labelledby="observed-title">
       <div class="panel-top"><div><span class="section-kicker">OBSERVAÇÃO INSTRUMENTAL REGIONAL</span><h3 id="observed-title">Medições em aeródromos próximos</h3></div><span class="helper-label">METAR · NOAA</span></div>
       <p class="analysis-explainer">Registros meteorológicos produzidos em aeródromos. <strong>Não são medições realizadas em todo o município</strong> e não representam precipitação acumulada em pluviômetros.</p>
@@ -149,6 +156,14 @@
       <p class="analysis-foot" id="defesa-updated">Acompanhe os canais oficiais em caso de risco. Emergência: 199 ou 193.</p>
       <div class="reference-links"><a href="https://www.defesacivil.sc.gov.br/alerta/" target="_blank" rel="noopener noreferrer">Alertas SC ↗</a><a href="https://www.defesacivil.sc.gov.br/boletins-do-tempo/" target="_blank" rel="noopener noreferrer">Boletins SC ↗</a><a href="https://araquari.atende.net/subportal/secretaria-de-seguranca-publica-e-defesa-civil" target="_blank" rel="noopener noreferrer">Defesa Civil de Araquari ↗</a><a href="https://ciram.epagri.sc.gov.br/index.php/avisos-meteorologicos/" target="_blank" rel="noopener noreferrer">Avisos Epagri/Ciram ↗</a></div>
     </section>
+    <section class="panel epagri-advisory-panel" aria-labelledby="epagri-advisory-title">
+      <div class="panel-top"><div><span class="section-kicker">AVISOS METEOROLÓGICOS / EPAGRI-CIRAM</span><h3 id="epagri-advisory-title">Avisos regionais publicados</h3></div><span class="helper-label" id="epagri-advisory-count">Fonte oficial SC</span></div>
+      <p class="analysis-explainer">Publicações dos meteorologistas da Epagri/Ciram. A janela temporal só aparece se estiver explicitamente no boletim; <strong>abrangência regional não é confirmação de alerta municipal, e não substitui a Defesa Civil.</strong></p>
+      <div id="epagri-advisory-list" class="civil-defense-list" aria-live="polite"><span class="loading-label">Verificando avisos Epagri...</span></div>
+      <p class="analysis-foot" id="epagri-advisory-updated">Consulte sempre o boletim original para condições e abrangência.</p>
+      <div class="reference-links"><a href="https://ciram.epagri.sc.gov.br/index.php/avisos-meteorologicos/" target="_blank" rel="noopener noreferrer">Avisos Epagri/Ciram ↗</a><a href="https://ciram.epagri.sc.gov.br/index.php/category/avisos-meteorologicos/" target="_blank" rel="noopener noreferrer">Publicações anteriores ↗</a></div>
+    </section>
+
     <section class="panel notice-archive-panel" aria-labelledby="notice-archive-title">
       <div class="panel-top"><div><span class="section-kicker">MEMÓRIA DOS AVISOS OFICIAIS</span><h3 id="notice-archive-title">Avisos anteriormente publicados</h3></div><span class="helper-label" id="notice-archive-count">Histórico</span></div>
       <p class="analysis-explainer">Registra avisos que foram retornados pela fonte oficial nas publicações anteriores. Não é comprovação de desastre, nem substitui a consulta aos avisos atualmente vigentes.</p>

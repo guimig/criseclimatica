@@ -21,7 +21,19 @@ def validate(output: Path, *, fixture: bool = False) -> None:
     cptec = json.loads((data / "cptec.json").read_text(encoding="utf-8"))
     defesa_sc = json.loads((data / "defesa_civil_sc.json").read_text(encoding="utf-8"))
     archive = json.loads((data / "inmet_archive.json").read_text(encoding="utf-8"))
+    epagri_geo = json.loads((data / "epagri_geo.json").read_text(encoding="utf-8"))
+    epagri_notices = json.loads((data / "epagri_notices.json").read_text(encoding="utf-8"))
     notices_archive = json.loads((data / "notice_history.json").read_text(encoding="utf-8"))
+    if epagri_geo.get("kind") != "epagri_arcgis_station_registry_not_live_measurements":
+        raise ValueError("Epagri station registry incorrectly classified")
+    if epagri_notices.get("kind") != "epagri_ciram_official_advisories_not_civil_defense_alerts":
+        raise ValueError("Epagri notices incorrectly classified")
+    if epagri_geo.get("status") in ("available", "cached", "stale"):
+        if {row.get("location_id") for row in epagri_geo.get("locations", [])} != {loc.get("id") for loc in overview.get("locations", [])}:
+            raise ValueError("Incomplete Epagri registry geographical coverage")
+    for advisory in epagri_notices.get("notices", []):
+        if not isinstance(advisory, dict) or advisory.get("notice_kind") != "epagri_meteorological_advisory_not_civil_defense_alert":
+            raise ValueError("Invalid Epagri advisory classification")
     if overview.get("schema_version") != 1 or overview.get("fixture_mode", False) is not fixture:
         raise ValueError("Unexpected manifest schema or fixture mode")
     if not overview.get("available_locations") or not overview.get("locations"):

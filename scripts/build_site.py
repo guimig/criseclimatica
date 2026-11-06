@@ -28,6 +28,8 @@ from observatorio.notice_archive import merge_notice_archive  # noqa: E402
 from observatorio.inmet import CatalogError, fetch_catalog, nearby_catalog, normalize_catalog, now_utc  # noqa: E402
 from observatorio.cptec import collect as collect_cptec  # noqa: E402
 from observatorio.defesa_civil_sc import collect as collect_defesa  # noqa: E402
+from observatorio.epagri_geo import collect as collect_epagri_geo  # noqa: E402
+from observatorio.epagri_notices import collect as collect_epagri_notices  # noqa: E402
 from observatorio.open_meteo import OpenMeteoClient, normalize  # noqa: E402
 from observatorio.pipeline import collect  # noqa: E402
 from observatorio.storage import write_json_atomic  # noqa: E402
@@ -147,6 +149,8 @@ def build(
     previous_nasa = None
     previous_defesa = None
     previous_inmet_archive = None
+    previous_epagri_geo = None
+    previous_epagri_notices = None
     if previous_url and fixture is None:
         previous_history = fetch_previous_json(previous_url, "data/history.json")
         previous_overview = fetch_previous_json(previous_url, "data/latest.json", max_bytes=800_000)
@@ -160,13 +164,19 @@ def build(
             print(f"Previous NASA model unavailable: {type(exc).__name__}", file=sys.stderr)
         # Optional source-state cache is deliberately not a history database.
         for filename, label in (("data/defesa_civil_sc.json", "Defesa Civil"),
-                                ("data/inmet_archive.json", "INMET annual")):
+                                ("data/inmet_archive.json", "INMET annual"),
+                                ("data/epagri_geo.json", "Epagri stations"),
+                                ("data/epagri_notices.json", "Epagri advisories")):
             try:
                 old = fetch_previous_json(previous_url, filename, max_bytes=450_000)
                 if label == "Defesa Civil":
                     previous_defesa = old
-                else:
+                elif label == "INMET annual":
                     previous_inmet_archive = old
+                elif label == "Epagri stations":
+                    previous_epagri_geo = old
+                elif label == "Epagri advisories":
+                    previous_epagri_notices = old
             except (RuntimeError, ValueError) as exc:
                 print(f"Previous {label} cache unavailable: {type(exc).__name__}", file=sys.stderr)
         # A metadata outage should not disable the weather and history updates.
@@ -227,11 +237,19 @@ def build(
     defensa_fixture = ({"alerta_publicado": (ROOT / "tests" / "fixtures" / "defesa_sc.xml").read_text(encoding="utf-8")}
                        if fixture is not None else None)
     defesa_sc = collect_defesa(locations, stamp, fixture=defensa_fixture, previous=previous_defesa)
+    epagri_geo_fixture = (json.loads((ROOT / "tests" / "fixtures" / "epagri_gis.json").read_text(encoding="utf-8"))
+                          if fixture is not None else None)
+    epagri_notices_fixture = ((ROOT / "tests" / "fixtures" / "epagri_notices.xml").read_bytes()
+                              if fixture is not None else None)
+    epagri_geo = collect_epagri_geo(locations, stamp, previous=previous_epagri_geo, fixture=epagri_geo_fixture)
+    epagri_notices = collect_epagri_notices(stamp, previous=previous_epagri_notices,
+                                            fixture=epagri_notices_fixture)
     print(f"Provider status: open_meteo={manifest['available_locations']}/{len(locations)} "
           f"alerts={alerts['status']} metar={observations['status']} "
           f"inmet_rain={rain['status']} nasa={nasa['status']} cemaden={cemaden['status']} "
           f"cptec={cptec['status']} defesa_sc={defesa_sc['status']} "
-          f"inmet_archive={archive['status']}")
+          f"inmet_archive={archive['status']} epagri_geo={epagri_geo['status']} "
+          f"epagri_notices={epagri_notices['status']}")
     output = output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="observatorio-build-", dir=output.parent) as temp:
@@ -250,6 +268,8 @@ def build(
         write_json_atomic(data / "cptec.json", cptec)
         write_json_atomic(data / "defesa_civil_sc.json", defesa_sc)
         write_json_atomic(data / "inmet_archive.json", archive)
+        write_json_atomic(data / "epagri_geo.json", epagri_geo)
+        write_json_atomic(data / "epagri_notices.json", epagri_notices)
         for slug, record in details.items():
             write_json_atomic(data / "places" / (slug + ".json"), record)
         (staged / ".nojekyll").write_text("", encoding="utf-8")

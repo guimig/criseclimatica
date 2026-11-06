@@ -143,3 +143,15 @@ trata de medição instrumental.**
 
 Documentação detalhada: [INMET anual e Defesa Civil](docs/INMET_ARQUIVO_E_DEFESA_2026.md).
 Não houve integração com o Google Drive nem criação de nova cópia histórica.
+
+
+## Etapa 8 — estações regionais e avisos Epagri/Ciram
+
+- **INMET:** a consulta ZIP anual agora recupera códigos automáticos dos catálogos anteriores (sem `network_type`) e consegue descobrir códigos e coordenadas diretamente nos cabeçalhos dos CSVs oficiais. A ausência de um cadastro JSON válido não impede a verificação do ZIP; o arquivo é consultado de forma limitada e no máximo semanalmente após sucesso. As datas históricas permanecem explícitas, sem se passar por pluviometria em tempo real.
+- **Epagri/SC GIS:** cadastrações públicas de estações regionais via ArcGIS REST, com id, coordenadas, classe e entidade responsável quando disponibilizados. **Não é telemetria**, nem garante que uma estação opere em 2026. Atualização do catálogo diária, com cache claramente identificado.
+- **Epagri/Ciram — avisos:** consulta ao RSS oficial de avisos meteorológicos. Publica os períodos de início/fim somente se constarem expressamente no conteúdo e sinaliza menção ao Litoral Norte sem afirmar alcance municipal. Publicação Epagri não substitui alertas de Defesa Civil.
+- **Diagnóstico no CI:** `python scripts/probe_sources.py` consulta os endpoints dos provedores em modo informativo; o resultado de uma checagem não equivale a integração em produção.
+
+Os JSONs adicionais do Pages são `data/epagri_geo.json` e `data/epagri_notices.json`. Não foi acrescentado armazenamento externo, banco pago ou credencial. Consultas continuam agendadas pelo workflow existente.
+
+Consulte [Integrações regionais e correção INMET](docs/INTEGRACOES_REGIONAIS_V8.md).

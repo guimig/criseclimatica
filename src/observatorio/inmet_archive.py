@@ -97,7 +97,12 @@ def nearby_station_codes(catalog: dict[str, Any], *, max_stations: int = MAX_STA
             if not isinstance(station, dict):
                 continue
             code = station.get("code")
-            if not isinstance(code, str) or not STATION_RE.fullmatch(code) or station.get("network_type") != "automatica":
+            # Catalogues published before the conventional-network integration
+            # lacked `network_type`. A validated INMET A-code identifies an
+            # automatic station even for those cached legacy records.
+            if not isinstance(code, str) or not STATION_RE.fullmatch(code):
+                continue
+            if station.get("network_type", "automatica") != "automatica":
                 continue
             distance = station.get("distance_km")
             if not isinstance(distance, (int, float)) or isinstance(distance, bool) or not (0 <= distance <= 130):
@@ -108,6 +113,65 @@ def nearby_station_codes(catalog: dict[str, Any], *, max_stations: int = MAX_STA
                                     "latitude": station.get("latitude"), "longitude": station.get("longitude"),
                                     "distance_km": float(distance)}
     return dict(list(sorted(candidates.items(), key=lambda item: (item[1]["distance_km"], item[0])))[:max_stations])
+
+
+def station_metadata_from_zip(
+    archive: zipfile.ZipFile, locations: list[dict[str, Any]], *,
+    max_stations: int = MAX_STATIONS, max_distance_km: float = 130.0,
+) -> dict[str, dict[str, Any]]:
+    """Discover nearby INMET A-code stations from official CSV headers.
+
+    The annual ZIP includes WMO code and coordinates before the measurement
+    table. This is independent of the changing JSON station-catalogue schema.
+    No entry is extracted to disk and only the first 4 KiB of a member is read.
+    """
+    candidates: dict[str, dict[str, Any]] = {}
+    for entry in archive.infolist():
+        if (entry.is_dir() or not entry.filename.upper().endswith(".CSV") or
+                entry.file_size > MAX_MEMBER_BYTES or entry.flag_bits & 0x1):
+            continue
+        matches = STATION_RE.findall(Path(entry.filename).name.upper())
+        if len(set(matches)) != 1:
+            continue
+        code = matches[0]
+        try:
+            with archive.open(entry) as source:
+                raw = source.read(4096)
+            # INMET exports historically use Latin-1 with a few UTF-8 exports.
+            text = raw.decode("utf-8-sig") if raw.startswith(b"\xef\xbb\xbf") else raw.decode("latin-1")
+        except (RuntimeError, OSError, UnicodeError, zipfile.BadZipFile):
+            continue
+        metadata: dict[str, str] = {}
+        for line in text.splitlines()[:14]:
+            if ";" not in line:
+                continue
+            key, value, *_ = (chunk.strip() for chunk in line.split(";"))
+            normalized = _fold(key).rstrip(":")
+            if normalized.startswith(("LATITUDE", "LONGITUDE", "ESTACAO", "CODIGO", "UF")):
+                metadata[normalized.split(" (")[0]] = value
+        header_code = metadata.get("CODIGO", "").upper()
+        if header_code != code:
+            continue
+        try:
+            lat = float(metadata["LATITUDE"].replace(",", "."))
+            lon = float(metadata["LONGITUDE"].replace(",", "."))
+        except (KeyError, ValueError, OverflowError):
+            continue
+        if not (math.isfinite(lat) and math.isfinite(lon) and -90 <= lat <= 90 and -180 <= lon <= 180):
+            continue
+        distances = [haversine_km(loc["latitude"], loc["longitude"], lat, lon) for loc in locations]
+        if not distances:
+            continue
+        minimum = min(distances)
+        if minimum > max_distance_km:
+            continue
+        station = {"code": code, "name": metadata.get("ESTACAO") or code,
+                   "latitude": lat, "longitude": lon, "distance_km": round(minimum, 1),
+                   "metadata_source": "inmet_annual_csv_header"}
+        old = candidates.get(code)
+        if old is None or station["distance_km"] < old["distance_km"]:
+            candidates[code] = station
+    return dict(sorted(candidates.items(), key=lambda item: (item[1]["distance_km"], item[0]))[:max_stations])
 
 
 def _read_station_csv(archive: zipfile.ZipFile, entry: zipfile.ZipInfo, *, year: int) -> list[dict[str, Any]]:
@@ -156,8 +220,12 @@ def _read_station_csv(archive: zipfile.ZipFile, entry: zipfile.ZipInfo, *, year:
     return [rows[key] for key in sorted(rows)]
 
 
-def parse_annual_zip(data: bytes, selected: dict[str, dict[str, Any]], now: datetime) -> list[dict[str, Any]]:
-    """Read limited CSV members without extracting untrusted ZIP file paths."""
+def parse_annual_zip(data: bytes, selected: dict[str, dict[str, Any]], now: datetime,
+                     *, locations: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+    """Read limited CSV members without extracting untrusted ZIP file paths.
+
+    If `locations` is provided, the ZIP itself supplies a fallback catalogue.
+    """
     if not isinstance(data, bytes) or not data.startswith(b"PK") or len(data) > MAX_ZIP_BYTES:
         raise InmetArchiveError("Invalid official annual ZIP")
     now = now.astimezone(timezone.utc)
@@ -167,6 +235,12 @@ def parse_annual_zip(data: bytes, selected: dict[str, dict[str, Any]], now: date
             members = archive.infolist()
             if len(members) > MAX_MEMBERS:
                 raise InmetArchiveError("Annual ZIP has too many members")
+            if locations is not None:
+                from_zip = station_metadata_from_zip(archive, locations)
+                # Prefer ZIP metadata when the saved catalogue is incomplete;
+                # both sources are official, but the ZIP ties coordinates to data.
+                selected = dict(sorted({**selected, **from_zip}.items(),
+                                       key=lambda kv: (kv[1]["distance_km"], kv[0]))[:MAX_STATIONS])
             for code, station in selected.items():
                 matches = [e for e in members if not e.is_dir() and e.filename.upper().endswith(".CSV")
                            and code in STATION_RE.findall(Path(e.filename).name.upper())]
@@ -283,15 +357,18 @@ def collect_archive(locations: list[dict], catalog: dict, checked_at: str, *,
         since_attempt = age_of(previous.get("last_attempt_at"))
         if previous.get("stations") and timedelta(0) <= since_download < timedelta(days=CACHE_DAYS):
             return _present(previous, checked_at, cached=True)
-        if timedelta(0) <= since_attempt < timedelta(hours=RETRY_HOURS):
+        if (timedelta(0) <= since_attempt < timedelta(hours=RETRY_HOURS) and
+                (previous.get("stations") or previous.get("station_discovery_version") == 2)):
             return _present(previous, checked_at, cached=True) if previous.get("stations") else {**previous, "checked_at": checked_at}
-    if not selected:
-        return unavailable_archive(checked_at, "no_nearby_stations")
     try:
+        # An incomplete or legacy INMET JSON catalogue must not stop us from
+        # discovering genuine local A-code stations in the official ZIP itself.
         data = fixture_zip if fixture_zip is not None else _download_year(year)
-        stations = parse_annual_zip(data, selected, now)
+        stations = parse_annual_zip(data, selected, now, locations=locations)
         if not stations:
-            raise InmetArchiveError("No nearby station data in annual ZIP")
+            result = unavailable_archive(checked_at, "no_nearby_stations")
+            result["station_discovery_version"] = 2
+            return result
         closest: list[dict] = []
         for place in locations:
             matching = sorted(({"code": row["code"], "distance_km": round(haversine_km(
@@ -302,7 +379,8 @@ def collect_archive(locations: list[dict], catalog: dict, checked_at: str, *,
         latest = max(station["last_observation_at"] for station in stations)
         result = unavailable_archive(checked_at)
         result.update({"stations": stations, "locations": closest, "retrieved_at": checked_at,
-                       "last_attempt_at": checked_at, "latest_observation_at": latest})
+                       "station_discovery_version": 2, "last_attempt_at": checked_at,
+                       "latest_observation_at": latest})
         return _present(result, checked_at)
     except (InmetArchiveError, ValueError, TypeError) as exc:
         # Status is honest and does not reveal token or internal URL query strings.
