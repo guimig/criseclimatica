@@ -5,6 +5,7 @@ on:
     paths:
       - 'web/**'
       - 'tests/ui_dashboard.py'
+      - 'tests/ui_details.py'
       - '.github/workflows/ui.yml'
   workflow_dispatch:
 
@@ -26,7 +27,9 @@ jobs:
           /tmp/weather-browser/bin/pip install playwright==1.56.0
           /tmp/weather-browser/bin/playwright install --with-deps chromium
       - name: Check dashboard interactions and responsive layout
-        run: /tmp/weather-browser/bin/python tests/ui_dashboard.py
+        run: |
+          /tmp/weather-browser/bin/python tests/ui_dashboard.py
+          /tmp/weather-browser/bin/python tests/ui_details.py
       - name: Save desktop and mobile screenshots
         if: always()
         uses: actions/upload-artifact@v4

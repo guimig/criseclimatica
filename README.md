@@ -92,3 +92,5 @@ Sem commits de dados a cada ciclo, Drive ou armazenamento histórico externo nes
 Consulte [roadmap atual](docs/ROADMAP.md), [decisões](docs/DECISOES.md), [arquitetura](docs/ARQUITETURA.md), [fontes](docs/FONTES.md) e [pacote de confiabilidade](docs/CONFIABILIDADE.md). Os documentos das etapas anteriores preservam os diagnósticos da época; o roadmap concentra o estado atual.
 
 A ampliação das redes está descrita em [Estações Cemaden e METAR](docs/AMPLIACAO_ESTACOES.md). Seleção geográfica não garante disponibilidade de boletim ou representatividade local.
+
+A página de dados organiza as consultas por assunto, preservando os links diretos e os acumulados completos. Veja [controles, cores e exploração detalhada](docs/EXPLORACAO_DADOS_E_CONTROLES.md).
