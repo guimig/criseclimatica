@@ -47,3 +47,10 @@ assert.ok(contextSeries.find(s=>s.kind==='forecast').points.every(p=>Date.parse(
 assert.match(html,/id="theme-toggle"/);assert.match(html,/id="memory"/);
 assert.match(js,/Monitoramento parcial/);assert.doesNotMatch(js,/:'Em avaliação'/);
 console.log('Theme and retrospective scenarios passed: persisted preference, blocked storage, comparable hourly rain, forecast separation, neutral wording.');
+const {effectiveAssessment}=require('../web/dashboard.js');
+const short={...data,assessment:{valid_until:'2026-11-06T20:10:00Z',suggested_level:'laranja',base_assessment:{valid_until:'2026-11-06T23:00:00Z',suggested_level:null}}};
+assert.equal(dashboardCurrent(short,now),true);
+assert.equal(effectiveAssessment(short,now).monitoring_state,'partial');
+short.assessment.base_assessment.suggested_level='amarelo';
+assert.equal(effectiveAssessment(short,now).suggested_level,'amarelo');
+console.log('Short-reference expiry passed: valid forecasts remain available and primary evidence is preserved.');

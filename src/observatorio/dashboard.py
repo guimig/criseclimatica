@@ -116,11 +116,13 @@ def summarize(analysis, details, epagri, bulletins, defesa, stamp, previous_hist
     primary=local(analysis,'araquari')
     if not primary:
         raise ValueError('Araquari analysis is required')
-    policy=assess(epagri,analysis,stamp)
+    base_policy=assess(epagri,analysis,stamp)
+    policy=base_policy
     history=merge_observations(previous_history,primary,stamp)
     forecast=primary.get('forecast',{})
     detail=details.get('araquari',{})
     policy=integrate(policy,summarize_objective(primary,detail,epagri,stamp,sensors=sensors))
+    policy['base_assessment']=base_policy
     source_status = [
         {'source':'Epagri/Ciram · avisos','role':'prioritária','status':epagri.get('status','unavailable'),'reference_at':epagri.get('retrieved_at')},
         {'source':'Defesa Civil SC · publicações','role':'complementar','status':defesa.get('status','unavailable'),'reference_at':defesa.get('last_successful_check')},
@@ -128,7 +130,7 @@ def summarize(analysis, details, epagri, bulletins, defesa, stamp, previous_hist
         {'source':'Open-Meteo · previsão','role':'modelo','status':forecast.get('status','unavailable'),'reference_at':forecast.get('reference_at')},
         {'source':'Cemaden · chuva local','role':'observação','status':primary.get('observed_rain',{}).get('status','unavailable'),'reference_at':primary.get('observed_rain',{}).get('checked_at')},
     ]
-    expiry=min(moment(primary['valid_until']),moment(policy['valid_until']))
+    expiry=min(moment(primary['valid_until']),moment(base_policy['valid_until']))
     alerts=primary.get('official_notices',{})
     dashboard={'schema_version':1,'kind':KIND,'location_id':'araquari','generated_at':stamp,'valid_until':iso(expiry),
         'assessment':policy,'protocol':reference(),'gauge_distribution':gauge_distribution(primary.get('observed_rain',{})),

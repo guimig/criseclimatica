@@ -8,12 +8,21 @@ function date(v) { return v && Number.isFinite(Date.parse(v)) ? new Intl.DateTim
 function fresh(v, hours=3, now=Date.now()) { const t=typeof v==='string'?Date.parse(v):NaN;return Number.isFinite(t)&&now-t>=-600000&&now-t<=hours*3600000; }
 function dashboardCurrent(data, now=Date.now()) { return Boolean(data&&fresh(data.generated_at,3,now)&&Number.isFinite(Date.parse(data.valid_until))&&now<Date.parse(data.valid_until)); }
 function protocolCurrent(data, now=Date.now()) { return dashboardCurrent(data,now)&&Number.isFinite(Date.parse(data.assessment?.valid_until))&&now<Date.parse(data.assessment.valid_until); }
+function effectiveAssessment(data,now=Date.now()) {
+  const policy=data?.assessment;
+  if(protocolCurrent(data,now))return policy;
+  const base=policy?.base_assessment;
+  if(dashboardCurrent(data,now)&&base&&now<Date.parse(base.valid_until)) {
+    return base.suggested_level?base:{...base,monitoring_state:'partial',monitoring_label:'Monitoramento parcial',title:'Monitoramento parcial',reason:'As referências de curta duração venceram. Previsões e outras evidências ainda válidas continuam disponíveis; confira a próxima atualização.'};
+  }
+  return policy;
+}
 function node(tag,cls,text) { const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n; }
 function safeLink(address) { try { const u=new URL(address,location.href);return u.protocol==='https:'&&((u.origin===location.origin&&/^\/criseclimatica\/references\/pn-(13|14)-2026\.pdf$/.test(u.pathname))||['ciram.epagri.sc.gov.br','www.defesacivil.sc.gov.br','defesacivil.sc.gov.br','alertas2.inmet.gov.br','avisos.inmet.gov.br','portal.inmet.gov.br'].includes(u.hostname))&&!u.username&&!u.password?u.href:null; }catch{return null;} }
 function officialLink(address,label) { const a=node('a','',label);const href=safeLink(address);if(href){a.href=href;a.target='_blank';a.rel='noopener noreferrer';}return a; }
 function updateMetric(id,value,note) { el(id+'-value').textContent=value;el(id+'-note').textContent=note; }
 function renderSummary() {
-  const data=panel.data, current=dashboardCurrent(data), policy=data?.assessment, validPolicy=protocolCurrent(data);
+  const data=panel.data, current=dashboardCurrent(data), policy=effectiveAssessment(data), validPolicy=current&&Date.now()<Date.parse(policy?.valid_until);
   el('publication-time').textContent=data?'Publicado '+date(data.generated_at):'Publicação indisponível';
   el('publication-status').hidden=current;
   el('publication-status').textContent=data?'A publicação ou uma referência venceu. O enquadramento e os indicadores atuais foram retirados; isso não indica melhora.':'Não foi possível carregar uma publicação verificável de Araquari. Consulte as fontes oficiais.';
@@ -165,9 +174,9 @@ function showEvidence() {
 }
 function showProtocol() {
   openDialog('Níveis e referências normativas',body=>{
-    const data=panel.data,policy=data?.assessment,ref=data?.protocol;
+    const data=panel.data,policy=effectiveAssessment(data),ref=data?.protocol;
     paragraph(body,'Referência: PN 13/2026 e PN 14/2026 — ASSINST/REI, de 04/11/2026. Não é um painel oficial nem uma comunicação de funcionamento.');
-    if(policy){paragraph(body,protocolCurrent(data)?policy.reason:'O enquadramento desta publicação perdeu validade.','notice');for(const p of policy.pending||[])paragraph(body,p);}
+    if(policy){paragraph(body,dashboardCurrent(data)&&Date.now()<Date.parse(policy.valid_until)?policy.reason:'O enquadramento desta publicação perdeu validade.','notice');for(const p of policy.pending||[])paragraph(body,p);}
     const grid=node('div','levels-grid');for(const level of ref?.levels||[]){const item=node('article','level-reference');const h=node('h3');h.append(node('span','level-dot '+level.id),node('span','',level.id[0].toUpperCase()+level.id.slice(1)+' · '+level.name));item.append(h);paragraph(item,level.criterion);paragraph(item,level.orientation);paragraph(item,level.reference,'small');grid.append(item);}body.append(grid);
     body.append(node('h3','','Prioridade e competência'));paragraph(body,'Avisos Epagri/Ciram são prioritários; Defesa Civil estadual e municipal e outros órgãos são complementares. A decisão formal e sua vigência competem à Direção-Geral, nos termos da PN 13, arts. 4º, 5º e 13.');
     body.append(node('h3','','Prazos de comunicação · PN 13, art. 12'));
@@ -179,6 +188,7 @@ function showProtocol() {
 }
 function showMethods() {
   openDialog('Métodos e limites da análise',body=>{
+    if(panel.data?.assessment?.numeric_support&&Date.now()>=Date.parse(panel.data.assessment.numeric_support.valid_until))paragraph(body,'O apoio numérico de curta duração desta publicação venceu. Seus valores abaixo são registros da publicação, não sustentam o enquadramento atual.','notice');
     paragraph(body,'Medições, previsões e avisos são produtos distintos. A quantidade de fontes não é uma pontuação de confiança. Médias de municípios ou de estações distantes não determinam o nível.');
     body.append(node('h3','','Chuva observada'));paragraph(body,'Agrupam-se apenas estações retornadas para o IBGE de Araquari, com janelas de 24 h e fim a até 30 min da referência mais recente. A mediana só aparece com ao menos três estações. Mínimo, máximo, quantidade e horários ficam acessíveis; extremos não são apagados pela mediana.');
     body.append(node('h3','','Evolução e revisão'));paragraph(body,'A previsão horária mantém lacunas e distingue vento de rajada. Totais e picos de 24 h exigem série completa. Revisões comparam os mesmos horários futuros e a mesma referência de grade; não são erro do modelo. O histórico observado acumula amostras por estação por sete dias, sem preencher períodos anteriores à sua implantação.');
@@ -211,7 +221,7 @@ async function loadDashboard() {
   finally{if(id===panel.loadId){el('refresh').disabled=false;renderSummary();renderRecent();renderMemory();renderChart();}}
 }
 function selectVariable(variable) {panel.variable=variable;for(const button of document.querySelectorAll('[data-variable]')){const selected=button.dataset.variable===variable;button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));}renderChart();}
-if(typeof module!=='undefined')module.exports={fresh,dashboardCurrent,protocolCurrent,getChartSeries};
+if(typeof module!=='undefined')module.exports={fresh,dashboardCurrent,protocolCurrent,effectiveAssessment,getChartSeries};
 if(typeof document!=='undefined'){
   function navigationState(){for(const link of document.querySelectorAll('nav a[href^="#"]')){const active=link.getAttribute('href')===(location.hash||'#main');if(active)link.setAttribute('aria-current','location');else link.removeAttribute('aria-current');}}
   window.addEventListener('hashchange',navigationState);navigationState();
