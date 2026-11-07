@@ -17,6 +17,7 @@ from urllib.request import Request, urlopen
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from observatorio.assessment_history import merge as merge_assessment_history
 from observatorio.dashboard import summarize as summarize_dashboard
 from observatorio.analysis import summarize as summarize_analysis, forecast_snapshot
 from observatorio.territorial_alignment import summarize as summarize_alignment
@@ -153,6 +154,7 @@ def build(
     client = FixtureClient(fixture) if fixture is not None else OpenMeteoClient()
 
     # Never use live site state in an offline fixture build.
+    previous_assessment_history = None
     previous_dashboard_history = None
     previous_forecast = None
     previous_history = None
@@ -180,6 +182,14 @@ def build(
             if previous_overview and previous_overview.get("observation_history_published"):
                 raise
             print("Observation history not yet available; first dashboard publication", file=sys.stderr)
+        try:
+            previous_assessment_history = fetch_previous_json(previous_url, "data/assessment_history.json", max_bytes=3_000_000)
+            if previous_assessment_history is None and previous_overview and previous_overview.get("assessment_history_published"):
+                raise RuntimeError("Published assessment history is missing; preserving previous publication")
+        except (RuntimeError, ValueError):
+            if previous_overview and previous_overview.get("assessment_history_published"):
+                raise
+            print("Assessment history not yet available; first publication", file=sys.stderr)
         # Optional bounded previous forecast; missing state means no revision claim.
         try:
             previous_forecast = fetch_previous_json(previous_url, "data/forecast_snapshot.json", max_bytes=1_000_000)
@@ -325,10 +335,20 @@ def build(
     analysis = summarize_analysis(locations, details, cemaden, observations, alerts, cptec,
                                   stamp, previous=previous_forecast, sensors=cemaden_sensors)
     dashboard, observation_history = summarize_dashboard(analysis, details, epagri_notices,
-        epagri_bulletins, defesa_sc, stamp, previous_history=previous_dashboard_history)
+        epagri_bulletins, defesa_sc, stamp, previous_history=previous_dashboard_history, sensors=cemaden_sensors)
+    assessment_history = merge_assessment_history(previous_assessment_history, dashboard, stamp)
+    dashboard["alert_history"] = {
+        "episodes": list(reversed(assessment_history["episodes"][-12:])),
+        "notices": list(reversed(assessment_history["notices"][-30:])) + [
+            {**row, "source":"INMET"} for row in notice_history.get("records", [])
+            if "araquari" in row.get("municipality_ids", [])][:30],
+        "duration_note": assessment_history["duration_note"],
+    }
+    manifest["assessment_history_published"] = True
     manifest["observation_history_published"] = True
     snapshot = forecast_snapshot(details, stamp)
     if fixture is not None:
+        assessment_history["fixture_mode"] = True
         dashboard["fixture_mode"] = True
         observation_history["fixture_mode"] = True
         analysis["fixture_mode"] = True
@@ -345,6 +365,7 @@ def build(
         staged = Path(temp) / "site"
         shutil.copytree(ROOT / "web", staged)
         data = staged / "data"
+        write_json_atomic(data / "assessment_history.json", assessment_history)
         write_json_atomic(data / "dashboard.json", dashboard)
         write_json_atomic(data / "observation_history.json", observation_history)
         write_json_atomic(data / "analysis.json", analysis)

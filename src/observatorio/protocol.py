@@ -156,4 +156,4 @@ def reference():
             "academic_rules":["PN 14, art. 1º: abrangência de até 10 dias letivos; acima disso, reavaliação pelo Conselho Superior.",
                               "PN 14, art. 6º, §7º: prazo mínimo de uma semana para atividades disponibilizadas, considerando condições de acesso.",
                               "PN 13, art. 10, I veda avaliações a partir do laranja; PN 14, art. 8º, III sugere suspensão no laranja e veda no vermelho. Divergência textual requer orientação institucional; não é resolvida pelo aplicativo."],
-            "automatic_numeric_thresholds":False, "supersedes":"protocolo local anteriormente utilizado"}
+            "automatic_numeric_thresholds":False, "auxiliary_numeric_references":True, "supersedes":"protocolo local anteriormente utilizado"}

@@ -6,6 +6,7 @@ from statistics import median
 
 from .analysis import fresh, hourly_bins, iso, local, moment, valid_number
 from .protocol import assess, reference
+from .objective_analysis import summarize as summarize_objective, integrate
 
 KIND = 'araquari_weather_dashboard_not_official_decision'
 HISTORY_KIND = 'araquari_point_observation_history_not_climatology'
@@ -111,7 +112,7 @@ def chart_rows(detail, stamp):
             for i in range(241) if any(start+timedelta(hours=i) in values for values in fields.values())]
 
 
-def summarize(analysis, details, epagri, bulletins, defesa, stamp, previous_history=None):
+def summarize(analysis, details, epagri, bulletins, defesa, stamp, previous_history=None, sensors=None):
     primary=local(analysis,'araquari')
     if not primary:
         raise ValueError('Araquari analysis is required')
@@ -119,6 +120,7 @@ def summarize(analysis, details, epagri, bulletins, defesa, stamp, previous_hist
     history=merge_observations(previous_history,primary,stamp)
     forecast=primary.get('forecast',{})
     detail=details.get('araquari',{})
+    policy=integrate(policy,summarize_objective(primary,detail,epagri,stamp,sensors=sensors))
     source_status = [
         {'source':'Epagri/Ciram · avisos','role':'prioritária','status':epagri.get('status','unavailable'),'reference_at':epagri.get('retrieved_at')},
         {'source':'Defesa Civil SC · publicações','role':'complementar','status':defesa.get('status','unavailable'),'reference_at':defesa.get('last_successful_check')},

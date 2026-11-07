@@ -34,3 +34,16 @@ assert.match(html,/Projeto independente/);assert.doesNotMatch(html,/FOCO PRINCIP
 assert.match(html,/href="\.\/dados.html"/);
 assert.match(js,/ArrowRight/);assert.match(js,/pointermove/);assert.match(js,/showModal/);
 console.log('Dashboard behavior passed: expiry, primary source, hourly intervals, separate stations, missing values, controls and DOM contract.');
+const {preference}=require('../web/theme.js');
+assert.equal(preference({getItem(){return 'dark';}},false),'dark');
+assert.equal(preference({getItem(){return 'light';}},true),'light');
+assert.equal(preference({getItem(){throw new Error('Storage blocked');}},true),'dark');
+assert.equal(preference({getItem(){return 'unknown';}},false),'light');
+const mixedHistory={records:[{source:'cemaden-rain',station:'A',observed_at:'2026-11-06T19:00:00Z',rain_1h_mm:2,rain_24h_mm:80}]};
+const contextSeries=getChartSeries(data,mixedHistory,'context','precipitation_mm',24,now);
+assert.equal(contextSeries.find(s=>s.kind==='observation').points[0].value,2);
+assert.ok(contextSeries.find(s=>s.kind==='forecast'));
+assert.ok(contextSeries.find(s=>s.kind==='forecast').points.every(p=>Date.parse(p.time)>=Date.parse(data.generated_at)));
+assert.match(html,/id="theme-toggle"/);assert.match(html,/id="memory"/);
+assert.match(js,/Monitoramento parcial/);assert.doesNotMatch(js,/:'Em avaliação'/);
+console.log('Theme and retrospective scenarios passed: persisted preference, blocked storage, comparable hourly rain, forecast separation, neutral wording.');

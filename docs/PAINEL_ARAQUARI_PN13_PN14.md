@@ -1,5 +1,7 @@
 # Painel de acompanhamento de Araquari
 
+> A leitura exclusivamente qualitativa descrita nesta primeira entrega foi ampliada com [apoio quantitativo multifontes e memória](LEITURA_MULTIFONTES_E_MEMORIA.md). As referências institucionais e sua competência permanecem preservadas.
+
 ## Referência vigente no aplicativo
 
 As Portarias Normativas nº 13/2026 e nº 14/2026 — ASSINST/REI, de 04/11/2026, fornecidas pelo usuário, substituem integralmente o protocolo local anteriormente utilizado como referência do aplicativo. As cópias integrais estão em `web/references/pn-13-2026.pdf` e `web/references/pn-14-2026.pdf`, acessíveis pelo painel. A classificação anterior por eventos A/B/C/D deixou de ser emitida. A documentação histórica desse desenvolvimento não é regra ativa.
