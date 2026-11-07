@@ -26,7 +26,7 @@
     function show(t,event,keyboard=false){
       const value=lookup(t,keyboard);if(!value)return;
       tooltip.replaceChildren(document.createTextNode(value.text));
-      if(pinned){const note=document.createElement('span');note.className='tooltip-pinned';note.textContent='Leitura fixada · clique/toque novamente ou Esc para soltar';tooltip.append(note);}
+      if(pinned){const note=document.createElement('span');note.className='tooltip-pinned';note.textContent='Fixado · toque/clique ou Esc para soltar';tooltip.append(note);}
       tooltip.setAttribute('aria-live',keyboard?'polite':'off');tooltip.hidden=false;
       guide.setAttribute('x1',x(t));guide.setAttribute('x2',x(t));guide.setAttribute('visibility','visible');marks.replaceChildren();
       for(const point of value.marks||[])if(Number.isFinite(point.x)&&Number.isFinite(point.y))marks.append(shape('circle',{cx:point.x,cy:point.y,r:4.5,fill:point.color||'currentColor',class:'chart-point-ring'}));

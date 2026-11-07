@@ -6,7 +6,7 @@
   <meta name="description" content="Painel independente de acompanhamento meteorológico de Araquari. Evidências, evolução e níveis de referência em uma leitura objetiva.">
   <title>Tempo em Araquari</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-  <script src="./theme.js?v=styles-20261107"></script><link rel="stylesheet" href="./dashboard.css?v=styles-20261107"><link rel="stylesheet" href="./forecasts.css?v=styles-20261107"><script defer src="./chart-interaction.js?v=styles-20261107"></script><script defer src="./forecasts.js?v=styles-20261107"></script><script defer src="./dashboard.js?v=styles-20261107"></script><link rel="stylesheet" href="./essential.css?v=styles-20261107">
+  <script src="./theme.js?v=chartfix-20261107"></script><link rel="stylesheet" href="./dashboard.css?v=chartfix-20261107"><link rel="stylesheet" href="./forecasts.css?v=chartfix-20261107"><script defer src="./chart-interaction.js?v=chartfix-20261107"></script><script defer src="./forecasts.js?v=chartfix-20261107"></script><script defer src="./dashboard.js?v=chartfix-20261107"></script><link rel="stylesheet" href="./essential.css?v=chartfix-20261107">
 </head>
 <body class="essential-page home-page">
   <a class="skip" href="#main">Ir para o conteúdo</a>
@@ -20,7 +20,7 @@
     </section>
     <p class="source-key"><span>Observações <strong>Cemaden · Araquari</strong></span><span>Previsões de 24 h <strong>Open-Meteo · modelo meteorológico</strong></span></p>
     <section class="metric-grid" aria-label="Indicadores de Araquari">
-      <a class="metric" href="./dados.html#cemaden-title"><span class="metric-label"><svg aria-hidden="true"><use href="./icons.svg#rain"></use></svg>CHUVA OBSERVADA · 24 H</span><strong id="observed-value">—</strong><span id="observed-note">Cemaden · por estação</span><span class="metric-action">Explorar estações →</span></a>
+      <button class="metric" data-observed-focus type="button"><span class="metric-label"><svg aria-hidden="true"><use href="./icons.svg#rain"></use></svg>CHUVA OBSERVADA · 24 H</span><strong id="observed-value">—</strong><span id="observed-note">Cemaden · por estação</span><span class="metric-action">Ver no gráfico ↓</span></button>
       <button class="metric" data-focus="precipitation_mm" type="button"><span class="metric-label"><svg aria-hidden="true"><use href="./icons.svg#rain"></use></svg>CHUVA PREVISTA · 24 H</span><strong id="forecast-value">—</strong><span id="forecast-note">Open-Meteo · janela completa</span><span class="metric-action">Ver no gráfico ↓</span></button>
       <button class="metric" data-focus="gust_kmh" type="button"><span class="metric-label"><svg aria-hidden="true"><use href="./icons.svg#wind"></use></svg>MAIOR RAJADA · 24 H</span><strong id="gust-value">—</strong><span id="gust-note">Previsão · horário identificado</span><span class="metric-action">Ver no gráfico ↓</span></button>
       <button class="metric" data-focus="temperature_c" type="button"><span class="metric-label"><svg aria-hidden="true"><use href="./icons.svg#temperature"></use></svg>TEMPERATURA MÁX. · 24 H</span><strong id="temperature-value">—</strong><span id="temperature-note">Previsão · temperatura do ar</span><span class="metric-action">Ver no gráfico ↓</span></button>

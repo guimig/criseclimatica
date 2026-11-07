@@ -146,6 +146,35 @@ function pointDescription(series,p,unit,anchor) {
   const current=series.kind==='forecast'&&p.start_at&&Date.parse(p.start_at)<anchor&&Date.parse(p.time)>anchor?' · inclui a hora em curso':'';
   return `${series.kind==='forecast'?'Open-Meteo · ':''}${series.name}: ${num(p.value)} ${unit} · ${interval}${current}`;
 }
+// Overlapping accumulations remain on the plot, but only the closest ending
+// reading of each series belongs in the cursor's description.
+function chartReadingsAt(points,t,rain) {
+  const valid=points.filter(p=>Number.isFinite(p.value)&&Number.isFinite(Date.parse(p.time)));
+  if(!valid.length||!Number.isFinite(t))return [];
+  const nearest=rain?null:valid.reduce((a,p)=>Math.abs(Date.parse(p.time)-t)<Math.abs(a-t)?Date.parse(p.time):a,Date.parse(valid[0].time));
+  const selected=new Map();
+  for(const p of valid) {
+    const end=Date.parse(p.time);
+    if(rain?!(Date.parse(p.start_at)<t&&t<=end):!(end===nearest&&Math.abs(end-t)<=p.series.gapMs/2))continue;
+    const previous=selected.get(p.series);
+    if(!previous||Math.abs(end-t)<=Math.abs(Date.parse(previous.time)-t))selected.set(p.series,p);
+  }
+  return [...selected.values()];
+}
+function chartReadingText(selected,unit,anchor,limit=4) {
+  if(!selected.length)return 'Sem amostra neste horário. Ausência de dados não significa zero.';
+  const visible=selected.slice(0,limit),observed=visible.every(p=>p.series.kind==='observation');
+  const compactDate=v=>new Intl.DateTimeFormat('pt-BR',{timeZone,day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).format(new Date(v));
+  let lines;
+  if(observed){
+    const field=visible[0].series.field;
+    const heading=field?.startsWith('rain_')?`Chuva medida · acumulado de ${field==='rain_24h_mm'?24:1} h`:'Medições · horário de cada leitura';
+    const sameTime=new Set(visible.map(p=>Date.parse(p.time))).size===1;
+    lines=[heading,...(sameTime?['Leituras: '+compactDate(visible[0].time)]:[]),...visible.map(p=>`${p.series.name}: ${num(p.value)} ${unit}${sameTime?'':' · '+compactDate(p.time)}`)];
+  }else lines=visible.map(p=>pointDescription(p.series,p,unit,anchor));
+  if(selected.length>visible.length)lines.push(`+${selected.length-visible.length} séries · filtre por estação`);
+  return lines.join('\n');
+}
 function chartScale(values,temperature=false) {
   const min=temperature?Math.min(...values)-1:0,max=Math.max(...values),range=Math.max(1,max-min);
   const power=10**Math.floor(Math.log10(range/5)),normalized=range/5/power;
@@ -212,23 +241,20 @@ function drawWeatherChart(target,legend,tooltip,series,domain,label,unit,sharedS
     const instants=[...new Set(points.map(p=>Date.parse(p.time)))].sort((a,b)=>a-b);
     ChartInteraction.attach(root,{width:W,left:L,right:R,top:T,bottom:T+h,domain:[minT,maxT],times:instants,tooltip,
       lookup(t,keyboard){
-        let selected;
-        if(rain)selected=points.filter(p=>Date.parse(p.start_at)<t&&t<=Date.parse(p.time));
-        else {const nearest=instants.reduce((a,b)=>Math.abs(b-t)<Math.abs(a-t)?b:a,instants[0]);
-          selected=points.filter(p=>Date.parse(p.time)===nearest&&Math.abs(nearest-t)<=p.series.gapMs/2);}
-        return {text:selected.length?selected.map(p=>pointDescription(p.series,p,unit,anchor)).join('\n'):'Sem amostra neste horário. Ausência de dados não significa zero.',
-          marks:selected.map(p=>({x:rain?x(Math.max(minT,Math.min(t,maxT))):x(Date.parse(p.time)),y:y(p.value),color:p.series.color}))};
+        const selected=chartReadingsAt(points,t,rain);
+        return {text:chartReadingText(selected,unit,anchor),
+          marks:selected.slice(0,4).map(p=>({x:rain?x(Math.max(minT,Math.min(t,maxT))):x(Date.parse(p.time)),y:y(p.value),color:p.series.color}))};
       }});target.append(root);return;
   }
   const guide=svg('line',{x1:L,x2:L,y1:T,y2:T+h,stroke:'currentColor','stroke-dasharray':'3 4',visibility:'hidden'});root.append(guide);
   const instants=[...new Set(points.map(p=>Date.parse(p.time)))].sort((a,b)=>a-b);let cursor=0;
-  function show(t){const nearest=instants.reduce((a,b)=>Math.abs(b-t)<Math.abs(a-t)?b:a,instants[0]);cursor=instants.indexOf(nearest);tooltip.textContent=points.filter(p=>Date.parse(p.time)===nearest).map(p=>pointDescription(p.series,p,unit,anchor)).join(' | ');tooltip.hidden=false;guide.setAttribute('x1',x(nearest));guide.setAttribute('x2',x(nearest));guide.setAttribute('visibility','visible');}
-  function showPointer(e){const box=root.getBoundingClientRect(),position=(e.clientX-box.left)/box.width*W,t=minT+(position-L)/w*(maxT-minT);
-    const inside=rain?points.filter(p=>Date.parse(p.start_at)<=t&&t<=Date.parse(p.time)):[];
-    if(inside.length){tooltip.textContent=inside.map(p=>pointDescription(p.series,p,unit,anchor)).join(' | ');tooltip.hidden=false;guide.setAttribute('x1',x(t));guide.setAttribute('x2',x(t));guide.setAttribute('visibility','visible');}
-    else if(rain){tooltip.textContent='Sem intervalo registrado neste horário; não significa chuva zero.';tooltip.hidden=false;guide.setAttribute('visibility','hidden');}
-    else show(t);
+  function show(t){
+    const nearest=instants.reduce((a,b)=>Math.abs(b-t)<Math.abs(a-t)?b:a,instants[0]);cursor=instants.indexOf(nearest);
+    const selected=chartReadingsAt(points,t,rain);
+    tooltip.textContent=selected.length?chartReadingText(selected,unit,anchor):rain?'Sem intervalo registrado neste horário; não significa chuva zero.':chartReadingText([],unit,anchor);
+    tooltip.hidden=false;guide.setAttribute('x1',x(t));guide.setAttribute('x2',x(t));guide.setAttribute('visibility',selected.length?'visible':'hidden');
   }
+  function showPointer(e){const box=root.getBoundingClientRect(),position=(e.clientX-box.left)/box.width*W,t=minT+(position-L)/w*(maxT-minT);show(t);}
   root.addEventListener('pointermove',showPointer);root.addEventListener('click',showPointer);
   root.addEventListener('keydown',e=>{if(!['ArrowRight','ArrowLeft','Home','End'].includes(e.key))return;e.preventDefault();cursor=e.key==='Home'?0:e.key==='End'?instants.length-1:Math.max(0,Math.min(instants.length-1,cursor+(e.key==='ArrowRight'?1:-1)));show(instants[cursor]);});
   root.addEventListener('pointerleave',()=>{tooltip.hidden=true;guide.setAttribute('visibility','hidden');});
@@ -409,12 +435,18 @@ function selectMode(mode) {
   const long=el('chart-range').querySelector('option[value="240"]');if(long)long.disabled=mode!=='forecast';
   if(mode!=='forecast'&&panel.hours>168){panel.hours=168;el('chart-range').value='168';}renderChart();
 }
-if(typeof module!=='undefined')module.exports={fresh,dashboardCurrent,protocolCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale};
+if(typeof module!=='undefined')module.exports={fresh,dashboardCurrent,protocolCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale,chartReadingsAt,chartReadingText};
 if(typeof document!=='undefined'){
   function navigationState(){if(location.hash==='#memory')el('memory').open=true;for(const link of document.querySelectorAll('nav a[href^="#"]')){const active=link.getAttribute('href')===(location.hash||'#main');if(active)link.setAttribute('aria-current','location');else link.removeAttribute('aria-current');}}
   window.addEventListener('hashchange',navigationState);navigationState();
   el('refresh').addEventListener('click',loadDashboard);
   for(const b of document.querySelectorAll('[data-variable]'))b.addEventListener('click',()=>selectVariable(b.dataset.variable));
+  for(const b of document.querySelectorAll('[data-observed-focus]'))b.addEventListener('click',()=>{
+    panel.hours=24;panel.rainWindow=24;panel.observedVariable='precipitation_mm';panel.observedView='stations';panel.scope='local';panel.station='all';
+    el('chart-range').value='24';el('rain-window').value='24';el('observed-variable').value='precipitation_mm';el('rain-scope').value='local';
+    selectMode('observed');
+    el('observed-heading').scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+  });
   for(const b of document.querySelectorAll('[data-focus]'))b.addEventListener('click',()=>{panel.hours=24;el('chart-range').value='24';selectMode('forecast');selectVariable(b.dataset.focus);el('chart-heading').scrollIntoView({block:'center',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});});
   for(const b of document.querySelectorAll('[data-mode]'))b.addEventListener('click',()=>selectMode(b.dataset.mode));
   el('forecast-variable')?.addEventListener('change',event=>selectVariable(event.target.value));

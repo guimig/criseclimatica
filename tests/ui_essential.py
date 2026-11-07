@@ -1,5 +1,6 @@
 """Real-browser checks for the implemented Essential design and chart cursors."""
 import json
+from datetime import datetime,timedelta
 from ui_dashboard import fixture,server,OUTPUT
 from ui_details import datasets
 from ui_forecasts import comparison_fixture
@@ -91,6 +92,41 @@ def main():
                 if width==1440:
                     a,b=page.locator('#plot').bounding_box(),page.locator('#forecast-plot').bounding_box()
                     assert abs(a['y']-b['y'])<5,(a,b)
+                # Reproduce many overlapping 24h windows without publishing synthetic data.
+                original=home['observation_history.json']['records']
+                stamp=datetime.fromisoformat(home['dashboard.json']['generated_at'].replace('Z','+00:00'))
+                home['observation_history.json']['records']=[{**row,'observed_at':(stamp-timedelta(hours=i)).isoformat(),'rain_24h_mm':round(row['rain_24h_mm']+i/10,1)} for row in original for i in range(24)]
+                page.reload();page.locator('#plot [data-chart-hit]').wait_for()
+                assert page.locator('#plot .rain-interval').count()>=60
+                for theme in ('light','dark'):
+                    if page.locator('html').get_attribute('data-theme')!=theme:page.locator('#theme-toggle').click()
+                    hit=page.locator('#plot [data-chart-hit]');hit.scroll_into_view_if_needed();box=hit.bounding_box()
+                    page.mouse.move(box['x']+box['width']*.5,box['y']+box['height']*.4)
+                    reading=page.locator('#chart-tooltip').inner_text()
+                    for name in ('Rainha','Porto Grande','Centro'):assert reading.count(name+':')==1, reading
+                    assert len(reading.splitlines())==5, reading
+                    assert page.locator('#plot [data-chart-markers] circle').count()==3
+                    if width<800:page.touchscreen.tap(box['x']+box['width']*.5,box['y']+box['height']*.4)
+                    else:page.mouse.click(box['x']+box['width']*.5,box['y']+box['height']*.4)
+                    popup=page.locator('#chart-tooltip').bounding_box()
+                    assert popup['height']<=240,popup
+                    assert popup['x']>=0 and popup['x']+popup['width']<=width,popup
+                    page.screenshot(path=str(OUTPUT/f'compact-rain-tooltip-{theme}-{width}.png'))
+                    page.locator('#plot svg').focus();page.keyboard.press('Escape')
+                    page.keyboard.press('Home');before=page.locator('#chart-tooltip').inner_text()
+                    page.keyboard.press('End');assert before!=page.locator('#chart-tooltip').inner_text()
+                    page.keyboard.press('Escape')
+                # The observed KPI must restore the corresponding local, 24h graph in place.
+                page.locator('[data-focus="gust_kmh"]').click();before_url=page.url
+                page.locator('[data-observed-focus]').click()
+                assert page.url==before_url and '/dados.html' not in page.url
+                assert page.locator('[data-observed-focus] .metric-action').inner_text()=='Ver no gráfico ↓'
+                assert page.locator('#observed-panel').is_visible() and not page.locator('#forecast-panel').is_visible()
+                assert page.locator('#observed-variable').input_value()=='precipitation_mm'
+                assert page.locator('#rain-window').input_value()=='24'
+                assert page.locator('#rain-scope').input_value()=='local'
+                assert page.locator('#plot .station-bar').count()==3
+                home['observation_history.json']['records']=original
                 page.goto(url+'dados.html#chart-title');page.locator('#chart [data-chart-hit]').wait_for()
                 if page.locator('html').get_attribute('data-theme')=='dark':page.locator('#theme-toggle').click()
                 assert page.locator('h1').inner_text()=='Dados meteorológicos'
