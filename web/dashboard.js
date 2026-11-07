@@ -35,7 +35,10 @@ function signalDescription(signal,data) {
 }
 function signalBrief(signal,data) {
   const observed=signal.kind==='observation',ref=stationReference(data,signal.source==='cemaden'?'cemaden-rain':signal.source,signal.station);
-  return `${variableNames[signal.variable]||'Condição meteorológica'} ${observed?'medida em '+stationName(ref,'estação próxima'):'prevista'}: ${num(signal.value)} ${signal.unit}.`;
+  const subject=variableNames[signal.variable]||'condição meteorológica';
+  const plural=signal.variable==='gust_kmh',masculine=signal.variable==='wind_kmh';
+  const verb=observed?(plural?'medidas':masculine?'medido':'medida'):(plural?'previstas':masculine?'previsto':'prevista');
+  return `${subject[0].toUpperCase()+subject.slice(1)} ${verb}${observed?' em '+stationName(ref,'estação próxima'):''}: ${num(signal.value)} ${signal.unit}.`;
 }
 function riskPresentation(data,now=Date.now()) {
   if(!dashboardCurrent(data,now))return {color:'neutral',active:null,title:'Atualização necessária',kind:'Dados desatualizados',reason:'A última atualização perdeu validade. Consulte as fontes oficiais enquanto aguarda novos dados.'};
