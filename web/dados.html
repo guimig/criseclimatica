@@ -5,36 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#236647">
   <meta name="description" content="Explore medições, previsões, avisos e históricos com fontes identificadas. Araquari é a referência principal; outros municípios oferecem contexto.">
-  <title>Dados e fontes | Observatório Araquari</title>
+  <title>Dados meteorológicos | Observatório</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-  <script src="./theme.js"></script><link rel="stylesheet" href="./style.css">
-  <script defer src="./app.js"></script>
-<link rel="stylesheet" href="./explore.css">
-<script src="./explore.js" defer></script>
-<link rel="stylesheet" href="./forecasts.css"><script defer src="./forecasts.js"></script>
+  <script src="./theme.js?v=essential-20261107"></script><link rel="stylesheet" href="./style.css?v=essential-20261107">
+  <script defer src="./chart-interaction.js?v=essential-20261107"></script><script defer src="./app.js?v=essential-20261107"></script>
+<link rel="stylesheet" href="./explore.css?v=essential-20261107">
+<script src="./explore.js?v=essential-20261107" defer></script>
+<link rel="stylesheet" href="./forecasts.css?v=essential-20261107"><script defer src="./forecasts.js?v=essential-20261107"></script>
+<link rel="stylesheet" href="./essential.css?v=essential-20261107">
 </head>
-<body class="explore-page">
+<body class="explore-page essential-page">
   <a class="skip-link" href="#main">Ir para o conteúdo</a>
-  <header class="site-header">
-    <div class="shell header-inner">
-      <a class="brand" href="./" aria-label="Observatorio do Tempo e Clima: inicio">
-        <span class="brand-mark" aria-hidden="true">◌</span>
-        <span class="brand-copy"><strong>observatório</strong><small>TEMPO &amp; CONTEXTO</small></span>
-      </a>
-      <div class="header-right">
-<button id="theme-toggle" type="button" aria-label="Usar tema escuro" aria-pressed="false">☾ Escuro</button>
-        <a class="header-link" href="./">← Painel de Araquari</a><span class="location-tag">Projeto independente</span>
-        <a href="https://github.com/guimig/criseclimatica" target="_blank" rel="noopener noreferrer" class="header-link">Código aberto <span aria-hidden="true">↗</span></a>
-      </div>
-    </div>
-  </header>
+  <header class="sitebar"><div class="page-width sitebar-inner"><a class="site-brand" href="./" aria-label="Observatório: início"><svg aria-hidden="true"><use href="./icons.svg#radar"></use></svg><span>OBSERVATÓRIO<small>TEMPO E CLIMA</small></span></a><nav class="site-nav" aria-label="Navegação principal"><a href="./">Painel de Araquari</a><a href="./dados.html" aria-current="page">Dados e fontes</a></nav><button id="theme-toggle" type="button" aria-label="Usar tema escuro" aria-pressed="false">☾ Escuro</button></div></header>
   <main class="shell" id="main">
     <section class="hero" aria-labelledby="headline">
-      <div class="hero-eyebrow">EXPLORAR · TEMPO E CONTEXTO</div>
+      <div class="hero-eyebrow">OBSERVATÓRIO · TEMPO E CLIMA</div>
       <div class="hero-row">
         <div>
-<h1 id="headline">Dados e fontes</h1>
-<p>Explore as evidências por assunto, fonte e município. Araquari é a referência principal; as demais localidades oferecem contexto.</p>
+<h1 id="headline">Dados meteorológicos</h1>
+<p>Araquari e contexto regional · medições, previsões, avisos e históricos.</p>
 </div>
         </div>
       <div class="update-bar">
@@ -181,7 +170,7 @@
 </div>
 </div>
         <div class="chart-frame" id="chart" role="img" aria-label="Grafico das proximas 24 horas"><span class="loading-label">Carregando gráfico...</span></div>
-        <p id="detail-chart-tooltip" class="detail-chart-tooltip" aria-live="polite" hidden></p><div class="chart-footer">
+        <p id="detail-chart-tooltip" class="detail-chart-tooltip" aria-live="polite" hidden></p><p class="chart-hint">Mouse para consultar · clique/toque para fixar · Esc para soltar</p><div class="chart-footer">
 <span class="legend-dot"></span><span id="chart-legend">Dados de previsão, não de estação</span>
 </div>
       </section>
@@ -423,7 +412,7 @@
 </div></main>
   <footer class="site-footer"><div class="shell footer-inner">
 <div>
-<strong>OBSERVATÓRIO / TEMPO &amp; CLIMA</strong><p>Projeto aberto e independente. Não substitui alertas e orientações da Defesa Civil.</p>
+<strong>OBSERVATÓRIO · TEMPO E CLIMA</strong><p>Projeto aberto e independente. Não substitui alertas e orientações da Defesa Civil.</p>
 </div>
 <div>
 <span>Dados meteorológicos: <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a></span><span><a href="https://github.com/guimig/criseclimatica" target="_blank" rel="noopener noreferrer">Repositório no GitHub ↗</a></span>

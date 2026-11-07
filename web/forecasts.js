@@ -56,6 +56,16 @@
       if(rain){const slot=(W-L-R)/hours,bw=Math.max(.8,slot*.8/series.length);for(const p of r.points)if(Number.isFinite(p[field])){const bar=svg('rect',{x:x(Date.parse(p.time)-3600000)+slot*.1+bw*index,y:y(p[field]),width:bw,height:Math.max(0,y(0)-y(p[field])),fill:color});bar.append(svg('title',{},`${r.name}: ${n(p[field])} mm · ${dt(new Date(Date.parse(p.time)-3600000).toISOString())} a ${dt(p.time)}`));root.append(bar);}}
       else{let d='',last=null;for(const p of r.points){const t=Date.parse(p.time);if(!Number.isFinite(p[field])){last=null;continue;}d+=(last!==null&&t-last===3600000?'L':'M')+x(t)+','+y(p[field])+' ';last=t;}root.append(svg('path',{d,fill:'none',stroke:color,'stroke-width':2.5,'stroke-dasharray':index===1?'7 4':index===2?'2 4':'none'}));}
     });
+    if(typeof ChartInteraction!=='undefined'){
+      const times=Array.from({length:hours},(_,i)=>start+(i+(rain?1:0))*3600000);
+      ChartInteraction.attach(root,{width:W,left:L,right:R,top:T,bottom:H-B,domain:[start,end],times,tooltip,
+        lookup(t){const index=Math.max(0,Math.min(hours-1,rain?Math.ceil((t-start)/3600000)-1:Math.round((t-start)/3600000)));
+          const targetTime=times[index],marks=[];
+          const parts=series.map(r=>{const p=r.points.find(p=>Date.parse(p.time)===targetTime);if(Number.isFinite(p?.[field]))marks.push({x:rain?x(t):x(targetTime),y:y(p[field]),color:colors[['best_match','ecmwf_ifs025','ncep_gfs_global'].indexOf(r.id)]});
+            return `${names[r.id]}: ${n(p?.[field])} ${rain?'mm':field==='temperature_c'?'°C':'km/h'}`;});
+          return {text:`${rain?dt(new Date(targetTime-3600000).toISOString())+' a ':''}${dt(new Date(targetTime).toISOString())}\n${parts.join('\n')}`,marks};
+        }});target.append(root);return;
+    }
     let cursor=0;const total=hours;
     function show(index){cursor=Math.max(0,Math.min(total-1,index));const t=start+(cursor+(rain?1:0))*3600000;const parts=series.map(r=>{const p=r.points.find(p=>Date.parse(p.time)===t);return `${names[r.id]}: ${n(p?.[field])} ${rain?'mm':field==='temperature_c'?'°C':'km/h'}`;});tooltip.textContent=`${rain?dt(new Date(t-3600000).toISOString())+' a ':''}${dt(new Date(t).toISOString())} · ${parts.join(' · ')}`;tooltip.hidden=false;}
     root.addEventListener('pointermove',e=>{const b=root.getBoundingClientRect();show(Math.floor(((e.clientX-b.left)*W/b.width-L)/(W-L-R)*hours));});
@@ -63,7 +73,7 @@
     root.addEventListener('keydown',e=>{if(['ArrowRight','ArrowLeft','Home','End'].includes(e.key)){e.preventDefault();show(e.key==='Home'?0:e.key==='End'?total-1:cursor+(e.key==='ArrowRight'?1:-1));}});target.append(root);
   }
   function renderDetailed(target,data){
-    if(!target)return;target.replaceChildren();target.append(dom('h3','','Previsões em comparação · Araquari'));
+    if(!target)return;if(target._comparisonResize)target._comparisonResize.disconnect();if(target._comparisonTheme)document.removeEventListener('observatorythemechange',target._comparisonTheme);target.replaceChildren();target.append(dom('h3','','Previsões em comparação · Araquari'));
     if(!current(data)){target.append(dom('p','comparison-note','Comparação indisponível ou vencida. Não se infere concordância ou normalidade.'));return;}
     target.append(dom('p','','Open-Meteo é o serviço de acesso; ECMWF e NOAA produzem os modelos identificados. A seleção automática permanece principal pela cobertura horária, sem superioridade local demonstrada.'));
     const controls=dom('div','model-chart-controls'),vlabel=dom('label','','Variável'),variable=dom('select'),hlabel=dom('label','','Período'),horizon=dom('select');
@@ -73,7 +83,7 @@
     const period=dom('p','comparison-note'),plot=dom('div','model-comparison-plot'),tooltip=dom('p','comparison-tooltip'),legend=dom('div','comparison-legend'),tables=dom('div');tooltip.hidden=true;tooltip.setAttribute('aria-live','polite');
     target.append(controls,period,plot,legend,tooltip,tables);
     function update(){if(!current(data)){renderDetailed(target,data);return;}const hours=Number(horizon.value),w=data.windows.find(w=>w.hours===hours);period.textContent=`${dt(w.start_at)} a ${dt(w.end_at)} · Brasília. Chuva: barras por hora e modelo; demais variáveis: linhas. Lacunas não são zero.`;chart(plot,data,variable.value,hours,tooltip,legend);tables.replaceChildren();table(tables,w);}
-    variable.addEventListener('change',update);horizon.addEventListener('change',update);document.addEventListener('observatorythemechange',update);update();
+    variable.addEventListener('change',update);horizon.addEventListener('change',update);target._comparisonTheme=update;document.addEventListener('observatorythemechange',update);update();if(typeof ResizeObserver!=='undefined'){let lastWidth=0;target._comparisonResize=new ResizeObserver(entries=>{const width=Math.round(entries[0].contentRect.width);if(width>0&&width!==lastWidth){lastWidth=width;requestAnimationFrame(update);}});target._comparisonResize.observe(plot);}
     target.append(dom('h4','','CPTEC/INPE · contexto diário separado'));
     const cp=data.cptec;target.append(dom('p','comparison-note',`Localidade: ${cp.locality||'não identificada'} · atualização informada: ${cp.updated_day||'não informada'} · consulta: ${dt(cp.checked_at)}. Períodos diários e localização ainda não conciliados; fora das faixas numéricas.`));
     if(cp.status==='available'){const list=dom('div','cptec-comparison-days');for(const day of cp.days){list.append(dom('p','',`${day.day}: mínima ${n(day.minimum_c)} °C · máxima ${n(day.maximum_c)} °C`));}target.append(list);}else target.append(dom('p','','Previsão CPTEC sem referência atual válida.'));

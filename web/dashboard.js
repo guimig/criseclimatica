@@ -1,5 +1,5 @@
 'use strict';
-const panel = {data:null, history:null, mode:'context', variable:'precipitation_mm', hours:24, rainWindow:1, station:'all', scope:'local', observedView:'auto', loadId:0};
+const panel = {data:null, history:null, mode:'context', variable:'precipitation_mm', hours:24, rainWindow:24, observedVariable:'precipitation_mm', station:'all', scope:'local', observedView:'auto', loadId:0};
 const el = id => document.getElementById(id);
 const colors = ['#2f8548','#377fb1','#b27a2b','#8a5a9f','#bf4e48','#458a88'];
 const timeZone = 'America/Sao_Paulo';
@@ -49,7 +49,7 @@ function riskPresentation(data,now=Date.now()) {
   if(policy.suggested_level)return {color:policy.suggested_level,active:policy.suggested_level,title:riskNames[policy.suggested_level]||policy.title,kind:'Nível sugerido · '+policy.suggested_level,
     reason:description||'Um aviso Epagri/Ciram para a região contém informações compatíveis com este nível. Confira o período e a abrangência nos detalhes.'};
   if(policy.monitoring_state==='routine'&&objective?.core_complete&&objective.maximum_band===0&&objective.signals?.length)return {color:'verde',active:'verde',title:'Normalidade nos dados acompanhados',kind:'Referência verde · leitura consultiva',reason:'As fontes necessárias foram consultadas e os dados válidos de chuva e vento estão abaixo das faixas de atenção utilizadas. Nenhum aviso aplicável foi identificado. É uma leitura do painel, não uma declaração institucional.'};
-  if(highest)return {color:'amarelo',active:null,title:'Atenção a '+(families.length>1?'chuva e vento':highest.variable.startsWith('rain_')?'chuva':highest.variable==='gust_kmh'?'rajadas de vento':'vento'),kind:'Referência amarela · atenção',reason:signals.slice(0,2).map(signal=>signalBrief(signal,data)).join(' ')+' Esses valores pedem atenção. Consulte horários e referências na explicação antes de decidir.'};
+  if(highest)return {color:'amarelo',active:null,title:'Atenção a '+(families.length>1?'chuva e vento':highest.variable.startsWith('rain_')?'chuva':highest.variable==='gust_kmh'?'rajadas de vento':'vento'),kind:'Referência amarela · atenção',reason:signals.slice(0,2).map(signal=>signalDescription(signal,data)).join(' ')};
   if(policy.monitoring_state==='official_context')return {color:'amarelo',active:null,title:'Há aviso meteorológico para conferir',kind:'Referência amarela · conferir aviso',reason:'Uma publicação oficial pode ser relevante para Araquari. A abrangência ou o conteúdo ainda não permite sugerir um nível específico; abra as evidências.'};
   return {color:'neutral',active:null,title:'Dados insuficientes para classificar',kind:'Leitura parcial',reason:'Há informações disponíveis, mas faltam referências válidas para uma leitura completa. Falta de dados não significa normalidade.'};
 }
@@ -84,7 +84,7 @@ function renderSummary() {
   const gauges=data?.gauge_distribution;
   if(current&&gauges?.status==='available') {
     const median=Number.isFinite(gauges.median_mm);
-    updateMetric('observed',num(median?gauges.median_mm:gauges.maximum_mm)+' mm',`${median?'Valor central':'Maior leitura'} de ${gauges.station_count} estações em Araquari · maior: ${num(gauges.maximum_mm)} mm`);
+    updateMetric('observed',num(median?gauges.median_mm:gauges.maximum_mm)+' mm',`${median?'Mediana':'Maior leitura'} · ${gauges.station_count} estações · maior: ${num(gauges.maximum_mm)} mm`);
   } else updateMetric('observed','—','Sem leitura local válida · não é chuva zero');
   const f=data?.forecast, rain=f?.rain, gust=f?.wind?.gust_kmh, heat=f?.heat;
   updateMetric('forecast',current&&rain?.status==='complete'?num(rain.total_mm)+' mm':'—',current&&rain?.status==='complete'?`${date(rain.start_at)} a ${date(rain.end_at)}`:'Janela incompleta ou referência vencida');
@@ -156,7 +156,7 @@ function drawStationSnapshot(target,legend,tooltip,series,unit,sharedScale=null)
   target.replaceChildren();legend.replaceChildren();tooltip.hidden=true;
   const latest=series.filter(s=>s.points.length).map(s=>({s,p:s.points[s.points.length-1]}));
   if(!latest.length){target.append(node('p','empty','Sem leituras de chuva para este recorte. Consulte a cobertura e os horários nos detalhes.'));return;}
-  const scale=sharedScale||chartScale(latest.map(r=>r.p.value)),W=Math.max(180,Math.round(target.clientWidth||600)),H=Math.max(230,latest.length*86+45),L=16,R=70,top=14,bottom=30;
+  const scale=sharedScale||chartScale(latest.map(r=>r.p.value)),W=Math.max(180,Math.round(target.clientWidth||600)),H=Math.max(230,latest.length*72+40),L=16,R=70,top=14,bottom=30;
   const width=W-L-R,x=v=>L+v/scale.high*width,anchor=Date.parse(panel.data?.generated_at);
   const root=svg('svg',{viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':`Último acumulado de chuva por estação, em ${unit}. Use setas para consultar os intervalos.`,tabindex:0});
   let cursor=0;
@@ -176,8 +176,8 @@ function drawWeatherChart(target,legend,tooltip,series,domain,label,unit,sharedS
   target.replaceChildren();legend.replaceChildren();tooltip.hidden=true;
   const points=series.flatMap(s=>s.points.filter(p=>Number.isFinite(p.value)).map(p=>({...p,series:s})));
   if(!points.length){target.append(node('p','empty','Sem amostras válidas para esta variável e período. Ausência de dados não é valor zero.'));return;}
-  const rain=panel.variable==='precipitation_mm',anchor=Date.parse(panel.data?.generated_at);
-  const scale=sharedScale||chartScale(points.map(p=>p.value),panel.variable==='temperature_c'),{low,high}=scale;
+  const rain=series.some(s=>s.field==='precipitation_mm'||s.field?.startsWith('rain_')),anchor=Date.parse(panel.data?.generated_at);
+  const scale=sharedScale||chartScale(points.map(p=>p.value),series.some(s=>s.field==='temperature_c')),{low,high}=scale;
   const [minT,maxT]=domain,W=Math.max(180,Math.round(target.clientWidth||600)),H=250,L=45,R=12,T=16,B=42,w=W-L-R,h=H-T-B;
   const x=t=>L+(t-minT)/(maxT-minT)*w,y=v=>T+h-(v-low)/(high-low)*h;
   const root=svg('svg',{viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':`${label} (${unit}). Horários de Brasília. Use setas para explorar.`,tabindex:0});
@@ -208,6 +208,18 @@ function drawWeatherChart(target,legend,tooltip,series,domain,label,unit,sharedS
     }
     if(series.length>1&&s.points.some(p=>Number.isFinite(p.value))){const item=node('span','legend-item');const dot=node('i','legend-dot');dot.style.background=s.color;item.append(dot,node('span','',s.name));legend.append(item);}
   }
+  if(typeof ChartInteraction!=='undefined'){
+    const instants=[...new Set(points.map(p=>Date.parse(p.time)))].sort((a,b)=>a-b);
+    ChartInteraction.attach(root,{width:W,left:L,right:R,top:T,bottom:T+h,domain:[minT,maxT],times:instants,tooltip,
+      lookup(t,keyboard){
+        let selected;
+        if(rain)selected=points.filter(p=>Date.parse(p.start_at)<t&&t<=Date.parse(p.time));
+        else {const nearest=instants.reduce((a,b)=>Math.abs(b-t)<Math.abs(a-t)?b:a,instants[0]);
+          selected=points.filter(p=>Date.parse(p.time)===nearest&&Math.abs(nearest-t)<=p.series.gapMs/2);}
+        return {text:selected.length?selected.map(p=>pointDescription(p.series,p,unit,anchor)).join('\n'):'Sem amostra neste horário. Ausência de dados não significa zero.',
+          marks:selected.map(p=>({x:rain?x(Math.max(minT,Math.min(t,maxT))):x(Date.parse(p.time)),y:y(p.value),color:p.series.color}))};
+      }});target.append(root);return;
+  }
   const guide=svg('line',{x1:L,x2:L,y1:T,y2:T+h,stroke:'currentColor','stroke-dasharray':'3 4',visibility:'hidden'});root.append(guide);
   const instants=[...new Set(points.map(p=>Date.parse(p.time)))].sort((a,b)=>a-b);let cursor=0;
   function show(t){const nearest=instants.reduce((a,b)=>Math.abs(b-t)<Math.abs(a-t)?b:a,instants[0]);cursor=instants.indexOf(nearest);tooltip.textContent=points.filter(p=>Date.parse(p.time)===nearest).map(p=>pointDescription(p.series,p,unit,anchor)).join(' | ');tooltip.hidden=false;guide.setAttribute('x1',x(nearest));guide.setAttribute('x2',x(nearest));guide.setAttribute('visibility','visible');}
@@ -224,7 +236,7 @@ function drawWeatherChart(target,legend,tooltip,series,domain,label,unit,sharedS
 }
 function renderStationDetails(series,anchor) {
   const target=el('station-readings');target.replaceChildren();
-  const rain=panel.variable==='precipitation_mm',unit=rain?'mm':panel.variable==='temperature_c'?'°C':'km/h';
+  const rain=panel.observedVariable==='precipitation_mm',unit=rain?'mm':panel.observedVariable==='temperature_c'?'°C':'km/h';
   const {rows,cohort}=comparableReadings(series,anchor,panel.rainWindow);
   const summary=el('station-comparison');
   if(!rows.length){summary.textContent='Sem leituras de estação para comparar neste período.';return;}
@@ -243,10 +255,10 @@ function renderStationDetails(series,anchor) {
   table.append(body);target.append(table);
 }
 function renderChart() {
-  const data=panel.data,anchor=Number.isFinite(Date.parse(data?.generated_at))?Date.parse(data.generated_at):Date.now(),rain=panel.variable==='precipitation_mm';
+  const data=panel.data,anchor=Number.isFinite(Date.parse(data?.generated_at))?Date.parse(data.generated_at):Date.now(),rain=panel.observedVariable==='precipitation_mm',forecastRain=panel.variable==='precipitation_mm';
   const palette=document.documentElement.dataset.theme==='dark'?['#79d39a','#82b7ef','#efba74','#c4a0ed','#f47b7f','#78cac9']:colors;
   const nearby=rain&&panel.scope==='nearby',history=nearby?{records:data?.regional_rain_context?.records||[]}:panel.history;
-  const allObserved=getChartSeries(data,history,'observed',panel.variable,panel.hours,anchor,`rain_${panel.rainWindow}h_mm`).map((s,i)=>({...s,color:palette[i%palette.length]}));
+  const allObserved=getChartSeries(data,history,'observed',panel.observedVariable,panel.hours,anchor,`rain_${panel.rainWindow}h_mm`).map((s,i)=>({...s,color:palette[i%palette.length]}));
   const forecast=getChartSeries(data,panel.history,'forecast',panel.variable,panel.hours,anchor).map((s,i)=>({...s,color:palette[(i+1)%palette.length]}));
   const selector=el('station-select');selector.replaceChildren();const all=node('option','','Todas as estações');all.value='all';selector.append(all);
   const keys=new Set();for(const s of allObserved){const key=s.source+':'+s.station;if(keys.has(key))continue;keys.add(key);const option=node('option','',s.name.replace(/ · (vento|rajada)$/,''));option.value=key;selector.append(option);}
@@ -255,30 +267,30 @@ function renderChart() {
   el('observed-panel').hidden=panel.mode==='forecast';el('forecast-panel').hidden=panel.mode==='observed';
   el('chart-panels').classList.toggle('single-panel',panel.mode!=='context');
   el('rain-window-control').hidden=!rain;el('rain-scope-control').hidden=!rain;el('observed-view-controls').hidden=!rain;el('rain-scope').value=panel.scope;el('rain-window').value=String(panel.rainWindow);
-  const variable=rain?'Chuva':panel.variable==='temperature_c'?'Temperatura':'Vento e rajadas',unit=rain?'mm':panel.variable==='temperature_c'?'°C':'km/h';
-  el('chart-heading').textContent=variable+' · observações e previsão';
-  el('recent-summary').hidden=panel.variable!=='temperature_c';
+  const variable=rain?'Chuva':panel.observedVariable==='temperature_c'?'Temperatura':'Vento e rajadas',unit=rain?'mm':panel.observedVariable==='temperature_c'?'°C':'km/h',forecastUnit=forecastRain?'mm':panel.variable==='temperature_c'?'°C':'km/h';
+  el('chart-heading').textContent='Observações e previsão';
+  el('recent-summary').hidden=panel.observedVariable!=='temperature_c';
   el('observed-heading').textContent=rain?`Chuva medida · ${panel.rainWindow} h`:'Observado · '+variable.toLowerCase();
-  el('forecast-heading').textContent=rain?'Chuva prevista · por hora':'Previsto · '+variable.toLowerCase();
+  el('forecast-heading').textContent=forecastRain?'Chuva prevista · por hora':panel.variable==='temperature_c'?'Temperatura prevista':'Vento e rajadas previstos';
   el('chart-period').textContent='Horários de Brasília';
   const base=Number.isFinite(Date.parse(data?.forecast?.start_at))?Date.parse(data.forecast.start_at):Math.floor(anchor/3600000)*3600000;
   const values=[...observed,...forecast].flatMap(s=>s.points.filter(p=>Number.isFinite(p.value)).map(p=>p.value));
-  let shared=panel.mode==='context'&&(!rain||panel.rainWindow===1)&&values.length?chartScale(values,panel.variable==='temperature_c'):null;
+  let shared=panel.mode==='context'&&panel.variable===panel.observedVariable&&(!rain||panel.rainWindow===1)&&values.length?chartScale(values,panel.variable==='temperature_c'):null;
   const times=new Set(observed.flatMap(s=>s.points.map(p=>p.time))),view=panel.observedView==='auto'?(times.size<4?'stations':'timeline'):panel.observedView;
   const snapshot=rain&&view==='stations';if(snapshot)shared=null;
   for(const b of document.querySelectorAll('[data-observed-view]')){const selected=b.dataset.observedView===view;b.classList.toggle('active',selected);b.setAttribute('aria-pressed',String(selected));}
   if(snapshot)drawStationSnapshot(el('plot'),el('chart-legend'),el('chart-tooltip'),observed,unit,shared);
   else drawWeatherChart(el('plot'),el('chart-legend'),el('chart-tooltip'),observed,[anchor-panel.hours*3600000,anchor],el('observed-heading').textContent,unit,shared);
   el('plot').classList.toggle('snapshot-plot',snapshot);
-  drawWeatherChart(el('forecast-plot'),el('forecast-legend'),el('forecast-tooltip'),forecast,[base,base+panel.hours*3600000],el('forecast-heading').textContent,unit,shared);
+  drawWeatherChart(el('forecast-plot'),el('forecast-legend'),el('forecast-tooltip'),forecast,[base,base+panel.hours*3600000],el('forecast-heading').textContent,forecastUnit,shared);
   el('observed-period').textContent=snapshot?'Última leitura disponível de cada estação':date(new Date(anchor-panel.hours*3600000).toISOString())+' — '+date(new Date(anchor).toISOString());
   const names=[...new Set(allObserved.map(s=>s.name))];
   el('observed-source').textContent=rain?'Cemaden':'Estações · METAR / Cemaden';
   el('station-coverage').textContent=rain?(nearby?`${names.length} estações do entorno com posição verificada, a até ${data?.regional_rain_context?.radius_km||40} km do ponto de Araquari. Apenas últimas leituras; não entram nos indicadores locais.`:`Araquari · ${names.length} estações de chuva com amostras neste período. Altere a área para consultar o entorno.`):'Medições pontuais de estações próximas, com fontes e distâncias nos detalhes.';
   el('forecast-period').textContent=date(new Date(base).toISOString())+' — '+date(new Date(base+panel.hours*3600000).toISOString());
   el('observed-caption').textContent=rain&&snapshot?`Acumulado de ${panel.rainWindow} h por estação. As leituras podem ter horários diferentes; toque nas barras para conferir.`:rain?(panel.rainWindow===1?'Cada faixa ocupa a hora realmente medida. Espaços sem faixas são períodos sem amostra; o histórico é coletado a cada 3 h.':'Faixas de acumulado móvel de 24 h podem se sobrepor. Não some as faixas nem compare sua altura com chuva prevista de 1 h.'):'Amostras de estação; linhas interrompidas em lacunas superiores a 4 h. Não são médias municipais.';
-  el('forecast-caption').textContent=rain?'Cada barra é uma hora de previsão. A primeira pode incluir a hora em curso. Espaços sem dados não significam chuva zero.':'Open-Meteo · modelo para o ponto municipal de Araquari. Linha tracejada; ausência de pontos mantém lacunas.';
-  el('chart-caption').textContent=(shared?'Mesma escala vertical; períodos observados e previstos diferentes. ':rain&&panel.rainWindow===24?'Acumulados diferentes: 24 h observado e 1 h previsto. Não compare diretamente as alturas. ':snapshot?'Gráficos com escalas próprias; confira os valores e períodos. ':'')+(!dashboardCurrent(data)?'Atualização vencida: referência anterior. ':'')+'Toque nos gráficos ou use as setas para consultar os intervalos.';
+  el('forecast-caption').textContent=forecastRain?'Cada barra é uma hora de previsão. A primeira pode incluir a hora em curso. Espaços sem dados não significam chuva zero.':'Open-Meteo · modelo para o ponto municipal de Araquari. Linha tracejada; ausência de pontos mantém lacunas.';
+  el('chart-caption').textContent=(shared?'Mesma escala vertical; períodos observados e previstos diferentes. ':rain&&forecastRain&&panel.rainWindow===24?'Acumulados diferentes: 24 h observado e 1 h previsto. Não compare diretamente as alturas. ':snapshot?'Gráficos com escalas próprias; confira os valores e períodos. ':'')+(!dashboardCurrent(data)?'Atualização vencida: referência anterior. ':'')+'Toque nos gráficos ou use as setas para consultar os intervalos.';
   renderStationDetails(allObserved,anchor);
   el('station-details').hidden=panel.mode==='forecast';
 }
@@ -390,7 +402,7 @@ async function loadDashboard() {
   }catch(err){if(id!==panel.loadId)return;console.error('Dashboard unavailable:',err.message);panel.data=null;panel.history=null;}
   finally{if(id===panel.loadId){el('refresh').disabled=false;renderSummary();renderRecent();renderMemory();renderChart();}}
 }
-function selectVariable(variable) {panel.variable=variable;for(const button of document.querySelectorAll('[data-variable]')){const selected=button.dataset.variable===variable;button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));}renderChart();}
+function selectVariable(variable) {panel.variable=variable;if(el('forecast-variable'))el('forecast-variable').value=variable;for(const button of document.querySelectorAll('[data-variable]')){const selected=button.dataset.variable===variable;button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));}renderChart();}
 function selectMode(mode) {
   panel.mode=mode;
   for(const button of document.querySelectorAll('[data-mode]')){const selected=button.dataset.mode===mode;button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));}
@@ -399,12 +411,14 @@ function selectMode(mode) {
 }
 if(typeof module!=='undefined')module.exports={fresh,dashboardCurrent,protocolCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale};
 if(typeof document!=='undefined'){
-  function navigationState(){for(const link of document.querySelectorAll('nav a[href^="#"]')){const active=link.getAttribute('href')===(location.hash||'#main');if(active)link.setAttribute('aria-current','location');else link.removeAttribute('aria-current');}}
+  function navigationState(){if(location.hash==='#memory')el('memory').open=true;for(const link of document.querySelectorAll('nav a[href^="#"]')){const active=link.getAttribute('href')===(location.hash||'#main');if(active)link.setAttribute('aria-current','location');else link.removeAttribute('aria-current');}}
   window.addEventListener('hashchange',navigationState);navigationState();
   el('refresh').addEventListener('click',loadDashboard);
   for(const b of document.querySelectorAll('[data-variable]'))b.addEventListener('click',()=>selectVariable(b.dataset.variable));
   for(const b of document.querySelectorAll('[data-focus]'))b.addEventListener('click',()=>{panel.hours=24;el('chart-range').value='24';selectMode('forecast');selectVariable(b.dataset.focus);el('chart-heading').scrollIntoView({block:'center',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});});
   for(const b of document.querySelectorAll('[data-mode]'))b.addEventListener('click',()=>selectMode(b.dataset.mode));
+  el('forecast-variable')?.addEventListener('change',event=>selectVariable(event.target.value));
+  el('observed-variable')?.addEventListener('change',event=>{panel.observedVariable=event.target.value;panel.station='all';renderChart();});
   el('chart-range').addEventListener('change',event=>{panel.hours=Number(event.target.value);renderChart();});
   el('rain-scope').addEventListener('change',event=>{panel.scope=event.target.value==='nearby'?'nearby':'local';panel.station='all';renderChart();});
   for(const b of document.querySelectorAll('[data-observed-view]'))b.addEventListener('click',()=>{panel.observedView=b.dataset.observedView;renderChart();});
@@ -415,5 +429,7 @@ if(typeof document!=='undefined'){
   el('evidence-open').addEventListener('click',showEvidence);el('level-explain').addEventListener('click',showAssessment);el('protocol-open').addEventListener('click',showProtocol);el('methods-open').addEventListener('click',showMethods);el('dialog-close').addEventListener('click',()=>el('detail-dialog').close());
   setInterval(()=>{renderSummary();if(!dashboardCurrent(panel.data)&&el('detail-dialog').open)el('detail-dialog').close();},60000);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden){renderSummary();renderChart();if(!dashboardCurrent(panel.data)&&el('detail-dialog').open)el('detail-dialog').close();}});
+  let chartWidth=0;
+  if(typeof ResizeObserver!=='undefined')new ResizeObserver(entries=>{const width=Math.round(entries[0].contentRect.width);if(width>0&&width!==chartWidth){chartWidth=width;requestAnimationFrame(renderChart);}}).observe(el('chart-panels'));
   loadDashboard();
 }

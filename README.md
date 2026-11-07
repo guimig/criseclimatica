@@ -4,11 +4,11 @@ Portal meteorológico aberto com prioridade em Araquari e cobertura de vinte mun
 
 ## Painel de acompanhamento de Araquari
 
-A página inicial reúne nível de referência, aviso prioritário Epagri/Ciram, quatro indicadores e gráfico interativo. Previsão, observações, chuva, vento/rajadas e temperatura podem ser explorados por período, ponteiro, toque e teclado. Fontes, estações e municípios complementares permanecem em `dados.html`, fora da leitura principal.
+A página inicial **Tempo em Araquari** adota o Painel essencial: faixa de referência, quatro indicadores e gráficos separados de observações e previsão. Avisos, comparação de modelos e históricos permanecem acessíveis por expansão. Previsão, observações, chuva, vento/rajadas e temperatura podem ser explorados por período, ponteiro, toque e teclado. Fontes, estações e municípios complementares permanecem em `dados.html`, fora da leitura principal.
 
 **PN 13/2026 e PN 14/2026 — ASSINST/REI** substituem o protocolo anterior. As seis categorias são qualitativas; não se atribui um nível por média de chuva/vento ou pela cor de outro órgão. O enquadramento é uma sugestão rastreável, quando há evidência prioritária suficiente; a decisão formal permanece humana. Ausência de dados nunca produz verde automático.
 
-Há distribuição de chuva por estações contemporâneas (mediana com n ≥ 3 e extremos preservados), previsão de até dez dias, revisão dos mesmos horários futuros e histórico observado de sete dias sem reconstrução retroativa. O visual é claro, verde e branco, independente e sem logotipos oficiais. Veja [métodos, critérios, normas e limites](docs/PAINEL_ARAQUARI_PN13_PN14.md).
+Há distribuição de chuva por estações contemporâneas (mediana com n ≥ 3 e extremos preservados), previsão de até dez dias, revisão dos mesmos horários futuros e histórico observado de sete dias sem reconstrução retroativa. O visual é claro, verde e branco, com tema escuro opcional, independente e sem logotipos oficiais. Veja [layout, interações e compatibilidade do Painel essencial](docs/PAINEL_ESSENCIAL.md). Veja [métodos, critérios, normas e limites](docs/PAINEL_ARAQUARI_PN13_PN14.md).
 
 ## Leitura multifontes e memória
 
