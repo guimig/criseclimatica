@@ -39,19 +39,18 @@ def main():
             page=context.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
             try:
                 page.goto(url);page.locator('.forecast-comparison-card summary').click();page.locator('.comparison-range').first.wait_for()
-                page.locator('.shared-chart-controls summary').click()
                 page.locator('.station-filter summary').click()
                 for theme in ('light','dark'):
                     if theme=='dark':page.locator('#theme-toggle').click()
                     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),f'Home overflow {width}'
-                    for selector in ['#chart-range','#station-select','#rain-window','#observed-variable','[data-mode=context]']:
+                    for selector in ['#chart-range','#station-select','#rain-window','#observed-variable']:
                         box=page.locator(selector).bounding_box();assert box['height']>=44,(width,selector,box)
                     # Every common control belongs above both plot cards, not on top of a chart.
-                    bottom=page.locator('.shared-chart-controls').bounding_box()
+                    bottom=page.locator('.period-controls').bounding_box()
                     for selector in ['#observed-panel','#forecast-panel']:
                         box=page.locator(selector).bounding_box();assert box['y']>=bottom['y']+bottom['height']
-                    for button in page.locator('.shared-chart-controls button').all():
-                        assert button.evaluate('el=>el.scrollWidth<=el.clientWidth'), 'Control text overflow'
+                    assert page.locator('[data-mode]').count()==0
+                    assert page.locator('#chart-range').is_visible()
                     if width<620:
                         for selector in ['.level-reason','.coverage-copy','.weather-panel .chart-caption']:
                             assert page.locator(selector).first.evaluate('el=>parseFloat(getComputedStyle(el).fontSize)')>=14,selector

@@ -1,5 +1,5 @@
 'use strict';
-const panel = {data:null, history:null, mode:'context', variable:'precipitation_mm', hours:24, rainWindow:24, observedVariable:'precipitation_mm', station:'all', scope:'local', observedView:'auto', loadId:0};
+const panel = {data:null, history:null, variable:'precipitation_mm', hours:24, rainWindow:24, observedVariable:'precipitation_mm', station:'all', scope:'local', observedView:'auto', loadId:0};
 const el = id => document.getElementById(id);
 const colors = ['#2f8548','#377fb1','#b27a2b','#8a5a9f','#bf4e48','#458a88'];
 const timeZone = 'America/Sao_Paulo';
@@ -290,8 +290,7 @@ function renderChart() {
   const keys=new Set();for(const s of allObserved){const key=s.source+':'+s.station;if(keys.has(key))continue;keys.add(key);const option=node('option','',s.name.replace(/ · (vento|rajada)$/,''));option.value=key;selector.append(option);}
   if(panel.station!=='all'&&!keys.has(panel.station))panel.station='all';selector.value=panel.station;
   const observed=allObserved.filter(s=>panel.station==='all'||s.source+':'+s.station===panel.station);
-  el('observed-panel').hidden=panel.mode==='forecast';el('forecast-panel').hidden=panel.mode==='observed';
-  el('chart-panels').classList.toggle('single-panel',panel.mode!=='context');
+  el('observed-panel').hidden=false;el('forecast-panel').hidden=false;
   el('rain-window-control').hidden=!rain;el('rain-scope-control').hidden=!rain;el('observed-view-controls').hidden=!rain;el('rain-scope').value=panel.scope;el('rain-window').value=String(panel.rainWindow);
   const variable=rain?'Chuva':panel.observedVariable==='temperature_c'?'Temperatura':'Vento e rajadas',unit=rain?'mm':panel.observedVariable==='temperature_c'?'°C':'km/h',forecastUnit=forecastRain?'mm':panel.variable==='temperature_c'?'°C':'km/h';
   el('chart-heading').textContent='Observações e previsão';
@@ -301,7 +300,7 @@ function renderChart() {
   el('chart-period').textContent='Horários de Brasília';
   const base=Number.isFinite(Date.parse(data?.forecast?.start_at))?Date.parse(data.forecast.start_at):Math.floor(anchor/3600000)*3600000;
   const values=[...observed,...forecast].flatMap(s=>s.points.filter(p=>Number.isFinite(p.value)).map(p=>p.value));
-  let shared=panel.mode==='context'&&panel.variable===panel.observedVariable&&(!rain||panel.rainWindow===1)&&values.length?chartScale(values,panel.variable==='temperature_c'):null;
+  let shared=panel.variable===panel.observedVariable&&(!rain||panel.rainWindow===1)&&values.length?chartScale(values,panel.variable==='temperature_c'):null;
   const times=new Set(observed.flatMap(s=>s.points.map(p=>p.time))),view=panel.observedView==='auto'?(times.size<4?'stations':'timeline'):panel.observedView;
   const snapshot=rain&&view==='stations';if(snapshot)shared=null;
   for(const b of document.querySelectorAll('[data-observed-view]')){const selected=b.dataset.observedView===view;b.classList.toggle('active',selected);b.setAttribute('aria-pressed',String(selected));}
@@ -316,9 +315,10 @@ function renderChart() {
   el('forecast-period').textContent=date(new Date(base).toISOString())+' — '+date(new Date(base+panel.hours*3600000).toISOString());
   el('observed-caption').textContent=rain&&snapshot?`Acumulado de ${panel.rainWindow} h por estação. As leituras podem ter horários diferentes; toque nas barras para conferir.`:rain?(panel.rainWindow===1?'Cada faixa ocupa a hora realmente medida. Espaços sem faixas são períodos sem amostra; o histórico é coletado a cada 3 h.':'Faixas de acumulado móvel de 24 h podem se sobrepor. Não some as faixas nem compare sua altura com chuva prevista de 1 h.'):'Amostras de estação; linhas interrompidas em lacunas superiores a 4 h. Não são médias municipais.';
   el('forecast-caption').textContent=forecastRain?'Cada barra é uma hora de previsão. A primeira pode incluir a hora em curso. Espaços sem dados não significam chuva zero.':'Open-Meteo · modelo para o ponto municipal de Araquari. Linha tracejada; ausência de pontos mantém lacunas.';
+  if(panel.hours>168)el('observed-caption').textContent+=' Histórico retido por até 7 dias; períodos anteriores sem registros não significam chuva zero.';
   el('chart-caption').textContent=(shared?'Mesma escala vertical; períodos observados e previstos diferentes. ':rain&&forecastRain&&panel.rainWindow===24?'Acumulados diferentes: 24 h observado e 1 h previsto. Não compare diretamente as alturas. ':snapshot?'Gráficos com escalas próprias; confira os valores e períodos. ':'')+(!dashboardCurrent(data)?'Atualização vencida: referência anterior. ':'')+'Toque nos gráficos ou use as setas para consultar os intervalos.';
   renderStationDetails(allObserved,anchor);
-  el('station-details').hidden=panel.mode==='forecast';
+  el('station-details').hidden=false;
 }
 function renderRecent() {
   const anchor=Date.parse(panel.data?.generated_at),rows=(panel.history?.records||[]).filter(r=>{const t=Date.parse(r.observed_at);return t<=anchor+600000&&t>=anchor-86400000;});
@@ -429,12 +429,6 @@ async function loadDashboard() {
   finally{if(id===panel.loadId){el('refresh').disabled=false;renderSummary();renderRecent();renderMemory();renderChart();}}
 }
 function selectVariable(variable) {panel.variable=variable;if(el('forecast-variable'))el('forecast-variable').value=variable;for(const button of document.querySelectorAll('[data-variable]')){const selected=button.dataset.variable===variable;button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));}renderChart();}
-function selectMode(mode) {
-  panel.mode=mode;
-  for(const button of document.querySelectorAll('[data-mode]')){const selected=button.dataset.mode===mode;button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));}
-  const long=el('chart-range').querySelector('option[value="240"]');if(long)long.disabled=mode!=='forecast';
-  if(mode!=='forecast'&&panel.hours>168){panel.hours=168;el('chart-range').value='168';}renderChart();
-}
 if(typeof module!=='undefined')module.exports={fresh,dashboardCurrent,protocolCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale,chartReadingsAt,chartReadingText};
 if(typeof document!=='undefined'){
   function navigationState(){if(location.hash==='#memory')el('memory').open=true;for(const link of document.querySelectorAll('nav a[href^="#"]')){const active=link.getAttribute('href')===(location.hash||'#main');if(active)link.setAttribute('aria-current','location');else link.removeAttribute('aria-current');}}
@@ -444,14 +438,13 @@ if(typeof document!=='undefined'){
   for(const b of document.querySelectorAll('[data-observed-focus]'))b.addEventListener('click',()=>{
     panel.hours=24;panel.rainWindow=24;panel.observedVariable='precipitation_mm';panel.observedView='stations';panel.scope='local';panel.station='all';
     el('chart-range').value='24';el('rain-window').value='24';el('observed-variable').value='precipitation_mm';el('rain-scope').value='local';
-    selectMode('observed');
+    renderChart();
     el('observed-heading').scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
   });
-  for(const b of document.querySelectorAll('[data-focus]'))b.addEventListener('click',()=>{panel.hours=24;el('chart-range').value='24';selectMode('forecast');selectVariable(b.dataset.focus);el('chart-heading').scrollIntoView({block:'center',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});});
-  for(const b of document.querySelectorAll('[data-mode]'))b.addEventListener('click',()=>selectMode(b.dataset.mode));
+  for(const b of document.querySelectorAll('[data-focus]'))b.addEventListener('click',()=>{panel.hours=24;el('chart-range').value='24';selectVariable(b.dataset.focus);el('chart-heading').scrollIntoView({block:'center',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});});
   el('forecast-variable')?.addEventListener('change',event=>selectVariable(event.target.value));
   el('observed-variable')?.addEventListener('change',event=>{panel.observedVariable=event.target.value;panel.station='all';renderChart();});
-  el('chart-range').addEventListener('change',event=>{panel.hours=Number(event.target.value);renderChart();});
+  el('chart-range').addEventListener('change',event=>{panel.hours=[24,72,168,240].includes(Number(event.target.value))?Number(event.target.value):24;renderChart();});
   el('rain-scope').addEventListener('change',event=>{panel.scope=event.target.value==='nearby'?'nearby':'local';panel.station='all';renderChart();});
   for(const b of document.querySelectorAll('[data-observed-view]'))b.addEventListener('click',()=>{panel.observedView=b.dataset.observedView;renderChart();});
   el('levels-open').addEventListener('click',showProtocol);

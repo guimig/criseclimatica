@@ -116,9 +116,10 @@ vm.runInContext("panel.station='cemaden-rain:B';renderChart()",context);
 assert.equal(plotNodes('plot','rect').length,1);
 vm.runInContext("panel.station='all';renderChart();renderChart()",context);
 assert.equal(plotNodes('plot','svg').length,1); // repeated rendering stays idempotent
-vm.runInContext("panel.mode='forecast';renderChart()",context);
-assert.equal(elements.get('observed-panel').hidden,true);
-vm.runInContext("panel.mode='context';panel.rainWindow=24;renderChart()",context);
+vm.runInContext("panel.hours=240;renderChart()",context);
+assert.equal(elements.get('observed-panel').hidden,false);assert.equal(elements.get('forecast-panel').hidden,false);
+assert.match(elements.get('observed-caption').textContent,/até 7 dias/);
+vm.runInContext("panel.hours=24;panel.rainWindow=24;renderChart()",context);
 assert.match(elements.get('chart-caption').textContent,/Acumulados diferentes: 24 h observado e 1 h previsto/);
 vm.runInContext("panel.variable='temperature_c';panel.history=null;renderChart()",context);
 assert.equal(plotNodes('plot','svg').length,0);assert.equal(plotNodes('forecast-plot','svg').length,1);
@@ -147,7 +148,7 @@ assert.equal(stationName({name:'Cemaden Rainha',station:'420130701A'}),'Rainha')
 assert.equal(stationName({name:'420130701A',station:'420130701A'},'Estação 1'),'Estação 1');
 assert.equal(chartScale([0,20.8]).step,5);assert.ok(chartScale([0,0]).high>0);
 context.fixture={...irregular,station_catalog:[{source:'cemaden-rain',station:'A',name:'Rainha',municipality:'Araquari'},{source:'cemaden-rain',station:'B',name:'Porto Grande',municipality:'Araquari'},{source:'cemaden-rain',station:'C',name:'Centro',municipality:'Araquari'}],regional_rain_context:{radius_km:40,stations:[{source:'cemaden-rain',station:'N',name:'Pirabeiraba',municipality:'Joinville'}],records:[{source:'cemaden-rain',station:'N',observed_at:'2026-11-06T20:20:00Z',rain_1h_mm:5}]}};
-vm.runInContext('panel.data=fixture;panel.history=stationHistory;panel.mode="context";panel.variable="precipitation_mm";panel.rainWindow=1;panel.observedView="auto";renderChart()',context);
+vm.runInContext('panel.data=fixture;panel.history=stationHistory;panel.variable="precipitation_mm";panel.rainWindow=1;panel.observedView="auto";renderChart()',context);
 assert.equal(plotNodes('plot','rect').filter(n=>n.attributes.class==='station-bar').length,3);
 assert.equal(plotNodes('plot','path').length,0);
 assert.match(plotNodes('plot','text').map(n=>n.textContent).join(' '),/Rainha/);
