@@ -55,6 +55,48 @@ short.assessment.base_assessment.suggested_level='amarelo';
 assert.equal(effectiveAssessment(short,now).suggested_level,'amarelo');
 console.log('Short-reference expiry passed: valid forecasts remain available and primary evidence is preserved.');
 
+// Regression: publication 11:50 BRT, hourly rain expires 12:47, read at 13:07.
+const {signalCurrent}=require('../web/dashboard.js');
+const captureNow=Date.parse('2026-11-07T16:07:00Z');
+const hourlySignal={source:'cemaden',station:'420130702A',variable:'rain_1h_mm',value:20.4,unit:'mm',band:1,kind:'observation',start_at:'2026-11-07T13:47:20Z',end_at:'2026-11-07T14:47:20Z',period_proxy:false};
+const accumulatedSignal={...hourlySignal,variable:'rain_24h_mm',value:79.8,band:2,start_at:'2026-11-06T14:47:20Z',period_proxy:true};
+const gustSignal={source:'open-meteo',station:'araquari',variable:'gust_kmh',value:49.3,unit:'km/h',band:1,kind:'forecast',start_at:'2026-11-08T00:00:00Z',end_at:'2026-11-08T00:00:00Z',period_proxy:false};
+const capture={generated_at:'2026-11-07T14:50:56Z',valid_until:'2026-11-07T17:50:56Z',assessment:{valid_until:'2026-11-07T15:47:20Z',suggested_level:null,monitoring_state:'technical_attention',base_assessment:{valid_until:'2026-11-07T17:50:56Z',suggested_level:null,evidence:[]},numeric_support:{core_complete:true,signals:[hourlySignal,accumulatedSignal,gustSignal],maximum_band:2,coincidences:[]}}};
+const originalCapture=JSON.stringify(capture);
+assert.equal(signalCurrent(hourlySignal,capture,Date.parse('2026-11-07T15:47:20Z')),false);
+assert.equal(signalCurrent(accumulatedSignal,capture,captureNow),true);
+assert.equal(signalCurrent(gustSignal,capture,captureNow),true);
+const recalculated=effectiveAssessment(capture,captureNow);
+assert.equal(recalculated.numeric_support.signals.length,2);
+assert.equal(recalculated.numeric_support.expired_signals.length,1);
+assert.equal(recalculated.numeric_support.maximum_band,2);
+assert.equal(recalculated.numeric_support.core_complete,false);
+assert.equal(recalculated.suggested_level,null); // 24h proxy alone is not a suggested level
+assert.equal(require('../web/dashboard.js').riskPresentation(capture,captureNow).color,'amarelo');
+assert.match(require('../web/dashboard.js').riskPresentation(capture,captureNow).reason,/79,8/);
+assert.doesNotMatch(require('../web/dashboard.js').riskPresentation(capture,captureNow).reason,/20,4/);
+assert.deepEqual(effectiveAssessment(capture,captureNow),recalculated);
+assert.equal(JSON.stringify(capture),originalCapture); // repeated reads never mutate publication
+const expiredOnly={...capture,assessment:{...capture.assessment,suggested_level:'laranja',numeric_support:{...capture.assessment.numeric_support,signals:[hourlySignal],coincidences:[{station:hourlySignal.station,variable:hourlySignal.variable,observed_at:hourlySignal.end_at,observed_band:2,model_band:2,spatial_match_verified:true}]}}};
+assert.equal(effectiveAssessment(expiredOnly,captureNow).suggested_level,null);
+assert.equal(effectiveAssessment(expiredOnly,captureNow).numeric_support.coincidences.length,0);
+assert.equal(require('../web/dashboard.js').riskPresentation(expiredOnly,captureNow).color,'neutral');
+assert.match(require('../web/dashboard.js').riskPresentation(expiredOnly,captureNow).reason,/medições venceu/);
+const priority={...expiredOnly,assessment:{...expiredOnly.assessment,base_assessment:{...expiredOnly.assessment.base_assessment,suggested_level:'vermelho'}}};
+assert.equal(effectiveAssessment(priority,captureNow).suggested_level,'vermelho');
+const strongForecast={...capture,assessment:{...capture.assessment,numeric_support:{...capture.assessment.numeric_support,signals:[hourlySignal,{...gustSignal,band:2,value:70}]}}};
+assert.equal(effectiveAssessment(strongForecast,captureNow).suggested_level,'amarelo');
+const recentWind={...gustSignal,source:'metar',station:'SBJV',kind:'observation',band:2,value:70,start_at:'2026-11-07T15:00:00Z',end_at:'2026-11-07T15:00:00Z'};
+const paired={...capture,assessment:{...strongForecast.assessment,numeric_support:{...strongForecast.assessment.numeric_support,signals:[hourlySignal,recentWind,{...gustSignal,band:2,value:70}],coincidences:[{station:'SBJV',variable:'gust_kmh',observed_at:recentWind.end_at,observed_band:2,model_band:2,spatial_match_verified:true}]}}};
+assert.equal(effectiveAssessment(paired,captureNow).suggested_level,'laranja');
+assert.equal(effectiveAssessment(paired,Date.parse('2026-11-07T17:00:00Z')).suggested_level,'amarelo');
+const zeroExpired={...capture,assessment:{...capture.assessment,valid_until:capture.valid_until,monitoring_state:'routine',numeric_support:{core_complete:true,signals:[{...hourlySignal,value:0,band:0}],maximum_band:0,coincidences:[]}}};
+assert.equal(require('../web/dashboard.js').riskPresentation(zeroExpired,captureNow).color,'neutral');
+assert.equal(signalCurrent({...recentWind,end_at:'2026-11-07T17:00:00Z'},capture,captureNow),false);
+assert.equal(signalCurrent({...recentWind,end_at:'invalid'},capture,captureNow),false);
+assert.equal(require('../web/dashboard.js').riskPresentation(capture,Date.parse(capture.valid_until)).color,'neutral');
+console.log('Independent validity passed: actual screenshot timing, retained 24h rain/forecast, expired coincidence removed, primary priority, no false normality, publication expiry and immutable repeated reads.');
+
 // Hourly accumulations remain intervals, including the partially elapsed model hour.
 const {comparableReadings,pointDescription}=require('../web/dashboard.js');
 const irregular={...data,generated_at:'2026-11-06T20:29:00Z'};

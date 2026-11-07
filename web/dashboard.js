@@ -8,12 +8,41 @@ function date(v) { return v && Number.isFinite(Date.parse(v)) ? new Intl.DateTim
 function fresh(v, hours=3, now=Date.now()) { const t=typeof v==='string'?Date.parse(v):NaN;return Number.isFinite(t)&&now-t>=-600000&&now-t<=hours*3600000; }
 function dashboardCurrent(data, now=Date.now()) { return Boolean(data&&fresh(data.generated_at,3,now)&&Number.isFinite(Date.parse(data.valid_until))&&now<Date.parse(data.valid_until)); }
 function protocolCurrent(data, now=Date.now()) { return dashboardCurrent(data,now)&&Number.isFinite(Date.parse(data.assessment?.valid_until))&&now<Date.parse(data.assessment.valid_until); }
+function signalCurrent(signal,data,now=Date.now()) {
+  if(!dashboardCurrent(data,now))return false;
+  if(signal.kind==='observation') {
+    const hours=signal.variable==='rain_1h_mm'?1:signal.variable==='rain_24h_mm'?6:2;
+    return fresh(signal.end_at,hours,now)&&now<Date.parse(signal.end_at)+hours*3600000;
+  }
+  // A forecast maximum remains a reference for its published window, including
+  // the elapsed part of that window, until the publication itself expires.
+  return signal.kind==='forecast'&&Number.isFinite(Date.parse(signal.start_at))&&Number.isFinite(Date.parse(signal.end_at));
+}
 function effectiveAssessment(data,now=Date.now()) {
   const policy=data?.assessment;
-  if(protocolCurrent(data,now))return policy;
+  const objective=policy?.numeric_support;
+  const expired=objective?.signals?.filter(s=>!signalCurrent(s,data,now))||[];
+  if(protocolCurrent(data,now)&&!expired.length)return policy;
   const base=policy?.base_assessment;
   if(dashboardCurrent(data,now)&&base&&now<Date.parse(base.valid_until)) {
-    return base.suggested_level?base:{...base,monitoring_state:'partial',monitoring_label:'Monitoramento parcial',title:'Monitoramento parcial',reason:'As referências de curta duração venceram. Previsões e outras evidências ainda válidas continuam disponíveis; confira a próxima atualização.'};
+    const signals=(objective?.signals||[]).filter(s=>signalCurrent(s,data,now));
+    const coincidences=(objective?.coincidences||[]).filter(c=>signals.some(s=>s.kind==='observation'&&!s.period_proxy&&s.band>0&&s.variable===c.variable&&s.station===c.station&&s.end_at===c.observed_at));
+    const direct=signals.filter(s=>s.band>0&&!s.period_proxy);
+    const proposal=coincidences.some(c=>c.observed_band>=2&&c.model_band>=2&&c.spatial_match_verified)?'laranja':direct.some(s=>s.band>=2)||coincidences.length?'amarelo':null;
+    const levels={verde:0,azul:1,amarelo:2,laranja:3,vermelho:4,roxo:5};
+    const suggested=proposal&&levels[proposal]>(levels[base.suggested_level]??-1)?proposal:base.suggested_level;
+    const maximum=signals.length?Math.max(...signals.map(s=>s.band)):null;
+    const official=objective?.has_complementary_notices||base.evidence?.some(e=>e.status==='eligible');
+    const pending=base.evidence?.some(e=>e.status==='needs_territorial_or_temporal_check'&&(e.scope!=='not_verified'||!e.regions_text));
+    // Expired coverage may retain attention, but cannot establish normality.
+    const complete=Boolean(objective?.core_complete&&!expired.length&&signals.length);
+    const state=suggested?'heightened':maximum>0?'technical_attention':official?'official_context':pending?'partial':complete?'routine':'partial';
+    const label=state==='partial'?'Monitoramento parcial':state==='routine'?'Monitoramento de rotina':state==='technical_attention'?'Referências de atenção':'Acompanhamento reforçado';
+    return {...base,suggested_level:suggested||null,monitoring_state:state,monitoring_label:label,
+      title:suggested?riskNames[suggested]:label,
+      basis_kind:suggested===proposal&&proposal?'complementary_numeric_evidence':suggested?'primary_epagri_advisory':'monitoring_state',
+      reason:state==='partial'?'Parte das medições venceu e as referências restantes não permitem uma leitura completa. Consulte as fontes e os horários.':'Leitura recalculada com as referências ainda válidas; medições vencidas foram retiradas.',
+      numeric_support:{...objective,valid_until:base.valid_until,signals,coincidences,proposed_level:proposal,maximum_band:maximum,core_complete:complete,expired_signals:expired}};
   }
   return policy;
 }
@@ -51,7 +80,7 @@ function riskPresentation(data,now=Date.now()) {
   if(policy.monitoring_state==='routine'&&objective?.core_complete&&objective.maximum_band===0&&objective.signals?.length)return {color:'verde',active:'verde',title:'Normalidade nos dados acompanhados',kind:'Referência verde · leitura consultiva',reason:'As fontes necessárias foram consultadas e os dados válidos de chuva e vento estão abaixo das faixas de atenção utilizadas. Nenhum aviso aplicável foi identificado. É uma leitura do painel, não uma declaração institucional.'};
   if(highest)return {color:'amarelo',active:null,title:'Atenção a '+(families.length>1?'chuva e vento':highest.variable.startsWith('rain_')?'chuva':highest.variable==='gust_kmh'?'rajadas de vento':'vento'),kind:'Referência amarela · atenção',reason:signals.slice(0,2).map(signal=>signalDescription(signal,data)).join(' ')};
   if(policy.monitoring_state==='official_context')return {color:'amarelo',active:null,title:'Há aviso meteorológico para conferir',kind:'Referência amarela · conferir aviso',reason:'Uma publicação oficial pode ser relevante para Araquari. A abrangência ou o conteúdo ainda não permite sugerir um nível específico; abra as evidências.'};
-  return {color:'neutral',active:null,title:'Dados insuficientes para classificar',kind:'Leitura parcial',reason:'Há informações disponíveis, mas faltam referências válidas para uma leitura completa. Falta de dados não significa normalidade.'};
+  return {color:'neutral',active:null,title:'Dados insuficientes para classificar',kind:'Leitura parcial',reason:objective?.expired_signals?.length?policy.reason:'Há informações disponíveis, mas faltam referências válidas para uma leitura completa. Falta de dados não significa normalidade.'};
 }
 function renderSummary() {
   if(typeof ForecastComparison!=='undefined')ForecastComparison.renderCompact(el('forecast-comparison'),panel.data?.forecast_comparison);
@@ -368,7 +397,8 @@ function showAssessment() {
   openDialog('Entenda a situação em Araquari',body=>{
     const presentation=riskPresentation(panel.data),policy=effectiveAssessment(panel.data),objective=policy?.numeric_support;
     body.append(node('h3','',presentation.title));paragraph(body,presentation.reason);
-    paragraph(body,'As cores seguem os seis níveis da PN 13/2026. O verde descritivo indica normalidade somente nos dados monitorados quando a cobertura necessária está completa e não há sinal de atenção. Não declara oficialmente o nível do campus. Dados ausentes ou vencidos mantêm a leitura sem cor de nível.');
+    paragraph(body,'As cores seguem os seis níveis da PN 13/2026. O verde descritivo indica normalidade somente nos dados monitorados quando a cobertura necessária está completa e não há sinal de atenção. Não declara oficialmente o nível do campus. Cada medição tem validade própria; referências ainda válidas continuam na avaliação.');
+    if(objective?.expired_signals?.length)paragraph(body,`${objective.expired_signals.length} medição(ões) vencida(s) retirada(s) desta leitura. As demais referências continuam sendo avaliadas.`,'notice');
     const signals=(objective?.signals||[]).filter(s=>s.band>0);
     if(signals.length){body.append(node('h3','','O que chamou a atenção'));for(const signal of signals.slice(0,8))paragraph(body,signalDescription(signal,panel.data));}
     body.append(node('h3','','Como ler os termos técnicos'));
@@ -395,7 +425,7 @@ function showProtocol() {
 }
 function showMethods() {
   openDialog('Métodos e limites da análise',body=>{
-    if(panel.data?.assessment?.numeric_support&&Date.now()>=Date.parse(panel.data.assessment.numeric_support.valid_until))paragraph(body,'O apoio numérico de curta duração desta publicação venceu. Seus valores abaixo são registros da publicação, não sustentam o enquadramento atual.','notice');
+    if(effectiveAssessment(panel.data)?.numeric_support?.expired_signals?.length)paragraph(body,'Parte das medições venceu. Cada referência abaixo informa se ainda participa da avaliação; o vencimento de uma não invalida as demais.','notice');
     paragraph(body,'Medições, previsões e avisos são produtos distintos. A quantidade de fontes não é uma pontuação de confiança. Médias de municípios ou de estações distantes não determinam o nível.');
     body.append(node('h3','','Chuva observada'));paragraph(body,'Agrupam-se apenas estações retornadas para o IBGE de Araquari, com janelas de 24 h e fim a até 30 min da referência mais recente. A mediana só aparece com ao menos três estações. Mínimo, máximo, quantidade e horários ficam acessíveis; extremos não são apagados pela mediana.');
     paragraph(body,'Observações e previsão têm gráficos próprios. Chuva observada de 1 h e chuva prevista horária compartilham escala vertical quando exibidas juntas. Acumulados observados de 24 h são uma opção explícita e não são comparados diretamente às barras de 1 h. A comparação entre estações no gráfico exige janelas idênticas e recentes; o cartão de 24 h usa a tolerância de 30 min indicada acima.');
@@ -404,12 +434,12 @@ function showMethods() {
     for(const pair of panel.data?.temperature_context?.pairs||[])paragraph(body,`Comparação exploratória: modelo ${num(pair.model_c)} °C (${date(pair.model_at)}), METAR ${pair.icao} ${num(pair.observed_c)} °C (${date(pair.observed_at)}), ${num(pair.distance_km)} km. Altitude e protocolos não conciliados; não se calcula erro.`);
     body.append(node('h3','','Referências quantitativas auxiliares · INMET'));
     paragraph(body,'Faixas técnicas de chuva horária: 20–<30 / 30–60 / >60 mm; vento: 40–<60 / 60–100 / >100 km/h. Valores compartilhados entre faixas usam a superior. Acumulados móveis de 24 h são apenas aproximação comparativa da referência diária (≥50–100 / >100 mm). Temperatura não recebe faixa de risco sem base climatológica adequada.');
-    for(const signal of panel.data?.assessment?.numeric_support?.signals||[])paragraph(body,`${signal.source} · ${signal.station} · ${signal.variable}: ${num(signal.value)} ${signal.unit} · referência ${['abaixo das faixas consultadas','potencial','perigo','superior'][signal.band]||'indisponível'} · ${date(signal.start_at)} a ${date(signal.end_at)}${signal.period_proxy?' · janela móvel, referência diária apenas aproximada':''}.`);
-    for(const pair of panel.data?.assessment?.numeric_support?.coincidences||[])paragraph(body,`Coincidência contextual ${pair.variable}, estação ${pair.station}: observação ${date(pair.observed_at)} e modelo ${date(pair.model_at)}. Janelas próximas não comprovam equivalência espacial ou precisão.`);
+    for(const signal of panel.data?.assessment?.numeric_support?.signals||[])paragraph(body,`${signal.source} · ${signal.station} · ${signal.variable}: ${num(signal.value)} ${signal.unit} · referência ${['abaixo das faixas consultadas','potencial','perigo','superior'][signal.band]||'indisponível'} · ${date(signal.start_at)} a ${date(signal.end_at)}${signal.period_proxy?' · janela móvel, referência diária apenas aproximada':''} · ${signalCurrent(signal,panel.data)?'válida':'vencida; fora da avaliação'}.`);
+    for(const pair of effectiveAssessment(panel.data)?.numeric_support?.coincidences||[])paragraph(body,`Coincidência contextual ${pair.variable}, estação ${pair.station}: observação ${date(pair.observed_at)} e modelo ${date(pair.model_at)}. Janelas próximas não comprovam equivalência espacial ou precisão.`);
     paragraph(body,'Não há votação nem média entre fontes. Uma referência direta elevada pode sustentar sugestão de atenção; alerta laranja por apoio numérico exige sinais fortes da mesma variável em observação próxima e referência do modelo no mesmo horário. Faixas móveis de 24 h não produzem sozinhas nível sugerido. A evidência prioritária Epagri não é rebaixada por médias menores.');
     for(const url of panel.data?.assessment?.numeric_support?.reference_urls||[])body.append(officialLink(url,'Referência INMET ↗'));
     body.append(node('h3','','Níveis qualitativos'));paragraph(body,'A PN 13 não contém faixas numéricas para chuva, vento ou temperatura. O enquadramento combina avisos prioritários aplicáveis e apoio quantitativo identificado, preservando a separação entre referências técnicas e decisão institucional. Não há equivalência automática entre cores do INMET e os seis níveis. Decreto, danos locais e funcionamento não são inferidos.');
-    paragraph(body,'Referências vencidas retiram o enquadramento e os indicadores atuais. Ausência ou expiração de aviso não comprova melhora, segurança de deslocamento ou autorização para retomada.');
+    paragraph(body,'Cada medição vencida sai da avaliação; as demais referências válidas continuam contribuindo. Ao vencer a publicação, retiram-se o enquadramento e os indicadores atuais. Ausência ou expiração de aviso não comprova melhora, segurança de deslocamento ou autorização para retomada.');
     for(const limit of panel.data?.limitations||[])paragraph(body,limit);
   });
 }
@@ -429,7 +459,7 @@ async function loadDashboard() {
   finally{if(id===panel.loadId){el('refresh').disabled=false;renderSummary();renderRecent();renderMemory();renderChart();}}
 }
 function selectVariable(variable) {panel.variable=variable;if(el('forecast-variable'))el('forecast-variable').value=variable;for(const button of document.querySelectorAll('[data-variable]')){const selected=button.dataset.variable===variable;button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));}renderChart();}
-if(typeof module!=='undefined')module.exports={fresh,dashboardCurrent,protocolCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale,chartReadingsAt,chartReadingText};
+if(typeof module!=='undefined')module.exports={fresh,dashboardCurrent,protocolCurrent,signalCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale,chartReadingsAt,chartReadingText};
 if(typeof document!=='undefined'){
   function navigationState(){if(location.hash==='#memory')el('memory').open=true;for(const link of document.querySelectorAll('nav a[href^="#"]')){const active=link.getAttribute('href')===(location.hash||'#main');if(active)link.setAttribute('aria-current','location');else link.removeAttribute('aria-current');}}
   window.addEventListener('hashchange',navigationState);navigationState();
