@@ -96,7 +96,7 @@ const context=vm.createContext({module:{exports:{}},console,Intl,Date,URL,locati
 vm.runInContext(js,context); // No document yet: avoid application boot and network.
 context.document={querySelectorAll:()=>[],getElementById:id=>elements.get(id),createElement:t=>new Element(t),createElementNS:(_,t)=>new Element(t),documentElement:{dataset:{theme:'dark'}}};
 context.fixture=irregular;context.stationHistory=aligned;
-vm.runInContext('panel.data=fixture;panel.history=stationHistory;panel.observedView="timeline";renderChart()',context);
+vm.runInContext('panel.data=fixture;panel.history=stationHistory;panel.rainWindow=1;panel.observedView="timeline";renderChart()',context);
 function descendants(n){return [n,...n.children.flatMap(descendants)];}
 function plotNodes(id,tag){return descendants(elements.get(id)).filter(n=>n.tag===tag);}
 assert.equal(elements.get('observed-panel').hidden,false);assert.equal(elements.get('forecast-panel').hidden,false);

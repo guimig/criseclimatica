@@ -74,10 +74,13 @@ def check_layout(page):
     assert 'superaç' not in page.locator('.level-card').inner_text()
     assert page.locator('[data-risk-level]').count() == 6
     assert page.locator('.shared-chart-controls').locator('[data-mode]').count()==3
-    assert page.locator('.shared-chart-controls').locator('[data-variable]').count()==3
+    assert page.locator('#forecast-variable option').count()==3
     assert 'amarela' in page.locator('#level-kind').inner_text()
     assert page.locator('#level-card').get_attribute('data-risk') == 'amarelo'
     assert 'chuva e vento' in page.locator('#level-title').inner_text()
+    page.locator('.shared-chart-controls summary').click()
+    page.locator('.station-filter summary').click()
+    page.get_by_label('Acumulado observado',exact=True).select_option('1')
     # Main controls must remain comfortably operable on mobile.
     for selector in ['#rain-scope', '#station-select', '#rain-window']:
         box = page.locator(selector).bounding_box()
@@ -101,11 +104,13 @@ def check_layout(page):
     assert not page.locator('#observed-panel').is_visible()
     assert page.locator('#chart-range').input_value() == '24'
     page.locator('[data-mode=context]').click()
-    page.locator('[data-variable=precipitation_mm]').click()
+    page.locator('#forecast-variable').select_option('precipitation_mm')
     # Codes are reserved for the expanded details.
     page.locator('#station-details summary').click()
     assert '420130702A' in page.locator('#station-readings').inner_text()
     page.locator('#station-details summary').click()
+    page.locator('.station-filter summary').click()
+    page.locator('.shared-chart-controls summary').click()
 
 
 def main():

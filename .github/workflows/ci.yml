@@ -27,6 +27,8 @@ jobs:
           node --check web/dashboard.js
           node --check web/theme.js
           node --check web/explore.js
+          node --check web/chart-interaction.js
+          node --check web/forecasts.js
       - name: Test browser reliability without network
         run: |
           node tests/web_reliability.cjs
