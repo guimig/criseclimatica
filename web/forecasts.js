@@ -16,7 +16,7 @@
     for(const field of ['precipitation_mm','gust_kmh','temperature_c']){
       const m=w?.metrics.find(m=>m.variable===field),box=dom('div','comparison-range');
       box.append(dom('span','',labels[field]+' · 24 h'),dom('strong','',rangeText(m)));
-      if(m?.status==='comparable')box.append(dom('small','',`${m.members.filter(m=>m.value!==null).length} previsões com série completa`));
+      if(m?.status==='comparable'){const count=m.members.filter(m=>m.value!==null).length;box.append(dom('small','',m.spread===0?`${count} séries completas · valores coincidentes`:`${count} séries completas · maior: ${m.highest_sources.map(id=>names[id]).join(', ')}`));}
       grid.append(box);
     }
     target.append(grid,dom('p','comparison-note','Faixa entre previsões para os mesmos horários, sem média. Não é probabilidade. A seleção automática pode utilizar ECMWF e GFS.'));
@@ -31,7 +31,7 @@
       for(const field of ['precipitation_mm','gust_kmh','temperature_c']){
         const m=window.metrics.find(m=>m.variable===field),v=m?.members.find(r=>r.id===id);
         const cell=dom('td','',v?.value!==null&&Number.isFinite(v?.value)?`${n(v.value)} ${m.unit}`:`Sem série completa (${v?.valid_hours||0}/${window.hours} h)`);
-        if(v?.peak_at)cell.append(dom('small','',dt(v.peak_at)));tr.append(cell);
+        if(v?.peak_at)cell.append(dom('small','',dt(v.peak_at)));if(m?.status==='comparable'&&m.spread>0&&m.highest_sources.includes(id)){cell.classList.add('comparison-highest');cell.append(dom('small','','Maior nesta janela'));}tr.append(cell);
       }
       body.append(tr);
     }
