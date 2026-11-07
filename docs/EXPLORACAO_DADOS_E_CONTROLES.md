@@ -4,7 +4,7 @@
 
 A cor da leitura atual aparece no destaque do título, na borda e no selo textual. O amarelo técnico é identificado como referência de atenção, preservando a distinção entre indício dos dados e nível institucional confirmado. A ausência de dados continua neutra. Nenhuma regra de enquadramento foi modificada.
 
-Variável, período e escolha dos gráficos visíveis passam a ocupar uma faixa comum, identificada como controles dos dois gráficos. Os filtros de área, estação e acumulado permanecem junto às observações. Em telas largas, as áreas de desenho compartilham as linhas da grade, sem espaçadores fixos na previsão. Em telas menores, os painéis ficam empilhados. Nomes de município em letras maiúsculas não repetem Araquari desnecessariamente nas legendas.
+Os gráficos de observações e previsão ficam sempre visíveis. O seletor de período aparece diretamente, sem bloco recolhível nem escolha dos gráficos visíveis. Cada gráfico mantém sua variável independente. Os filtros de área, estação e acumulado permanecem junto às observações. Em telas largas, as áreas de desenho compartilham as linhas da grade, sem espaçadores fixos na previsão. Em telas menores, os painéis ficam empilhados. Nomes de município em letras maiúsculas não repetem Araquari desnecessariamente nas legendas.
 
 ## Página de dados
 
