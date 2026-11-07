@@ -9,6 +9,16 @@ from ui_style_system import check_style_system
 
 def check_compact_header(page,width):
     check_style_system(page)
+    if width>=1024:
+        frame=page.locator('main').bounding_box()
+        assert frame['width']<=960 and frame['x']>=48,frame
+        assert abs(frame['x']-(width-frame['width'])/2)<1,frame
+        for selector in ('.chart-frame:visible','.model-comparison-plot:visible'):
+            for chart in page.locator(selector).all():
+                assert chart.bounding_box()['width']<=720,chart.bounding_box()
+        if page.locator('.metric-grid').count():
+            values=[page.locator('#'+name+'-value').bounding_box()['y'] for name in ('observed','forecast','gust','temperature')]
+            assert max(values)-min(values)<2,values
     assert page.locator('h1').count()==1
     assert page.locator('.site-brand,.hero-eyebrow').count()==0
     bar=page.locator('.sitebar').bounding_box()
@@ -40,7 +50,7 @@ def main():
     OUTPUT.mkdir(exist_ok=True)
     with server() as url,sync_playwright() as pw:
         browser=pw.chromium.launch()
-        for width in (320,390,768,1440):
+        for width in (320,390,768,1024,1440,1920):
             context=browser.new_context(viewport={'width':width,'height':1050},has_touch=width<800)
             def route(r):
                 path=r.request.url.split('/data/')[-1].split('?')[0]
@@ -89,7 +99,7 @@ def main():
                 page.locator('#theme-toggle').click();check_compact_header(page,width)
                 page.screenshot(path=str(OUTPUT/f'essential-home-dark-{width}.png'),full_page=True)
                 # Align default plot starts while the extra filters are closed.
-                if width==1440:
+                if width>=1024:
                     a,b=page.locator('#plot').bounding_box(),page.locator('#forecast-plot').bounding_box()
                     assert abs(a['y']-b['y'])<5,(a,b)
                 # Reproduce many overlapping 24h windows without publishing synthetic data.
@@ -126,6 +136,10 @@ def main():
                 assert page.locator('#rain-window').input_value()=='24'
                 assert page.locator('#rain-scope').input_value()=='local'
                 assert page.locator('#plot .station-bar').count()==3
+                if width>=1024:
+                    plot=page.locator('#plot').bounding_box();container=page.locator('#chart-panels').bounding_box()
+                    assert plot['width']<=720,plot
+                    assert abs(plot['x']+plot['width']/2-container['x']-container['width']/2)<1,(plot,container)
                 home['observation_history.json']['records']=original
                 page.goto(url+'dados.html#chart-title');page.locator('#chart [data-chart-hit]').wait_for()
                 if page.locator('html').get_attribute('data-theme')=='dark':page.locator('#theme-toggle').click()
@@ -156,6 +170,6 @@ def main():
                 print('Overflow debug',page.evaluate("[...document.querySelectorAll('body *')].map(el=>({tag:el.tagName,id:el.id,cls:typeof el.className==='string'?el.className:'',right:el.getBoundingClientRect().right,width:el.getBoundingClientRect().width})).filter(el=>el.width>0&&el.right>innerWidth+1).slice(-35)"));page.screenshot(path=str(OUTPUT/f'essential-failure-{width}.png'),full_page=True);raise
             finally:context.close()
         browser.close()
-    print('Essential UX passed: compact header, navigation contrast, real data wiring, no slogans, independent variables, hover/touch/keyboard cursor, pin/Escape, shared identity, 320–1440px and both themes.')
+    print('Essential UX passed: compact header, navigation contrast, real data wiring, no slogans, independent variables, hover/touch/keyboard cursor, pin/Escape, shared identity, 320–1920px, desktop width limits and both themes.')
 
 if __name__=='__main__':main()

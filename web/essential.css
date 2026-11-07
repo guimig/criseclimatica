@@ -476,6 +476,27 @@
 .essential-page .footer-inner :is(p, span, strong) { font-size: var(--text-small); letter-spacing: 0; }
 .essential-page :is(.footer > div, .footer-inner > div:last-child) { gap: var(--space-3); }
 
+/* Desktop reading column: wide monitors should add margins, not stretch content. */
+@media (min-width: 1024px) {
+  .essential-page :is(.wrap, .shell, .page-width) {
+    width: min(960px, calc(100% - 96px));
+  }
+  .essential-page .panel-heading { min-height: 56px; align-items: flex-start; }
+  .essential-page :is(.metric-grid, .metrics) .metric-label { min-height: 40px; align-items: flex-start; }
+  .essential-page .single-panel .weather-panel {
+    width: min(100%, 720px);
+    margin-inline: auto;
+  }
+  .essential-page :is(.chart-frame, .model-comparison-plot) {
+    max-width: 720px;
+    margin-inline: auto;
+  }
+  .essential-page .explore-layout { grid-template-columns: 168px minmax(0, 1fr); }
+  .essential-page.explore-page #cemaden-data { grid-template-columns: 1fr; }
+  .essential-page :is(.level-reason, .reading-card p, .scope-note, .analysis-explainer,
+    .explore-heading p, .source-panel > p) { max-width: 72ch; }
+}
+
 @media (max-width: 1100px) {
   .essential-page.explore-page .metrics { row-gap: var(--space-5); }
   .essential-page.explore-page .metric:nth-child(even) { border-right: 0; }
