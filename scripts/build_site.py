@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from observatorio.assessment_history import merge as merge_assessment_history
+from observatorio.forecast_comparison import collect as collect_models, summarize as compare_forecasts, merge_archive
 from observatorio.dashboard import summarize as summarize_dashboard
 from observatorio.analysis import summarize as summarize_analysis, forecast_snapshot
 from observatorio.territorial_alignment import summarize as summarize_alignment
@@ -154,6 +155,7 @@ def build(
     client = FixtureClient(fixture) if fixture is not None else OpenMeteoClient()
 
     # Never use live site state in an offline fixture build.
+    previous_model_archive = None
     previous_assessment_history = None
     previous_dashboard_history = None
     previous_forecast = None
@@ -190,6 +192,9 @@ def build(
             if previous_overview and previous_overview.get("assessment_history_published"):
                 raise
             print("Assessment history not yet available; first publication", file=sys.stderr)
+        previous_model_archive = fetch_previous_json(previous_url, "data/model_forecast_history.json", max_bytes=5_000_000)
+        if previous_model_archive is None and previous_overview and previous_overview.get("model_comparison_archive_published"):
+            raise RuntimeError("Published model archive missing; refusing forecast history loss")
         # Optional bounded previous forecast; missing state means no revision claim.
         try:
             previous_forecast = fetch_previous_json(previous_url, "data/forecast_snapshot.json", max_bytes=1_000_000)
@@ -330,12 +335,17 @@ def build(
     print(f"Territorial alignment: municipalities={len(locations)} "
           f"three_sources_nearby={sum(row['coverage_status'] == 'three_sources_nearby' for row in alignment['locations'])} "
           f"potential_temperature_triads={sum(bool(item['potential_common_variables']) for row in alignment['locations'] for item in row['candidate_triads'])}")
+    model_records = collect_models(primary, now_utc(), fixture=fixture is not None)
     stamp = now_utc()
     manifest["generated_at"] = stamp
     analysis = summarize_analysis(locations, details, cemaden, observations, alerts, cptec,
                                   stamp, previous=previous_forecast, sensors=cemaden_sensors)
     dashboard, observation_history = summarize_dashboard(analysis, details, epagri_notices,
         epagri_bulletins, defesa_sc, stamp, previous_history=previous_dashboard_history, sensors=cemaden_sensors)
+    comparison = compare_forecasts(details.get('araquari', {}), model_records, cptec, stamp)
+    model_archive = merge_archive(previous_model_archive, comparison)
+    dashboard['forecast_comparison'] = comparison
+    manifest['model_comparison_archive_published'] = True
     assessment_history = merge_assessment_history(previous_assessment_history, dashboard, stamp)
     dashboard["alert_history"] = {
         "episodes": list(reversed(assessment_history["episodes"][-12:])),
@@ -348,6 +358,8 @@ def build(
     manifest["observation_history_published"] = True
     snapshot = forecast_snapshot(details, stamp)
     if fixture is not None:
+        comparison["fixture_mode"] = True
+        model_archive["fixture_mode"] = True
         assessment_history["fixture_mode"] = True
         dashboard["fixture_mode"] = True
         observation_history["fixture_mode"] = True
@@ -365,6 +377,8 @@ def build(
         staged = Path(temp) / "site"
         shutil.copytree(ROOT / "web", staged)
         data = staged / "data"
+        write_json_atomic(data / "forecast_comparison.json", comparison)
+        write_json_atomic(data / "model_forecast_history.json", model_archive)
         write_json_atomic(data / "assessment_history.json", assessment_history)
         write_json_atomic(data / "dashboard.json", dashboard)
         write_json_atomic(data / "observation_history.json", observation_history)

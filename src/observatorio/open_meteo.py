@@ -136,7 +136,7 @@ def normalize(location: dict[str, Any], payload: dict[str, Any], collected_at: s
             "kind": "provider_grid_reference_not_station_location",
         },
         "source": {"id": "open-meteo", "name": "Open-Meteo", "url": SOURCE_URL,
-                   "kind": "numerical_model", "license": "Free non-commercial use with attribution"},
+                   "kind": "numerical_model", "selection": "best_match", "priority_basis": "operational_hourly_coverage_not_validated_skill", "license": "Free non-commercial use with attribution"},
         "measurement_status": "estimated_model_not_station_observation",
         "collected_at": collected_at,
         "current": current_values,

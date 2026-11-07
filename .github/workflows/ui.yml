@@ -6,6 +6,7 @@ on:
       - 'web/**'
       - 'tests/ui_dashboard.py'
       - 'tests/ui_details.py'
+      - 'tests/ui_forecasts.py'
       - '.github/workflows/ui.yml'
   workflow_dispatch:
 
@@ -30,6 +31,7 @@ jobs:
         run: |
           /tmp/weather-browser/bin/python tests/ui_dashboard.py
           /tmp/weather-browser/bin/python tests/ui_details.py
+          /tmp/weather-browser/bin/python tests/ui_forecasts.py
       - name: Save desktop and mobile screenshots
         if: always()
         uses: actions/upload-artifact@v4
