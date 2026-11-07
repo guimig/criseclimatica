@@ -119,6 +119,8 @@ def integrate(policy, objective):
         state,label='technical_attention','Referências de atenção'
     elif objective['has_complementary_notices'] or any(e.get('status')=='eligible' for e in policy.get('evidence',[])):
         state,label='official_context','Acompanhamento reforçado'
+    elif any(e.get('status')=='needs_territorial_or_temporal_check' and (e.get('scope')!='not_verified' or not e.get('regions_text')) for e in policy.get('evidence',[])):
+        state,label='partial','Monitoramento parcial'
     elif objective['core_complete']:
         state,label='routine','Monitoramento de rotina'
     else:state,label='partial','Monitoramento parcial'

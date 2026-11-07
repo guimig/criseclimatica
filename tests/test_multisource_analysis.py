@@ -88,6 +88,8 @@ class NumericSupportTests(unittest.TestCase):
         self.assertEqual(integrate(p,{**r,'core_complete':False})['monitoring_state'],'partial')
         self.assertEqual(integrate(p,{**r,'has_complementary_notices':True})['monitoring_state'],'official_context')
         self.assertIsNone(integrate(p,r)['official_level'])
+        pending={**p,'evidence':[{'status':'needs_territorial_or_temporal_check','scope':'regional_reference_not_municipal_confirmation'}]}
+        self.assertEqual(integrate(pending,r)['monitoring_state'],'partial')
 
     def test_numeric_support_expires_with_its_observation(self):
         d=detail(rain=35);p=primary(d);p['observed_rain']['stations'][0].update(observed_at=(NOW-timedelta(minutes=50)).isoformat(),rain_1h_mm=35)
