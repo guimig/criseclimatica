@@ -148,14 +148,14 @@ function drawStationSnapshot(target,legend,tooltip,series,unit,sharedScale=null)
   target.replaceChildren();legend.replaceChildren();tooltip.hidden=true;
   const latest=series.filter(s=>s.points.length).map(s=>({s,p:s.points[s.points.length-1]}));
   if(!latest.length){target.append(node('p','empty','Sem leituras de chuva para este recorte. Consulte a cobertura e os horários nos detalhes.'));return;}
-  const scale=sharedScale||chartScale(latest.map(r=>r.p.value)),W=600,H=Math.max(230,latest.length*68+45),L=16,R=70,top=14,bottom=30;
+  const scale=sharedScale||chartScale(latest.map(r=>r.p.value)),W=target.clientWidth&&target.clientWidth<480?400:600,H=Math.max(230,latest.length*68+45),L=16,R=70,top=14,bottom=30;
   const width=W-L-R,x=v=>L+v/scale.high*width,anchor=Date.parse(panel.data?.generated_at);
   const root=svg('svg',{viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':`Último acumulado de chuva por estação, em ${unit}. Use setas para consultar os intervalos.`,tabindex:0});
   let cursor=0;
   function show(index){cursor=index;const {s,p}=latest[index];tooltip.textContent=pointDescription(s,p,unit,anchor);tooltip.hidden=false;}
   latest.forEach(({s,p},i)=>{
     const y=top+i*(H-bottom-top)/latest.length,barY=y+26;
-    root.append(svg('text',{x:L,y:y+12,class:'snapshot-name'},s.name.length>42?s.name.slice(0,41)+'…':s.name),svg('text',{x:W-8,y:y+12,'text-anchor':'end',class:'snapshot-time'},new Intl.DateTimeFormat('pt-BR',{timeZone,day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).format(new Date(p.time))),
+    root.append(svg('text',{x:L,y:y+12,class:'snapshot-name'},s.name.length>(W===400?24:42)?s.name.slice(0,W===400?23:41)+'…':s.name),svg('text',{x:W-8,y:y+12,'text-anchor':'end',class:'snapshot-time'},new Intl.DateTimeFormat('pt-BR',{timeZone,day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).format(new Date(p.time))),
       svg('rect',{x:L,y:barY,width,height:10,rx:5,class:'snapshot-track'}));
     const bar=svg('rect',{x:L,y:barY,width:Math.max(3,x(p.value)-L),height:10,rx:5,fill:s.color,class:'station-bar'});bar.append(svg('title',{},pointDescription(s,p,unit,anchor)));
     const hit=svg('rect',{x:0,y,width:W,height:(H-bottom-top)/latest.length,fill:'transparent',class:'snapshot-hit'});hit.append(svg('title',{},pointDescription(s,p,unit,anchor)));hit.addEventListener('pointermove',()=>show(i));hit.addEventListener('click',()=>show(i));
@@ -170,7 +170,7 @@ function drawWeatherChart(target,legend,tooltip,series,domain,label,unit,sharedS
   if(!points.length){target.append(node('p','empty','Sem amostras válidas para esta variável e período. Ausência de dados não é valor zero.'));return;}
   const rain=panel.variable==='precipitation_mm',anchor=Date.parse(panel.data?.generated_at);
   const scale=sharedScale||chartScale(points.map(p=>p.value),panel.variable==='temperature_c'),{low,high}=scale;
-  const [minT,maxT]=domain,W=600,H=250,L=45,R=12,T=16,B=42,w=W-L-R,h=H-T-B;
+  const [minT,maxT]=domain,W=target.clientWidth&&target.clientWidth<480?400:600,H=250,L=45,R=12,T=16,B=42,w=W-L-R,h=H-T-B;
   const x=t=>L+(t-minT)/(maxT-minT)*w,y=v=>T+h-(v-low)/(high-low)*h;
   const root=svg('svg',{viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':`${label} (${unit}). Horários de Brasília. Use setas para explorar.`,tabindex:0});
   for(let value=low;value<=high+scale.step/100;value+=scale.step){root.append(svg('line',{x1:L,x2:W-R,y1:y(value),y2:y(value),class:'chart-grid'}),svg('text',{x:L-7,y:y(value)+4,'text-anchor':'end',class:'chart-label'},num(value,scale.step<1||scale.step%1?1:0)));}

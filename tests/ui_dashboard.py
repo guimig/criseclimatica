@@ -112,7 +112,11 @@ def main():
             page.on('pageerror', lambda error: errors.append(str(error)))
             page.goto(url)
             page.locator('.station-bar').first.wait_for()
-            check_layout(page)
+            try:
+                check_layout(page)
+            except Exception:
+                page.screenshot(path=str(OUTPUT/f'failure-{width}.png'), full_page=True)
+                raise
             if width == 1440:
                 a, b = page.locator('#observed-panel').bounding_box(), page.locator('#forecast-panel').bounding_box()
                 assert abs(a['y']-b['y']) < 3, 'Desktop graphs must align'
