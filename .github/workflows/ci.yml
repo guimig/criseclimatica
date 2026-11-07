@@ -22,9 +22,13 @@ jobs:
       - name: Verify Python syntax
         run: python -m compileall -q src scripts
       - name: Verify browser JavaScript syntax
-        run: node --check web/app.js
+        run: |
+          node --check web/app.js
+          node --check web/dashboard.js
       - name: Test browser reliability without network
-        run: node tests/web_reliability.cjs
+        run: |
+          node tests/web_reliability.cjs
+          node tests/dashboard_behavior.cjs
       - name: Build offline synthetic fixture for smoke test
         run: python scripts/build_site.py --fixture tests/fixtures/open_meteo.json --stations-fixture tests/fixtures/inmet_catalog.json --output dist
       - name: Validate generated datasets

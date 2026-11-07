@@ -369,6 +369,6 @@ def summarize(locations, details, cemaden, metars, alerts, cptec, generated_at, 
             "revision": revision, "suggestions": suggestions, "limitations": list(dict.fromkeys(limits))})
     return {"schema_version": 1, "kind": KIND, "generated_at": generated_at,
             "primary_location_id": PRIMARY, "locations": results,
-            "protocol": {"status": "interpretive_reference_thresholds_pending_validation",
-                         "events": {"A": "acumulado de chuva", "B": "chuva intensa", "C": "temporal ou tempestade", "D": "vento"}},
+            "protocol": {"status": "current_reference", "basis": "PN 13/2026 e PN 14/2026 — ASSINST/REI",
+                         "priority_source": "Epagri/Ciram", "automatic_numeric_thresholds": False},
             "institutional_decisions_automated": False}

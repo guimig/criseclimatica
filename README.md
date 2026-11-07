@@ -2,9 +2,13 @@
 
 Portal meteorológico aberto com prioridade em Araquari e cobertura de vinte municípios de Santa Catarina e Paraná. Python coleta e processa dados no GitHub Actions; GitHub Pages publica HTML, CSS, JavaScript e JSON. Sem banco pago, Google Sheets, backend no navegador ou credenciais públicas.
 
-## Síntese consultiva de Araquari
+## Painel de acompanhamento de Araquari
 
-O painel principal reúne chuva observada, concentração de chuva prevista em 3/6 h, picos de vento/rajada, persistência descritiva de calor, avisos oficiais e sugestões fundamentadas. **Araquari é o foco fixo para o IFC**; os demais municípios permanecem complementares. Sugestões vencidas são retiradas, sem inferir melhora pela falta de dados. Revisões usam a última previsão publicada para os mesmos horários, em estado compacto separado do histórico diário de publicações. Nenhuma decisão institucional ou classificação automática do protocolo é produzida. Veja [métodos, validade e limitações](docs/SINTESE_CONSULTIVA_ARAQUARI.md).
+A página inicial reúne nível de referência, aviso prioritário Epagri/Ciram, quatro indicadores e gráfico interativo. Previsão, observações, chuva, vento/rajadas e temperatura podem ser explorados por período, ponteiro, toque e teclado. Fontes, estações e municípios complementares permanecem em `dados.html`, fora da leitura principal.
+
+**PN 13/2026 e PN 14/2026 — ASSINST/REI** substituem o protocolo anterior. As seis categorias são qualitativas; não se atribui um nível por média de chuva/vento ou pela cor de outro órgão. O enquadramento é uma sugestão rastreável, quando há evidência prioritária suficiente; a decisão formal permanece humana. Ausência de dados nunca produz verde automático.
+
+Há distribuição de chuva por estações contemporâneas (mediana com n ≥ 3 e extremos preservados), previsão de até dez dias, revisão dos mesmos horários futuros e histórico observado de sete dias sem reconstrução retroativa. O visual é claro, verde e branco, independente e sem logotipos oficiais. Veja [métodos, critérios, normas e limites](docs/PAINEL_ARAQUARI_PN13_PN14.md).
 
 ## O que está implementado
 

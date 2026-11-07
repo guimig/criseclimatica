@@ -1,0 +1,13 @@
+{
+  "origin": "User-supplied complete PDFs; public normative acts dated 2026-11-04",
+  "documents": [
+    {
+      "file": "pn-13-2026.pdf",
+      "sha256": "c9f925b9aa21967a71ffa1f4aa6280efb65796cbb205c3ef20a00a0f8de4916e"
+    },
+    {
+      "file": "pn-14-2026.pdf",
+      "sha256": "6020891ad9b33420546cffaa353d16b3443e48d417f00fb9072d0fbc9eeec980"
+    }
+  ]
+}
