@@ -1,0 +1,36 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const {fresh,dashboardCurrent,protocolCurrent,getChartSeries}=require('../web/dashboard.js');
+const now=Date.parse('2026-11-06T20:30:00Z');
+const data={generated_at:'2026-11-06T20:00:00Z',valid_until:'2026-11-06T23:00:00Z',assessment:{valid_until:'2026-11-06T22:00:00Z'},forecast:{start_at:'2026-11-06T20:00:00Z'},forecast_series:[]};
+assert.equal(dashboardCurrent(data,now),true);
+assert.equal(protocolCurrent(data,now),true);
+assert.equal(protocolCurrent(data,Date.parse('2026-11-06T22:00:01Z')),false);
+assert.equal(dashboardCurrent(data,Date.parse('2026-11-07T20:30:00Z')),false);
+assert.equal(dashboardCurrent(null,now),false);
+assert.equal(fresh('not-a-date',3,now),false);
+assert.equal(fresh('2026-11-07T20:00:00Z',3,now),false);
+for(let i=0;i<=240;i++)data.forecast_series.push({time:new Date(Date.parse(data.forecast.start_at)+i*3600000).toISOString(),precipitation_mm:i===4?null:1,temperature_c:20,wind_kmh:10,gust_kmh:20});
+const rain=getChartSeries(data,null,'forecast','precipitation_mm',24,now)[0];
+assert.equal(rain.points.length,24);
+assert.equal(rain.points[0].time,'2026-11-06T21:00:00.000Z');
+assert.equal(rain.points[3].value,null);
+assert.equal(getChartSeries(data,null,'forecast','temperature_c',24,now)[0].points.length,24);
+assert.equal(getChartSeries(data,null,'forecast','gust_kmh',72,now).length,2);
+const history={records:[{source:'cemaden-rain',station:'A',observed_at:'2026-11-06T20:00:00Z',rain_24h_mm:15},
+ {source:'cemaden-rain',station:'B',observed_at:'2026-11-06T20:00:00Z',rain_24h_mm:100},
+ {source:'cemaden-rain',station:'A',observed_at:'2026-10-01T20:00:00Z',rain_24h_mm:1000}]};
+const observed=getChartSeries(data,history,'observed','precipitation_mm',24,now);
+assert.equal(observed.length,2);assert.equal(observed[0].points.length,1);
+assert.equal(observed[0].points[0].value,15);assert.equal(observed[1].points[0].value,100);
+assert.equal(getChartSeries(data,history,'observed','temperature_c',24,now).length,0);
+const html=fs.readFileSync(path.join(__dirname,'../web/index.html'),'utf8');
+const js=fs.readFileSync(path.join(__dirname,'../web/dashboard.js'),'utf8');
+const ids=new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]));
+for(const match of js.matchAll(/\bel\('([a-z][\w-]*)'\)/g))assert.ok(ids.has(match[1]),`Missing DOM id: ${match[1]}`);
+assert.match(html,/Projeto independente/);assert.doesNotMatch(html,/FOCO PRINCIPAL · IFC/);
+assert.match(html,/href="\.\/dados.html"/);
+assert.match(js,/ArrowRight/);assert.match(js,/pointermove/);assert.match(js,/showModal/);
+console.log('Dashboard behavior passed: expiry, primary source, hourly intervals, separate stations, missing values, controls and DOM contract.');

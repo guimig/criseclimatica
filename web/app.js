@@ -169,7 +169,7 @@ function renderSynthesis() {
   for (const pair of primary.temperature_context?.pairs || []) evidence.append(child('p', '', `Contexto exploratório: Open-Meteo ${value(pair.model_c, 1)} °C (${datetime(pair.model_at)}); METAR ${pair.icao} ${value(pair.observed_c, 1)} °C (${datetime(pair.observed_at)}), a ${value(pair.distance_km, 1)} km e ${pair.gap_minutes} min entre referências. Altitude e protocolos não conciliados; sem cálculo de erro do modelo.`));
   evidence.append(child('p', 'analysis-foot', 'CPTEC e Open-Meteo: os limites dos dias não estão conciliados. NASA POWER e arquivos INMET têm referências históricas ou atrasadas; boletins Epagri são contexto editorial, e catálogos não comprovam medições. Consulte os painéis de cada produto.'));
   for (const limitation of primary.limitations || []) evidence.append(child('p', 'analysis-foot', limitation));
-  evidence.append(child('p', 'analysis-foot', 'Protocolo proposto: A — acumulado de chuva; B — chuva intensa; C — temporal ou tempestade; D — vento. Faixas com ambiguidades e critérios de calor aguardam validação; nenhuma classificação institucional automática foi aplicada. O fim de um aviso não autoriza retomada de atividades.'));
+  evidence.append(child('p', 'analysis-foot', 'Referência atual: PN 13/2026 e PN 14/2026 — ASSINST/REI. Seis níveis qualitativos; avisos Epagri/Ciram são prioritários. Não há tabela normativa de chuva ou vento que determine automaticamente o nível. O fim de um aviso não autoriza retomada de atividades.'));
   target.append(evidence);
   const table = child('table', 'synthesis-table');
   const header = child('tr'); ['Município complementar', 'Chuva prevista · janela identificada', 'Avisos na consulta'].forEach(label => header.append(child('th', '', label)));

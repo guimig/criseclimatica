@@ -51,7 +51,7 @@ class QualityDeploymentTests(unittest.TestCase):
 
     def test_web_new_sources_loaded_and_rendered_on_municipal_changes(self):
         js=(ROOT/'web/app.js').read_text()
-        html=(ROOT/'web/index.html').read_text()
+        html=(ROOT/'web/dados.html').read_text()
         for src in ('regional_quality.json','epagri_bulletins.json'):
             self.assertIn(src,js)
         for function in ('renderRegionalQuality();','renderEpagriBulletins();'):

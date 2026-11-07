@@ -210,7 +210,7 @@ class SensorFeedTests(unittest.TestCase):
             with self.assertRaises(ValueError):validate(target,fixture=False)
 
     def test_html_js_contract_for_multi_sensor_panel(self):
-        html=(ROOT/'web/index.html').read_text()
+        html=(ROOT/'web/dados.html').read_text()
         js=(ROOT/'web/app.js').read_text()
         self.assertIn('id="cemaden-sensors-data"',html)
         self.assertIn('renderCemadenSensors();',js)

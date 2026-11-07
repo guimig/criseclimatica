@@ -1,219 +1,42 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#091521">
-  <meta name="description" content="Observatorio independente do tempo e clima do Litoral Norte de Santa Catarina, com previsoes modeladas e fontes identificadas.">
-  <title>Observat&oacute;rio | Tempo e Clima</title>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#23723b">
+  <meta name="description" content="Painel independente de acompanhamento meteorológico de Araquari. Evidências, evolução e níveis de referência em uma leitura objetiva.">
+  <title>Araquari | Observatório do Tempo</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css">
-  <script defer src="./app.js"></script>
+  <link rel="stylesheet" href="./dashboard.css"><script defer src="./dashboard.js"></script>
 </head>
 <body>
-  <a class="skip-link" href="#main">Ir para o conte&uacute;do</a>
-  <header class="site-header">
-    <div class="shell header-inner">
-      <a class="brand" href="./" aria-label="Observatorio do Tempo e Clima: inicio">
-        <span class="brand-mark" aria-hidden="true">◌</span>
-        <span class="brand-copy"><strong>OBSERVAT&Oacute;RIO</strong><small>TEMPO &amp; CLIMA</small></span>
-      </a>
-      <div class="header-right">
-        <span class="location-tag"><span class="green-dot"></span> ARAQUARI / SC</span>
-        <a href="https://github.com/guimig/criseclimatica" target="_blank" rel="noopener noreferrer" class="header-link">C&oacute;digo aberto <span aria-hidden="true">↗</span></a>
-      </div>
-    </div>
-  </header>
-  <main class="shell" id="main">
-    <section class="hero" aria-labelledby="headline">
-      <div class="hero-eyebrow"><span class="tiny-rule"></span> INTELIG&Ecirc;NCIA METEOROL&Oacute;GICA REGIONAL</div>
-      <div class="hero-row">
-        <div><h1 id="headline">O tempo muda.<br><em>Entenda o contexto.</em></h1><p>Previs&otilde;es abertas, territ&oacute;rios conectados e dados com origem identificada. Araquari é a referência principal para apoiar a avaliação das atividades do IFC; os demais municípios oferecem contexto regional.</p></div>
-        <div class="hero-badge" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="orbit-center">☀</div></div>
-      </div>
-      <div class="update-bar">
-        <div class="update-left"><span class="signal" id="signal"></span><span id="system-status" role="status" aria-live="polite">Carregando dados...</span></div>
-        <div class="update-right"><span id="updated-at">--</span><button id="reload" type="button" title="Recarregar dados">↻ <span>Atualizar</span></button></div>
-      </div>
+  <a class="skip" href="#main">Ir para o conteúdo</a>
+  <header class="topbar"><div class="wrap topbar-inner"><a class="wordmark" href="./"><span class="brand-icon" aria-hidden="true">◌</span><span>observatório<small>TEMPO &amp; CONTEXTO</small></span></a><nav aria-label="Navegação principal"><a href="./" aria-current="page">Painel</a><a href="./dados.html">Dados e fontes <span aria-hidden="true">↗</span></a></nav><span class="independent">Projeto independente</span></div></header>
+  <main class="wrap" id="main">
+    <div class="heading-row"><div><p class="eyebrow">ACOMPANHAMENTO LOCAL <span>• SANTA CATARINA</span></p><h1>Araquari<span class="place-dot">.</span></h1><p class="subtitle">O essencial para compreender o cenário e apoiar a avaliação.</p></div><div class="publication"><span id="publication-time">Carregando publicação…</span><button id="refresh" type="button" aria-label="Recarregar dados publicados">↻ Atualizar</button></div></div>
+    <p id="publication-status" class="notice" role="status" aria-live="polite" hidden></p>
+    <section class="overview" aria-label="Enquadramento e evidências prioritárias">
+      <article class="card level-card"><div class="card-label">NÍVEL DE REFERÊNCIA <span id="level-kind" class="badge neutral">A verificar</span></div><div class="level-heading"><span id="level-dot" class="level-dot neutral" aria-hidden="true"></span><h2 id="level-title">Consultando evidências</h2></div><p id="level-reason" class="level-reason">Aguardando os avisos prioritários e sua aplicação a Araquari.</p><div class="card-bottom"><button id="level-explain" class="text-button" type="button">Entender o enquadramento <span aria-hidden="true">→</span></button><span class="small">Referência consultiva</span></div></article>
+      <article class="card priority-card"><div class="card-label">O QUE MERECE ACOMPANHAMENTO <span class="badge">Epagri/Ciram</span></div><h2 id="priority-title">Avisos e períodos relevantes</h2><p id="priority-description">Verificando a fonte prioritária.</p><div class="priority-links"><a id="priority-link" href="https://ciram.epagri.sc.gov.br/index.php/avisos-meteorologicos/" target="_blank" rel="noopener noreferrer">Consultar fonte oficial ↗</a><button id="evidence-open" class="text-button" type="button">Ver evidências</button></div></article>
     </section>
-
-    <section class="panel synthesis-panel" aria-labelledby="synthesis-title">
-      <div class="panel-top"><div><span class="section-kicker">FOCO PRINCIPAL · IFC EM ARAQUARI</span><h2 id="synthesis-title">Síntese meteorológica de Araquari</h2></div><span class="helper-label" id="synthesis-status">Verificando evidências</span></div>
-      <p class="analysis-explainer">Evidências do município e de estações identificadas no entorno para subsidiar a avaliação humana. <strong>Esta síntese permanece em Araquari quando outro município é consultado.</strong></p>
-      <div id="synthesis-data" aria-live="polite"><p class="loading-label">Carregando análise publicada...</p></div>
-      <details class="synthesis-evidence"><summary>Municípios complementares · contexto regional</summary><p class="analysis-explainer">As informações de outras localidades não substituem dados ausentes de Araquari nem representam as condições do campus.</p><div id="regional-synthesis" class="regional-summary"></div></details>
-      <p class="analysis-foot" id="synthesis-updated">A síntese não determina suspensão, permanência abrigada ou liberação para saída.</p>
+    <section class="metric-grid" aria-label="Indicadores de Araquari">
+      <a class="metric" href="./dados.html#cemaden-title"><span class="metric-label">CHUVA OBSERVADA · 24 H</span><strong id="observed-value">—</strong><span id="observed-note">Cemaden · por estação</span></a>
+      <button class="metric" data-focus="precipitation_mm" type="button"><span class="metric-label">CHUVA PREVISTA · 24 H</span><strong id="forecast-value">—</strong><span id="forecast-note">Open-Meteo · janela completa</span></button>
+      <button class="metric" data-focus="gust_kmh" type="button"><span class="metric-label">MAIOR RAJADA · 24 H</span><strong id="gust-value">—</strong><span id="gust-note">Previsão · horário identificado</span></button>
+      <button class="metric" data-focus="temperature_c" type="button"><span class="metric-label">TEMPERATURA MÁX. · 24 H</span><strong id="temperature-value">—</strong><span id="temperature-note">Previsão · temperatura do ar</span></button>
     </section>
-
-    <section class="location-head" aria-label="Selecao de municipio">
-      <div><span class="section-kicker">PAINEL LOCAL</span><h2 id="place-title">Araquari <span class="state">/ SC</span></h2><p id="place-subtitle">Araquari é o foco principal. Consulte os demais municípios como contexto complementar.</p></div>
-      <div class="select-wrap"><label for="location-select">MUNIC&Iacute;PIO</label><select id="location-select" aria-label="Municipio selecionado" disabled><option>Carregando...</option></select></div>
+    <section class="card chart-card" aria-labelledby="chart-heading">
+      <div class="chart-top"><div><p class="eyebrow">EVOLUÇÃO NO TEMPO</p><h2 id="chart-heading">Chuva prevista</h2></div><div class="chart-controls"><div class="segmented" role="group" aria-label="Tipo de série"><button type="button" data-mode="forecast" aria-pressed="true" class="active">Previsão</button><button type="button" data-mode="observed" aria-pressed="false">Observações</button></div><label class="sr-only" for="chart-range">Período do gráfico</label><select id="chart-range"><option value="24">24 horas</option><option value="72">72 horas</option><option value="168">7 dias</option><option value="240">10 dias</option></select></div></div>
+      <div class="variable-row" role="group" aria-label="Variável meteorológica"><button type="button" data-variable="precipitation_mm" aria-pressed="true" class="active">Chuva</button><button type="button" data-variable="gust_kmh" aria-pressed="false">Vento e rajadas</button><button type="button" data-variable="temperature_c" aria-pressed="false">Temperatura</button><span id="chart-period" class="small"></span></div>
+      <div class="plot" id="plot"><p class="empty">Carregando série…</p></div><div id="chart-tooltip" class="chart-tooltip" aria-live="polite" hidden></div><div id="chart-legend" class="chart-legend"></div><p id="chart-caption" class="chart-caption">Passe o ponteiro, toque nos pontos ou use as setas do teclado para explorar os horários.</p>
     </section>
-
-    <div class="disclaimer" role="note"><span class="information-icon">i</span><div><strong>Dados estimados por modelo.</strong> Os indicadores de modelo abaixo e suas projeções vêm da Open-Meteo. N&atilde;o s&atilde;o medi&ccedil;&otilde;es de esta&ccedil;&otilde;es nem alertas oficiais.</div></div>
-
-    <section class="panel coverage-panel" aria-labelledby="coverage-title">
-      <div class="panel-top"><div><span class="section-kicker">COBERTURA DESTA LOCALIDADE</span><h3 id="coverage-title">Quais dados estão disponíveis?</h3></div></div>
-      <p class="analysis-explainer">Fontes independentes, com horários e variáveis próprios. Estações próximas e aeródromos não representam todo o município. Consulte a idade de cada leitura nos painéis.</p>
-      <div id="coverage-data" class="coverage-grid" aria-live="polite"></div>
+    <section class="bottom-grid" aria-label="Leitura complementar">
+      <article class="card reading-card"><div class="card-label">LEITURA DO CENÁRIO</div><p id="scenario-reading">A análise aparecerá após carregar os dados.</p><button id="methods-open" type="button" class="text-button">Métodos, comparações e limites →</button></article>
+      <a class="card explore-card" href="./dados.html"><span class="card-label">APROFUNDE A ANÁLISE <span aria-hidden="true">↗</span></span><h2>Dados, estações e fontes</h2><p>Medições individuais, outros municípios, boletins e histórico das publicações.</p><span class="explore-action">Abrir área detalhada →</span></a>
     </section>
-
-    <section class="panel alignment-panel" aria-labelledby="alignment-title">
-      <div class="panel-top"><div><span class="section-kicker">ÁREAS COMUNS / ESTUDO FUTURO</span><h3 id="alignment-title">Proximidade entre as três fontes</h3></div></div>
-      <p class="analysis-explainer">Open-Meteo fornece estimativas e previsões; Cemaden e METAR fornecem observações pontuais. Os conjuntos abaixo indicam proximidade geográfica e temporal. <strong>Não demonstram equivalência climática nem precisão dos modelos.</strong> Litoral, vale e planalto permanecem separados por núcleo.</p>
-      <div id="alignment-data" aria-live="polite"></div>
-    </section>
-
-    <section class="metrics" aria-label="Indicadores meteorologicos atuais">
-      <article class="metric metric-primary"><div class="metric-label">TEMPERATURA ESTIMADA <span aria-hidden="true">↗</span></div><div class="metric-number" id="temp">--</div><div class="metric-detail" id="weather">Sem informa&ccedil;&atilde;o</div></article>
-      <article class="metric"><div class="metric-label">SENSA&Ccedil;&Atilde;O T&Eacute;RMICA</div><div class="metric-number" id="feels">--</div><div class="metric-detail">Estimativa &agrave; superf&iacute;cie</div></article>
-      <article class="metric"><div class="metric-label">UMIDADE RELATIVA</div><div class="metric-number" id="humidity">--</div><div class="metric-detail">Pr&oacute;ximo da superf&iacute;cie</div></article>
-      <article class="metric"><div class="metric-label">VENTO / RAJADAS</div><div class="metric-number small-number" id="wind">--</div><div class="metric-detail">km/h &bull; estimativa do modelo</div></article>
-    </section>
-
-    <div class="dashboard-grid">
-      <section class="panel chart-panel" aria-labelledby="chart-title">
-        <div class="panel-top"><div><span class="section-kicker">EVOLU&Ccedil;&Atilde;O HOR&Aacute;RIA</span><h3 id="chart-title">Pr&oacute;ximas 24 horas</h3></div><div class="segmented" role="group" aria-label="Variavel do grafico"><button type="button" class="active" data-metric="temperature_c" aria-pressed="true">Temperatura</button><button type="button" data-metric="precipitation_mm" aria-pressed="false">Chuva</button><button type="button" data-metric="gust_kmh" aria-pressed="false">Rajadas</button></div></div>
-        <div class="chart-frame" id="chart" role="img" aria-label="Grafico das proximas 24 horas"><span class="loading-label">Carregando gr&aacute;fico...</span></div>
-        <div class="chart-footer"><span class="legend-dot"></span><span id="chart-legend">Dados de previs&atilde;o, n&atilde;o de esta&ccedil;&atilde;o</span></div>
-      </section>
-      <section class="panel detail-panel" aria-labelledby="detail-title">
-        <div class="panel-top"><div><span class="section-kicker">DETALHAMENTO</span><h3 id="detail-title">Condi&ccedil;&otilde;es previstas</h3></div><span class="panel-icon" aria-hidden="true">☁</span></div>
-        <div class="detail-stats"><div><span>CHUVA PREVISTA · JANELA DE 24H</span><strong id="rain-24">--</strong><small id="rain-coverage">Sem janela completa publicada</small></div><div><span>PRECIPITAÇÃO · INTERVALO DO MODELO</span><strong id="rain-now">--</strong><small id="rain-interval">Intervalo não informado</small></div><div><span>RAJADA ESTIMADA</span><strong id="gust-now">--</strong></div><div><span>PRESS&Atilde;O AO N&Iacute;VEL DO MAR</span><strong id="pressure">--</strong></div></div>
-        <div class="detail-bottom"><span class="info-line">◉ Fonte: <a href="https://open-meteo.com/en/docs" target="_blank" rel="noopener noreferrer">Open-Meteo</a></span><span id="model-time">Refer&ecirc;ncia: --</span></div>
-      </section>
-    </div>
-
-    <section class="panel daily-panel" aria-labelledby="daily-title"><div class="panel-top"><div><span class="section-kicker">TEND&Ecirc;NCIA</span><h3 id="daily-title">Pr&oacute;ximos dias</h3></div><span class="helper-label">Previsão por modelo · dias em UTC</span></div><div class="daily-grid" id="daily-grid"><span class="loading-label">Carregando previs&atilde;o...</span></div></section>
-
-    <section class="panel cptec-panel" aria-labelledby="cptec-title">
-      <div class="panel-top"><div><span class="section-kicker">PREVISÃO OFICIAL / INPE</span><h3 id="cptec-title">CPTEC — previsão independente</h3></div><span class="helper-label">Até 7 dias · XML</span></div>
-      <p class="analysis-explainer">Previsão divulgada pelo CPTEC/INPE para a localidade mais próxima das coordenadas selecionadas. <strong>Não é medição instrumental nem confirmação da previsão Open-Meteo.</strong></p>
-      <div class="cptec-grid" id="cptec-data" aria-live="polite"><span class="loading-label">Consultando previsão CPTEC...</span></div>
-      <p class="analysis-foot" id="cptec-updated"><a href="https://servicos.cptec.inpe.br/XML/" rel="noopener noreferrer" target="_blank">Serviço XML CPTEC/INPE</a></p>
-    </section>
-
-    <section class="territory-section" aria-labelledby="territory-title"><div class="section-heading"><div><span class="section-kicker">VIS&Atilde;O DO TERRIT&Oacute;RIO</span><h2 id="territory-title">Contexto complementar de Santa Catarina e Paraná</h2><p>Araquari é a referência principal. Os demais pontos municipais ajudam a contextualizar as condições regionais.</p></div><span class="helper-label" id="territory-count">-- localidades</span></div><div class="territory-grid" id="territory-grid"></div></section>
-
-    <section class="analysis-grid" aria-label="Redes observacionais e historico">
-      <article class="panel station-panel" aria-labelledby="stations-title">
-        <div class="panel-top"><div><span class="section-kicker">REDE OBSERVACIONAL</span><h3 id="stations-title">Estações próximas</h3></div><span class="helper-label" id="station-count">Cadastro INMET</span></div>
-        <p class="analysis-explainer">Distâncias em linha reta até estações <strong>automáticas e convencionais</strong> cadastradas pelo INMET. Cadastro não significa sensor ativo ou leitura recente; as medições são exibidas em painel próprio.</p>
-        <div class="station-grid" id="station-grid" aria-live="polite"><span class="loading-label">Carregando cadastro...</span></div>
-        <p class="analysis-foot" id="station-updated">Fonte: catálogos oficiais INMET</p>
-        <div class="reference-links"><a href="https://portal.inmet.gov.br/paginas/catalogoaut" target="_blank" rel="noopener noreferrer">Automáticas ↗</a><a href="https://portal.inmet.gov.br/paginas/catalogoman" target="_blank" rel="noopener noreferrer">Convencionais ↗</a><a href="https://bdmep.inmet.gov.br/" target="_blank" rel="noopener noreferrer">BDMEP histórico ↗</a><a href="https://ciram.epagri.sc.gov.br/agroconnect/" target="_blank" rel="noopener noreferrer">Rede Epagri/Ciram ↗</a></div>
-      </article>
-      <article class="panel history-panel" aria-labelledby="history-title">
-        <div class="panel-top"><div><span class="section-kicker">HISTÓRICO DE PUBLICAÇÕES</span><h3 id="history-title">Evolução das estimativas</h3></div><span class="helper-label" id="history-count">-- dias</span></div>
-        <p class="analysis-explainer">Uma estimativa de temperatura por dia publicado (última coleta do dia). <strong>Não representa a média ou a máxima diária, nem observações climáticas.</strong></p>
-        <div class="history-chart" id="history-chart" role="img" aria-label="Ultimas estimativas diarias de temperatura"><span class="loading-label">Carregando histórico...</span></div>
-        <p class="analysis-foot" id="history-updated">Histórico progressivo, conservado entre publicações disponíveis.</p>
-      </article>
-    </section>
-
-    <section class="panel epagri-registry-panel" aria-labelledby="epagri-registry-title">
-      <div class="panel-top"><div><span class="section-kicker">REDE AMBIENTAL REGIONAL / EPAGRI</span><h3 id="epagri-registry-title">Estações ambientais próximas</h3></div><span class="helper-label" id="epagri-registry-count">Cadastro geográfico</span></div>
-      <p class="analysis-explainer">Cadastro georreferenciado de estações meteorológicas e agrometeorológicas publicado pela Epagri. <strong>Estar cadastrado não confirma funcionamento atual nem disponibilidade de medições.</strong> Inclui identificação, classe, responsável e distância em linha reta, quando disponíveis.</p>
-      <div class="station-grid" id="epagri-registry-list" aria-live="polite"><span class="loading-label">Verificando cadastro Epagri...</span></div>
-      <div class="reference-links"><a href="https://ciram.epagri.sc.gov.br/dadosambientaispublicos/index.jsp" target="_blank" rel="noopener noreferrer">Dados horários públicos Epagri (cadastro exigido) ↗</a></div>
-      <p class="analysis-foot" id="epagri-registry-updated">Fonte: <a href="https://gis.epagri.sc.gov.br/arcgis/rest/services/Zoneamento/Potencial_estacoes/MapServer/1" target="_blank" rel="noopener noreferrer">Catálogo geográfico Epagri/SC</a>. Sem dados meteorológicos ao vivo.</p>
-    </section>
-
-    <section class="panel observed-panel" aria-labelledby="observed-title">
-      <div class="panel-top"><div><span class="section-kicker">OBSERVAÇÃO INSTRUMENTAL REGIONAL</span><h3 id="observed-title">Medições em aeródromos próximos</h3></div><span class="helper-label">METAR · NOAA</span></div>
-      <p class="analysis-explainer">Registros meteorológicos produzidos em aeródromos. <strong>Não são medições realizadas em todo o município</strong> e não representam precipitação acumulada em pluviômetros.</p>
-      <div id="observed-data" class="observed-data" aria-live="polite"><span class="loading-label">Carregando observações...</span></div>
-      <p class="analysis-foot" id="observed-foot">Fonte: <a href="https://aviationweather.gov/data/api/" target="_blank" rel="noopener noreferrer">Aviation Weather Center (NOAA)</a></p>
-    </section>
-
-    <section class="panel rainfall-panel" aria-labelledby="rainfall-title">
-      <div class="panel-top"><div><span class="section-kicker">PLUVIOMETRIA INSTRUMENTAL</span><h3 id="rainfall-title">Chuva medida em estações INMET</h3></div><span class="helper-label">Observação bruta, não validada</span></div>
-      <p class="analysis-explainer">A chuva medida pertence ao ponto da estação, não ao município inteiro. Acumulados de 24 leituras só aparecem com cobertura horária completa. A integração requer autorização do INMET.</p>
-      <div id="rain-gauges" class="rain-gauge-list" aria-live="polite"><span class="loading-label">Verificando integração...</span></div>
-      <p class="analysis-foot" id="rain-updated">Fonte: <a href="https://portal.inmet.gov.br/servicos/esta%C3%A7%C3%B5es-autom%C3%A1ticas" target="_blank" rel="noopener noreferrer">INMET</a> · dados instrumentais brutos.</p>
-    </section>
-
-
-    <section class="panel archive-panel" aria-labelledby="archive-title">
-      <div class="panel-top"><div><span class="section-kicker">DADOS OBSERVADOS / ARQUIVO OFICIAL</span><h3 id="archive-title">INMET — chuva medida em arquivos anuais</h3></div><span class="helper-label">Dados com atraso · UTC</span></div>
-      <p class="analysis-explainer">Esta consulta utiliza o <a href="https://portal.inmet.gov.br/dadoshistoricos" target="_blank" rel="noopener noreferrer">arquivo anual público de estações automáticas do INMET</a>. Pode estar atualizado apenas até o mês anterior. <strong>Não mostra a chuva de agora ou nas últimas 24 horas.</strong> O total de um dia somente é apresentado quando as 24 leituras horárias estão disponíveis.</p>
-      <div class="archive-list" id="archive-data" aria-live="polite"><span class="loading-label">Verificando arquivo oficial...</span></div>
-      <p class="analysis-foot" id="archive-updated">Fonte INMET · arquivo público de dados observados, com defasagem.</p>
-    </section>
-
-    <section class="panel regional-quality-panel" aria-labelledby="regional-quality-title">
-      <div class="panel-top"><div><span class="section-kicker">QUALIDADE DAS MEDIÇÕES / INMET</span><h3 id="regional-quality-title">Qual estação tem chuva válida perto de mim?</h3></div><span class="helper-label">Dados medidos · histórico atrasado</span></div>
-      <p class="analysis-explainer">Identifica a estação mais próxima com ao menos um dia de <strong>24 leituras válidas de chuva</strong>. A mais próxima pode estar sem sensor ou com registros incompletos. Distância e defasagem são exibidas: <strong>nenhum total representa a chuva em todo o município.</strong></p>
-      <div id="regional-quality-data" class="station-grid" aria-live="polite"><span class="loading-label">Verificando cobertura das medições...</span></div>
-      <p class="analysis-foot" id="regional-quality-foot">As leituras são pontuais e podem estar atrasadas.</p>
-    </section>
-
-    <div class="integrations-grid" aria-label="Integrações adicionais de precipitação">
-      <section class="panel" aria-labelledby="cemaden-title">
-        <div class="panel-top"><div><span class="section-kicker">PLUVIÔMETROS / CEMADEN</span><h3 id="cemaden-title">Chuva observada no município</h3></div><span class="helper-label">Medição por estação</span></div>
-        <p class="analysis-explainer">Acumulados instrumentais de 1h a 120h disponibilizados pelo Cemaden por código IBGE. A API oficial exige autorização; dados brutos não representam a chuva de todo o município.</p>
-        <div id="cemaden-data" aria-live="polite"><span class="loading-label">Verificando fonte...</span></div>
-        <p class="analysis-foot" id="cemaden-updated"><a href="https://sws.cemaden.gov.br/PED/api/ui/" rel="noopener noreferrer" target="_blank">API oficial Cemaden</a></p>
-      </section>
-      <section class="panel" aria-labelledby="nasa-title">
-        <div class="panel-top"><div><span class="section-kicker">ESTIMATIVAS INDEPENDENTES / NASA</span><h3 id="nasa-title">Precipitação diária — NASA POWER</h3></div><span class="helper-label">Grade espacial · UTC</span></div>
-        <p class="analysis-explainer">Estimativa de precipitação e temperatura da NASA para um ponto de referência em Araquari. <strong>Não é medição de pluviômetro</strong> e não substitui a previsão horária.</p>
-        <div id="nasa-data" aria-live="polite"><span class="loading-label">Consultando série...</span></div>
-        <p class="analysis-foot" id="nasa-updated"><a href="https://power.larc.nasa.gov/docs/services/api/temporal/daily/" rel="noopener noreferrer" target="_blank">Documentação NASA POWER</a></p>
-      </section>
-    </div>
-    <section class="panel" aria-labelledby="cemaden-sensors-title">
-      <div class="panel-top"><div><span class="section-kicker">SENSORES / CEMADEN PED</span><h3 id="cemaden-sensors-title">Medições instrumentais recentes no entorno</h3></div><span class="helper-label">Dados de estação · últimas 3 horas</span></div>
-      <p class="analysis-explainer">Consulta regional da rede de sensores Cemaden em Santa Catarina e Paraná. Mostra apenas sensores com leituras válidas e estações geograficamente próximas. <strong>Não é previsão, não representa todo o município e não oferece monitoramento contínuo em tempo real.</strong> A atualização do site está sujeita à agenda do GitHub Actions.</p>
-      <div id="cemaden-sensors-data" aria-live="polite"><span class="loading-label">Verificando leituras...</span></div>
-      <p class="analysis-foot" id="cemaden-sensors-updated">DADOS DA REDE OBSERVACIONAL DO CEMADEN/MCTIC · <a href="https://sws.cemaden.gov.br/PED/api/ui/" rel="noopener noreferrer" target="_blank">Catálogo oficial</a></p>
-    </section>
-
-    <section class="panel source-health-panel" aria-labelledby="sources-title">
-      <div class="panel-top"><div><span class="section-kicker">TRANSPARÊNCIA OPERACIONAL</span><h3 id="sources-title">Estado das integrações</h3></div><span class="helper-label">Última publicação</span></div>
-      <p class="analysis-explainer">Fonte indisponível, sem credencial ou sem dado recente não significa ausência de chuva ou de risco. Cada serviço é processado de modo independente.</p>
-      <div class="source-health-grid" id="source-health" aria-live="polite"><span class="loading-label">Verificando fontes...</span></div>
-    </section>
-
-    <section class="lower-grid" aria-label="Fontes e alertas">
-      <article class="panel alert-panel" aria-labelledby="alert-title"><span class="section-kicker">AVISOS METEOROLÓGICOS OFICIAIS</span><h3 id="alert-title">Avisos INMET para o município</h3>
-        <p class="analysis-explainer">Informações obtidas periodicamente do INMET por código IBGE. A situação pode mudar entre coletas. <strong>Não substitui a Defesa Civil.</strong></p>
-        <div id="official-alerts" class="official-alerts" aria-live="polite"><span class="loading-label">Consultando avisos publicados...</span></div>
-        <p class="analysis-foot" id="alert-updated">Consulta oficial ainda não verificada.</p>
-        <div class="reference-links"><a href="https://www.defesacivil.sc.gov.br/" target="_blank" rel="noopener noreferrer">Defesa Civil SC ↗</a><a href="https://alertas2.inmet.gov.br/" target="_blank" rel="noopener noreferrer">Portal INMET ↗</a></div>
-      </article>
-      <article class="panel source-panel"><span class="section-kicker">TRANSPAR&Ecirc;NCIA</span><h3>Sobre estes dados</h3><p>Indicadores superiores: modelo Open-Meteo. NASA POWER: estimativas diárias em grade. INMET/Cemaden, quando disponíveis: chuva instrumental pontual. NOAA: boletins de aeródromo. Avisos: INMET. Nenhum desses produtos, isoladamente, garante segurança.</p><div class="source-line"><span>MODELO</span><strong>Open-Meteo</strong></div><div class="source-line"><span>HOR&Aacute;RIO</span><strong id="source-time">--</strong></div><div class="source-line"><span>COORDENADAS DO MODELO</span><strong id="coordinates">--</strong></div></article>
-    </section>
-    <section class="panel civil-defense-panel" aria-labelledby="defesa-title">
-      <div class="panel-top"><div><span class="section-kicker">PROTEÇÃO E DEFESA CIVIL DE SANTA CATARINA</span><h3 id="defesa-title">Alertas, avisos e boletins publicados</h3></div><span class="helper-label" id="defesa-count">Canal institucional</span></div>
-      <p class="analysis-explainer"><strong>Publicação no site não prova que um alerta continua vigente.</strong> A classificação territorial usa somente menções explícitas no título ou resumo; um boletim estadual não equivale a alerta municipal.</p>
-      <div class="civil-defense-list" id="defesa-list" aria-live="polite"><span class="loading-label">Verificando publicações...</span></div>
-      <p class="analysis-foot" id="defesa-updated">Acompanhe os canais oficiais em caso de risco. Emergência: 199 ou 193.</p>
-      <div class="reference-links"><a href="https://www.defesacivil.sc.gov.br/alerta/" target="_blank" rel="noopener noreferrer">Alertas SC ↗</a><a href="https://www.defesacivil.sc.gov.br/boletins-do-tempo/" target="_blank" rel="noopener noreferrer">Boletins SC ↗</a><a href="https://araquari.atende.net/subportal/secretaria-de-seguranca-publica-e-defesa-civil" target="_blank" rel="noopener noreferrer">Defesa Civil de Araquari ↗</a><a href="https://ciram.epagri.sc.gov.br/index.php/avisos-meteorologicos/" target="_blank" rel="noopener noreferrer">Avisos Epagri/Ciram ↗</a></div>
-    </section>
-    <section class="panel epagri-advisory-panel" aria-labelledby="epagri-advisory-title">
-      <div class="panel-top"><div><span class="section-kicker">AVISOS METEOROLÓGICOS / EPAGRI-CIRAM</span><h3 id="epagri-advisory-title">Avisos regionais publicados</h3></div><span class="helper-label" id="epagri-advisory-count">Fonte oficial SC</span></div>
-      <p class="analysis-explainer">Publicações dos meteorologistas da Epagri/Ciram. A janela temporal só aparece se estiver explicitamente no boletim; <strong>abrangência regional não é confirmação de alerta municipal, e não substitui a Defesa Civil.</strong></p>
-      <div id="epagri-advisory-list" class="civil-defense-list" aria-live="polite"><span class="loading-label">Verificando avisos Epagri...</span></div>
-      <p class="analysis-foot" id="epagri-advisory-updated">Consulte sempre o boletim original para condições e abrangência.</p>
-      <div class="reference-links"><a href="https://ciram.epagri.sc.gov.br/index.php/avisos-meteorologicos/" target="_blank" rel="noopener noreferrer">Avisos Epagri/Ciram ↗</a><a href="https://ciram.epagri.sc.gov.br/index.php/category/avisos-meteorologicos/" target="_blank" rel="noopener noreferrer">Publicações anteriores ↗</a></div>
-    </section>
-
-    <section class="panel epagri-bulletins-panel" aria-labelledby="epagri-bulletins-title">
-      <div class="panel-top"><div><span class="section-kicker">PREVISÃO EDITORIAL / EPAGRI-CIRAM</span><h3 id="epagri-bulletins-title">Boletins para 5 e 10 dias</h3></div><span class="helper-label" id="epagri-bulletins-count">Fonte institucional</span></div>
-      <p class="analysis-explainer">Textos oficiais de previsão e tendência divulgados pela Epagri/Ciram. Não são medições instrumentais, nem previsão pontual exclusiva do município, nem alertas emergenciais da Defesa Civil.</p>
-      <div id="epagri-bulletins-list" class="civil-defense-list" aria-live="polite"><span class="loading-label">Consultando boletins da Epagri...</span></div>
-      <p id="epagri-bulletins-updated" class="analysis-foot">Os boletins podem se tornar obsoletos rapidamente.</p>
-      <div class="reference-links"><a href="https://ciram.epagri.sc.gov.br/index.php/category/previsao/" target="_blank" rel="noopener noreferrer">Boletins Epagri/Ciram ↗</a><a href="https://ciram.epagri.sc.gov.br/index.php/previsao-municipio-15-dias/" target="_blank" rel="noopener noreferrer">Previsão municipal 15 dias ↗</a></div>
-    </section>
-    <section class="panel notice-archive-panel" aria-labelledby="notice-archive-title">
-      <div class="panel-top"><div><span class="section-kicker">MEMÓRIA DOS AVISOS OFICIAIS</span><h3 id="notice-archive-title">Avisos anteriormente publicados</h3></div><span class="helper-label" id="notice-archive-count">Histórico</span></div>
-      <p class="analysis-explainer">Registra avisos que foram retornados pela fonte oficial nas publicações anteriores. Não é comprovação de desastre, nem substitui a consulta aos avisos atualmente vigentes.</p>
-      <div id="notice-archive-list" class="notice-archive-list" aria-live="polite"><span class="loading-label">Consultando histórico...</span></div>
-      <p class="analysis-foot" id="notice-archive-foot">Registro progressivo e limitado, recuperado das publicações do site.</p>
-    </section>
+    <p class="scope-note">Leitura independente, sem vínculo oficial. Os níveis são referências para avaliação humana; este painel não determina o funcionamento de atividades. Atualizações programadas a cada 3 horas, sujeitas a atrasos.</p>
   </main>
-  <footer class="site-footer"><div class="shell footer-inner"><div><strong>OBSERVAT&Oacute;RIO / TEMPO &amp; CLIMA</strong><p>Projeto aberto e independente. N&atilde;o substitui alertas e orienta&ccedil;&otilde;es da Defesa Civil.</p></div><div><span>Dados meteorol&oacute;gicos: <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a></span><span><a href="https://github.com/guimig/criseclimatica" target="_blank" rel="noopener noreferrer">Reposit&oacute;rio no GitHub ↗</a></span></div></div></footer>
+  <footer class="wrap footer"><span>Observatório do Tempo · Araquari</span><div><button id="protocol-open" type="button" class="text-button">Referências e normas</button><a href="https://github.com/guimig/criseclimatica" target="_blank" rel="noopener noreferrer">Código aberto ↗</a></div></footer>
+  <dialog id="detail-dialog" aria-labelledby="dialog-title"><div class="dialog-heading"><h2 id="dialog-title">Evidências</h2><button id="dialog-close" type="button" aria-label="Fechar detalhes">✕</button></div><div id="dialog-content"></div></dialog>
+  <noscript><p class="wrap notice">Ative JavaScript para explorar o painel. Os arquivos publicados e as fontes estão disponíveis no repositório.</p></noscript>
 </body>
 </html>
-

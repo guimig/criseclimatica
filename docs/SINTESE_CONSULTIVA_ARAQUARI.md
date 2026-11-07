@@ -1,5 +1,7 @@
 # Síntese consultiva com foco em Araquari
 
+> Registro da primeira implementação. A referência ao protocolo local foi substituída pelas PN 13/2026 e PN 14/2026; o painel e a metodologia atuais estão em [Painel Araquari](PAINEL_ARAQUARI_PN13_PN14.md).
+
 O IFC Campus Araquari está no município de Araquari. A síntese principal permanece nessa localidade, mesmo durante a consulta aos painéis de outro município. As demais localidades são contexto complementar; suas previsões não substituem dados ausentes de Araquari. A referência de coordenadas continua sendo o ponto municipal já configurado, sem alegação de medição dentro do campus.
 
 ## Produtos e métodos

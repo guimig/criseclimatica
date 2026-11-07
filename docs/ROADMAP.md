@@ -97,3 +97,18 @@ Os núcleos não certificam semelhança climática. Ver [Alinhamento territorial
 - [ ] Avaliar desempenho de previsões somente com emissão, horizonte e observações correspondentes preservados.
 
 Detalhamento: [síntese consultiva](SINTESE_CONSULTIVA_ARAQUARI.md).
+
+
+## Painel objetivo — PN 13 e PN 14/2026
+
+- [x] Substituir referência ativa ao protocolo local e preservar cópias das normas atuais.
+- [x] Priorizar Epagri/Ciram no enquadramento qualitativo, sem converter cores INMET ou valores de modelo em nível institucional.
+- [x] Página inicial compacta, clara e independente; área detalhada em `dados.html`.
+- [x] Mediana de chuva com amostra mínima, extremos e horários rastreáveis.
+- [x] Histórico observado por estação com sete dias de retenção e proteção de continuidade.
+- [x] Gráficos interativos por variável, fonte/tipo e período, com suporte a teclado.
+- [x] Previsão de até dez dias para contextualizar preparação de maior antecedência.
+- [ ] Validar externamente impactos/decretos e decisões formais; não inferidos pelo aplicativo.
+- [ ] Resolver institucionalmente a divergência sobre avaliações no laranja entre PN 13, art. 10, I, e PN 14, art. 8º, III.
+
+[Metodologia atual](PAINEL_ARAQUARI_PN13_PN14.md).

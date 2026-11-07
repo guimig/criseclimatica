@@ -167,6 +167,7 @@ def parse_feed(data: bytes, checked_at: str) -> list[dict[str, Any]]:
             "window_status": "explicit_in_publication" if begins else "not_confirmed",
             "regions_text": places, "north_coast_scope": coverage,
             "summary": re.sub(r"\s+", " ", full_text).strip()[:600],
+            "assessment_text": full_text[:6000],
             "notice_kind": "epagri_meteorological_advisory_not_civil_defense_alert",
         }
     return sorted(result.values(), key=lambda x: x["published_at"], reverse=True)[:MAX_NOTICES]
@@ -192,7 +193,8 @@ def collect(stamp: str, *, previous: dict | None = None, fixture: bytes | None =
             age = now - _utc(previous["retrieved_at"])
         except EpagriNoticeError:
             valid_previous = False
-    if fixture is None and valid_previous and timedelta(0) <= age < timedelta(hours=3):
+    if (fixture is None and valid_previous and timedelta(0) <= age < timedelta(hours=3)
+            and all(isinstance(n, dict) and "assessment_text" in n for n in previous["notices"])):
         return {**previous, "status": "cached", "checked_at": stamp}
     try:
         notices = parse_feed(_download(RSS) if fixture is None else fixture, stamp)

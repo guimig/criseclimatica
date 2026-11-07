@@ -17,6 +17,7 @@ from urllib.request import Request, urlopen
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from observatorio.dashboard import summarize as summarize_dashboard
 from observatorio.analysis import summarize as summarize_analysis, forecast_snapshot
 from observatorio.territorial_alignment import summarize as summarize_alignment
 from observatorio.coverage import summarize as summarize_coverage
@@ -152,6 +153,7 @@ def build(
     client = FixtureClient(fixture) if fixture is not None else OpenMeteoClient()
 
     # Never use live site state in an offline fixture build.
+    previous_dashboard_history = None
     previous_forecast = None
     previous_history = None
     previous_stations = None
@@ -170,6 +172,14 @@ def build(
         previous_notices = fetch_previous_json(previous_url, "data/notice_history.json", max_bytes=2_000_000)
         if previous_notices is None and previous_overview and previous_overview.get("notice_archive_published") is True:
             raise RuntimeError("Previous notice archive missing after prior publication; refusing history loss")
+        try:
+            previous_dashboard_history = fetch_previous_json(previous_url, "data/observation_history.json", max_bytes=3_000_000)
+            if previous_dashboard_history is None and previous_overview and previous_overview.get("observation_history_published"):
+                raise RuntimeError("Published observation history is missing; preserving previous publication")
+        except (RuntimeError, ValueError):
+            if previous_overview and previous_overview.get("observation_history_published"):
+                raise
+            print("Observation history not yet available; first dashboard publication", file=sys.stderr)
         # Optional bounded previous forecast; missing state means no revision claim.
         try:
             previous_forecast = fetch_previous_json(previous_url, "data/forecast_snapshot.json", max_bytes=1_000_000)
@@ -314,19 +324,29 @@ def build(
     manifest["generated_at"] = stamp
     analysis = summarize_analysis(locations, details, cemaden, observations, alerts, cptec,
                                   stamp, previous=previous_forecast, sensors=cemaden_sensors)
+    dashboard, observation_history = summarize_dashboard(analysis, details, epagri_notices,
+        epagri_bulletins, defesa_sc, stamp, previous_history=previous_dashboard_history)
+    manifest["observation_history_published"] = True
     snapshot = forecast_snapshot(details, stamp)
     if fixture is not None:
+        dashboard["fixture_mode"] = True
+        observation_history["fixture_mode"] = True
         analysis["fixture_mode"] = True
         snapshot["fixture_mode"] = True
     print(f"Advisory synthesis: primary={analysis['primary_location_id']} "
           f"municipalities={len(analysis['locations'])} "
           f"comparable_revisions={sum(row['revision']['status'] == 'comparable_publications' for row in analysis['locations'])}")
+    print(f"Araquari dashboard: level={dashboard['assessment']['suggested_level'] or 'not_determined'} "
+          f"epagri_evidence={len(dashboard['assessment']['evidence'])} "
+          f"gauges={dashboard['gauge_distribution']['station_count']} observations_history={len(observation_history['records'])}")
     output = output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="observatorio-build-", dir=output.parent) as temp:
         staged = Path(temp) / "site"
         shutil.copytree(ROOT / "web", staged)
         data = staged / "data"
+        write_json_atomic(data / "dashboard.json", dashboard)
+        write_json_atomic(data / "observation_history.json", observation_history)
         write_json_atomic(data / "analysis.json", analysis)
         write_json_atomic(data / "forecast_snapshot.json", snapshot)
         write_json_atomic(data / "territorial_alignment.json", alignment)

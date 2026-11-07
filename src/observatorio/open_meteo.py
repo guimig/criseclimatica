@@ -156,7 +156,7 @@ class OpenMeteoClient:
         params = {
             "latitude": location["latitude"], "longitude": location["longitude"],
             "current": ",".join(CURRENT), "hourly": ",".join(HOURLY),
-            "daily": ",".join(DAILY), "forecast_days": 5, "timezone": "UTC",
+            "daily": ",".join(DAILY), "forecast_days": 10, "timezone": "UTC",
             "wind_speed_unit": "kmh", "temperature_unit": "celsius",
             "precipitation_unit": "mm",
         }

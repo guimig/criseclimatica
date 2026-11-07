@@ -64,6 +64,47 @@ def validate(output: Path, *, fixture: bool = False) -> None:
     epagri_bulletins = json.loads((data / "epagri_bulletins.json").read_text(encoding="utf-8"))
     regional_quality = json.loads((data / "regional_quality.json").read_text(encoding="utf-8"))
     notices_archive = json.loads((data / "notice_history.json").read_text(encoding="utf-8"))
+    dashboard = json.loads((data / "dashboard.json").read_text(encoding="utf-8"))
+    observed_history = json.loads((data / "observation_history.json").read_text(encoding="utf-8"))
+    if (dashboard.get("kind") != "araquari_weather_dashboard_not_official_decision"
+            or dashboard.get("schema_version") != 1 or dashboard.get("location_id") != "araquari"
+            or dashboard.get("generated_at") != overview.get("generated_at")
+            or dashboard.get("fixture_mode", False) is not fixture or dashboard.get("decision_automated") is not False):
+        raise ValueError("Invalid primary Araquari dashboard")
+    policy = dashboard.get("assessment", {})
+    allowed_levels = ("verde", "azul", "amarelo", "laranja", "vermelho", "roxo")
+    if (policy.get("suggested_level") not in (None, *allowed_levels)
+            or policy.get("official_level") is not None
+            or dashboard.get("protocol", {}).get("automatic_numeric_thresholds") is not False
+            or [r.get("id") for r in dashboard.get("protocol", {}).get("levels", [])] != list(allowed_levels)):
+        raise ValueError("Dashboard must preserve six qualitative reference levels")
+    if policy.get("suggested_level"):
+        if (policy.get("suggested_level") in ("verde", "roxo")
+                or not any(e.get("status") == "eligible" and e.get("supports_level") == policy["suggested_level"]
+                           and e.get("matched_cue") and e.get("valid_from") and e.get("valid_until")
+                           for e in policy.get("evidence", []))):
+            raise ValueError("Level suggestion requires explicit primary evidence")
+    gauge = dashboard.get("gauge_distribution", {})
+    if gauge.get("station_count", 0) < 3 and gauge.get("median_mm") is not None:
+        raise ValueError("Station median requires at least three comparable gauges")
+    if gauge.get("status") == "available" and (gauge.get("station_count") != len(gauge.get("stations", []))
+            or gauge.get("minimum_mm") is None or gauge.get("maximum_mm") is None):
+        raise ValueError("Invalid gauge distribution traceability")
+    if (observed_history.get("kind") != "araquari_point_observation_history_not_climatology"
+            or observed_history.get("schema_version") != 1 or observed_history.get("location_id") != "araquari"
+            or observed_history.get("generated_at") != overview.get("generated_at")
+            or observed_history.get("fixture_mode", False) is not fixture
+            or not isinstance(observed_history.get("records"), list) or len(observed_history["records"]) > 6000
+            or (data / "observation_history.json").stat().st_size > 3_000_000
+            or overview.get("observation_history_published") is not True):
+        raise ValueError("Invalid bounded station observation history")
+    for record in observed_history["records"]:
+        if record.get("source") not in ("cemaden-rain", "metar", "cemaden-temperature") or not record.get("observed_at"):
+            raise ValueError("Observation history cannot contain model snapshots")
+    for required in ("index.html", "dashboard.js", "dashboard.css", "dados.html", "references/pn-13-2026.pdf", "references/pn-14-2026.pdf"):
+        if not (output / required).is_file():
+            raise ValueError(f"Missing dashboard asset: {required}")
+
     if epagri_bulletins.get("kind") != "epagri_ciram_editorial_forecast_bulletins_not_emergency_alerts" or epagri_bulletins.get("status") not in ("available", "cached", "stale", "no_recent_bulletins", "unavailable"):
         raise ValueError("Invalid Epagri editorial forecast product")
     for bulletin in epagri_bulletins.get("bulletins", []):
