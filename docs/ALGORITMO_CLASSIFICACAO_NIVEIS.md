@@ -248,7 +248,13 @@ No caso INMET, um aviso com janela não conciliada pode ter `lifecycle = unverif
 
 Antes da cor, a página exige `dashboardCurrent`: publicação com idade até **3 h**, tolerância futura de 10 min e relógio anterior a `dashboard.valid_until`.
 
-`effectiveAssessment()` usa a avaliação integrada enquanto `assessment.valid_until` estiver válida. Se o apoio curto venceu, mas a publicação e `base_assessment` ainda estão válidos, retorna à avaliação Epagri original: preserva sua sugestão, se houver; caso contrário mostra monitoramento parcial com explicação. Não reutiliza o apoio vencido como se fosse atual.
+`effectiveAssessment()` verifica cada referência com `signalCurrent()`. Observações de chuva de 1 h vencem em fim da leitura +1 h; acumulados de 24 h em +6 h; vento/rajada METAR em +2 h. A tolerância futura continua em 10 min e o instante exato do vencimento já é excluído. Previsões permanecem como referências da janela publicada enquanto a publicação estiver válida, inclusive quando o horário de um máximo já passou; não são apresentadas como medições instantâneas.
+
+Enquanto a avaliação integrada e todas as referências continuam válidas, usa-se o resultado publicado. Ao vencer uma referência ou a validade integrada, se a publicação e `base_assessment` continuam válidas, recalcula-se o apoio **somente com os sinais restantes**. Coincidências são mantidas apenas se a observação da mesma estação, variável e horário ainda estiver válida. Reaplicam-se os mesmos critérios de sugestão amarelo/laranja e a prioridade da sugestão Epagri, sem alterar faixas, distâncias ou janelas. Um acumulado móvel de 24 h continua podendo sustentar atenção técnica, mas não produz sozinho nível institucional sugerido.
+
+`core_complete` só permanece verdadeiro nesse recálculo se nenhuma referência foi retirada e a cobertura publicada já estava completa: perder uma medição não permite converter a leitura em normalidade. Referências vencidas ficam em `expired_signals` na avaliação em memória; o JSON original não é alterado. O diálogo “Por que esta leitura?” informa a quantidade retirada e os métodos identificam individualmente as referências válidas/vencidas. Sem sinais elevados, avisos aplicáveis ou sugestão ainda válida, a leitura permanece parcial, com explicação do vencimento.
+
+Regressão de 07/11/2026: a publicação das 11h50 tinha chuva horária até 11h47, vencendo às 12h47. Às 13h07, essa chuva horária deve ser excluída, mas o acumulado de 79,8 mm/24 h e a previsão de rajada de 49,3 km/h continuam válidos. A home mantém a referência amarela de atenção, sem atribuir nível institucional. Horários neste exemplo: Brasília.
 
 Depois, `riskPresentation()` aplica esta ordem:
 
@@ -281,10 +287,10 @@ Há relógios diferentes:
 
 - `base_assessment.valid_until`: menor entre publicação +3 h, consulta Epagri +6 h e términos dos avisos elegíveis. Sem fonte Epagri válida, a avaliação insuficiente começa com prazo de 3 h.
 - `numeric_support.valid_until`: começa em publicação +3 h e é encurtado pelas **observações com faixa > 0**: chuva 1 h vence em fim da leitura +1 h; chuva 24 h em +6 h; vento/rajada METAR em +2 h. Sinais de faixa 0 não encurtam esse prazo.
-- `assessment.valid_until`: mínimo entre a validade qualitativa e a quantitativa.
+- `assessment.valid_until`: mínimo entre a validade qualitativa e a quantitativa no JSON publicado. O vencimento aciona a reavaliação individual no navegador; não descarta automaticamente todo o apoio numérico. A avaliação recalculada usa o prazo da base qualitativa, sempre limitada também pela validade da publicação e pelas verificações individuais a cada leitura.
 - `dashboard.valid_until`: mínimo entre `analysis` de Araquari e a validade da avaliação qualitativa original. A validade da análise começa em +3 h e também considera a referência/coleta do modelo, avisos com fim conciliado e pares de temperatura aplicáveis, conforme `analysis.summarize()`.
 
-A coleta é agendada a cada 3 h, sujeita a atraso. O navegador reavalia a validade a cada minuto e ao retornar à aba, mas **não coleta novos sensores, não recalcula as faixas com novos dados nem reavalia `core_complete` por estação entre publicações**. Assim, a indicação descreve a coleta e seus prazos; não é monitoramento contínuo ou garantia de situação atual. Ao vencer o apoio curto, aplicam-se as regras de retorno à base explicadas acima.
+A coleta é agendada a cada 40 min, sujeita a atraso do GitHub Actions. O navegador reavalia a validade a cada minuto e ao retornar à aba, mas **não coleta novos sensores nem recalcula faixas a partir de novos dados**. Entre publicações, remove referências vencidas, recalcula coincidências/sugestões com as restantes e impede normalidade quando houve perda de cobertura. Assim, a indicação descreve a coleta e seus prazos; não é monitoramento contínuo ou garantia de situação atual.
 
 Falha de fonte, dado ausente, conflito, trecho sem amostra e leitura vencida não são preenchidos com zero. Uma condição abaixo das faixas não é prova de segurança. Não há verificação automática de alagamento no campus, queda de árvore, energia, estradas, granizo, raios ou decreto.
 
