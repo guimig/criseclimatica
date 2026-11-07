@@ -12,7 +12,9 @@ Há distribuição de chuva por estações contemporâneas (mediana com n ≥ 3 
 
 ## Leitura multifontes e memória
 
-O painel usa referências numéricas auxiliares INMET para chuva e vento, com variáveis, janelas e fontes identificadas. Coincidências temporais e geográficas podem subsidiar sugestões consultivas, preservando a prioridade Epagri/Ciram e sem média de cores ou nota única de risco. Estados neutros distinguem **monitoramento de rotina**, **monitoramento parcial** e referências de atenção. O gráfico começa com passado observado e previsão separados; a memória mostra estados registrados e validade dos avisos, sem confundir isso com duração de desastre. Há alternância entre tema claro e escuro. Veja [metodologia, limites e históricos](docs/LEITURA_MULTIFONTES_E_MEMORIA.md).
+O painel usa referências numéricas auxiliares INMET para chuva e vento, com variáveis, janelas e fontes identificadas. Coincidências temporais e geográficas podem subsidiar sugestões consultivas, preservando a prioridade Epagri/Ciram e sem média de cores ou nota única de risco. Estados neutros distinguem **monitoramento de rotina**, **monitoramento parcial** e referências de atenção. O gráfico começa com observações e previsão separadas; a memória mostra estados registrados e validade dos avisos, sem confundir isso com duração de desastre. Há alternância entre tema claro e escuro. Veja [metodologia, limites e históricos](docs/LEITURA_MULTIFONTES_E_MEMORIA.md).
+
+A apresentação distingue normalidade nos dados monitorados de leitura incompleta, usa as seis cores da norma e permite explorar o entorno sem misturar seus dados com Araquari. Veja [UX, cores e cobertura das estações](docs/UX_E_CORES_DO_PAINEL.md).
 
 ## O que está implementado
 

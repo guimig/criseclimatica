@@ -1,0 +1,37 @@
+name: Dashboard UX checks
+
+on:
+  pull_request:
+    paths:
+      - 'web/**'
+      - 'tests/ui_dashboard.py'
+      - '.github/workflows/ui.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prepare isolated browser test environment
+        run: |
+          python -m venv /tmp/weather-browser
+          /tmp/weather-browser/bin/pip install playwright==1.56.0
+          /tmp/weather-browser/bin/playwright install --with-deps chromium
+      - name: Check dashboard interactions and responsive layout
+        run: /tmp/weather-browser/bin/python tests/ui_dashboard.py
+      - name: Save desktop and mobile screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-ux-screenshots
+          path: ui-artifacts/*.png
+          if-no-files-found: ignore
+          retention-days: 7

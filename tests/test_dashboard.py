@@ -10,7 +10,7 @@ from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[1]
 sys.path[:0]=[str(ROOT/'src'),str(ROOT/'scripts')]
 from observatorio.protocol import assess, reference, qualitative_match
-from observatorio.dashboard import gauge_distribution, merge_observations, summarize, HISTORY_KIND, station_catalog
+from observatorio.dashboard import gauge_distribution, merge_observations, summarize, HISTORY_KIND, station_catalog, regional_rain_context
 from build_site import build
 from validate_site import validate
 
@@ -223,6 +223,43 @@ class StationCatalogTests(unittest.TestCase):
         self.assertEqual(rows[1]['name'],'Joinville')
         self.assertEqual(rows[1]['distance_km'],21)
         self.assertIsNone(rows[1]['latitude'])
+
+
+class RegionalRainContextTests(unittest.TestCase):
+    def fixture(self):
+        p=primary([{'code':'local','observed_at':STAMP,'rain_1h_mm':1}]);p['name']='Araquari'
+        neighbor={'location_id':'joinville','name':'Joinville','observed_rain':{'status':'available','stations':[
+            {'code':'near','observed_at':STAMP,'rain_1h_mm':2,'rain_24h_mm':4},
+            {'code':'far','observed_at':STAMP,'rain_1h_mm':3},
+            {'code':'missing','observed_at':STAMP,'rain_1h_mm':4},
+            {'code':'local','observed_at':STAMP,'rain_1h_mm':100}]}}
+        sensors={'stations':[{'code':'near','name':'Centro','latitude':-26.3,'longitude':-48.8},
+                             {'code':'far','name':'Distante','latitude':-27.5,'longitude':-48.8}]}
+        details={'araquari':{'location':{'latitude':-26.375,'longitude':-48.721}}}
+        return {'locations':[p,neighbor]},details,sensors
+
+    def test_context_keeps_verified_neighbors_separate_from_local_history(self):
+        analysis,details,sensors=self.fixture();r=regional_rain_context(analysis,details,sensors,STAMP)
+        self.assertEqual([x['station'] for x in r['records']],['near'])
+        self.assertEqual(r['stations'][0]['municipality'],'Joinville')
+        self.assertEqual(r['excluded_unlocated'],1)
+        self.assertEqual(r['records'][0]['scope'],'nearby_station_snapshot_not_araquari_measurement')
+        self.assertEqual(len(analysis['locations'][0]['observed_rain']['stations']),1)
+        self.assertEqual(analysis['locations'][0]['observed_rain']['stations'][0]['rain_1h_mm'],1)
+
+    def test_no_point_or_stale_measurement_never_fabricates_regional_values(self):
+        analysis,details,sensors=self.fixture()
+        self.assertFalse(regional_rain_context(analysis,{},sensors,STAMP)['records'])
+        analysis['locations'][1]['observed_rain']['stations'][0]['observed_at']='2026-11-05T20:00:00Z'
+        self.assertFalse(regional_rain_context(analysis,details,sensors,STAMP)['records'])
+
+    def test_duplicates_empty_and_repeated_calls(self):
+        analysis,details,sensors=self.fixture()
+        analysis['locations'].append(deepcopy(analysis['locations'][1]))
+        a=regional_rain_context(analysis,details,sensors,STAMP)
+        self.assertEqual(len(a['records']),1)
+        self.assertEqual(a,regional_rain_context(analysis,details,sensors,STAMP))
+        self.assertFalse(regional_rain_context({'locations':[]},details,{},STAMP)['records'])
 
 
 class DeploymentTests(unittest.TestCase):
