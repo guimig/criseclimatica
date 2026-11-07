@@ -58,3 +58,9 @@ O indicador de chuva observada abre o gráfico da própria inicial, como os indi
 Na evolução temporal, acumulados móveis sobrepostos continuam desenhados com seus intervalos reais. O cursor mostra somente a leitura de cada série cujo fim do intervalo está mais próximo do horário consultado, entre os intervalos que contêm esse horário. O texto explicita o acumulado e o horário de referência de cada leitura; não soma, calcula média ou transforma o valor em chuva instantânea. Exibe no máximo quatro séries e informa quantas outras exigem filtro por estação. Marcadores acompanham somente as leituras descritas. O comportamento por teclado segue a mesma regra; sem amostra continua diferente de zero. Os registros, os títulos completos dos pontos e os filtros permanecem disponíveis.
 
 A regressão inclui dezenas de faixas de 24 h por estação, consulta por mouse/toque/teclado, limite de tamanho do tooltip nos dois temas e navegação do indicador sem trocar de página.
+
+## Leitura em computador
+
+A partir de 1024 px de viewport, a coluna principal e a barra de navegação são centralizadas e limitadas a 960 px, com margens laterais de pelo menos 48 px. Os gráficos individuais e de comparação têm no máximo 720 px. Os dois gráficos da inicial continuam lado a lado no modo de comparação; ao exibir somente um, ele fica centralizado com largura limitada. A página detalhada mantém navegação lateral mais estreita e empilha os blocos de pluviômetros para evitar três cartões estreitos dentro da coluna. Textos explicativos ficam limitados a 72 caracteres de largura aproximada.
+
+As regras são exclusivas do desktop. O layout abaixo de 1024 px, os controles de período/comparação, filtros e comportamentos dos gráficos permanecem os mesmos. A regressão inclui notebook de 1024 px e monitor de 1920 px, além das larguras já testadas.
