@@ -386,14 +386,20 @@ async function loadDashboard() {
   finally{if(id===panel.loadId){el('refresh').disabled=false;renderSummary();renderRecent();renderMemory();renderChart();}}
 }
 function selectVariable(variable) {panel.variable=variable;for(const button of document.querySelectorAll('[data-variable]')){const selected=button.dataset.variable===variable;button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));}renderChart();}
+function selectMode(mode) {
+  panel.mode=mode;
+  for(const button of document.querySelectorAll('[data-mode]')){const selected=button.dataset.mode===mode;button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));}
+  const long=el('chart-range').querySelector('option[value="240"]');if(long)long.disabled=mode!=='forecast';
+  if(mode!=='forecast'&&panel.hours>168){panel.hours=168;el('chart-range').value='168';}renderChart();
+}
 if(typeof module!=='undefined')module.exports={fresh,dashboardCurrent,protocolCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale};
 if(typeof document!=='undefined'){
   function navigationState(){for(const link of document.querySelectorAll('nav a[href^="#"]')){const active=link.getAttribute('href')===(location.hash||'#main');if(active)link.setAttribute('aria-current','location');else link.removeAttribute('aria-current');}}
   window.addEventListener('hashchange',navigationState);navigationState();
   el('refresh').addEventListener('click',loadDashboard);
   for(const b of document.querySelectorAll('[data-variable]'))b.addEventListener('click',()=>selectVariable(b.dataset.variable));
-  for(const b of document.querySelectorAll('[data-focus]'))b.addEventListener('click',()=>{selectVariable(b.dataset.focus);el('chart-heading').scrollIntoView({block:'center',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});});
-  for(const b of document.querySelectorAll('[data-mode]'))b.addEventListener('click',()=>{panel.mode=b.dataset.mode;for(const button of document.querySelectorAll('[data-mode]')){const selected=button===b;button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));}const long=el('chart-range').querySelector('option[value="240"]');if(long)long.disabled=panel.mode!=='forecast';if(panel.mode!=='forecast'&&panel.hours>168){panel.hours=168;el('chart-range').value='168';}renderChart();});
+  for(const b of document.querySelectorAll('[data-focus]'))b.addEventListener('click',()=>{panel.hours=24;el('chart-range').value='24';selectMode('forecast');selectVariable(b.dataset.focus);el('chart-heading').scrollIntoView({block:'center',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});});
+  for(const b of document.querySelectorAll('[data-mode]'))b.addEventListener('click',()=>selectMode(b.dataset.mode));
   el('chart-range').addEventListener('change',event=>{panel.hours=Number(event.target.value);renderChart();});
   el('rain-scope').addEventListener('change',event=>{panel.scope=event.target.value==='nearby'?'nearby':'local';panel.station='all';renderChart();});
   for(const b of document.querySelectorAll('[data-observed-view]'))b.addEventListener('click',()=>{panel.observedView=b.dataset.observedView;renderChart();});

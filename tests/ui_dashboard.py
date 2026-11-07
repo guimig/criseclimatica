@@ -92,6 +92,13 @@ def check_layout(page):
     assert page.locator('#plot .rain-interval').count() == 3
     page.get_by_role('button', name='Por estação', exact=True).click()
     assert page.locator('.station-bar').count() == 3
+    page.locator('[data-mode=observed]').click()
+    page.locator('[data-focus=gust_kmh]').click()
+    assert page.locator('#forecast-panel').is_visible()
+    assert not page.locator('#observed-panel').is_visible()
+    assert page.locator('#chart-range').input_value() == '24'
+    page.locator('[data-mode=context]').click()
+    page.locator('[data-variable=precipitation_mm]').click()
     # Codes are reserved for the expanded details.
     page.locator('#station-details summary').click()
     assert '420130702A' in page.locator('#station-readings').inner_text()
