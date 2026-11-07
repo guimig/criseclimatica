@@ -10,7 +10,7 @@ from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[1]
 sys.path[:0]=[str(ROOT/'src'),str(ROOT/'scripts')]
 from observatorio.protocol import assess, reference, qualitative_match
-from observatorio.dashboard import gauge_distribution, merge_observations, summarize, HISTORY_KIND
+from observatorio.dashboard import gauge_distribution, merge_observations, summarize, HISTORY_KIND, station_catalog
 from build_site import build
 from validate_site import validate
 
@@ -192,6 +192,37 @@ class ObservationHistoryTests(unittest.TestCase):
     def test_wrong_previous_kind_is_not_model_history_substitute(self):
         with self.assertRaisesRegex(ValueError,'refusing loss'):
             merge_observations({'kind':'daily_last_model_publication_not_station_observation'},primary(),STAMP)
+
+
+class StationCatalogTests(unittest.TestCase):
+    def test_exact_code_metadata_and_municipal_distance(self):
+        history={'records':[{'source':'cemaden-rain','station':'12345'}]}
+        sensors={'stations':[{'code':'12345','name':'Centro','municipality':'Araquari',
+                             'latitude':-26.37,'longitude':-48.72}]}
+        detail={'location':{'latitude':-26.37,'longitude':-48.72}}
+        row=station_catalog(history,primary(),detail,sensors)[0]
+        self.assertEqual(row['name'],'Centro')
+        self.assertEqual(row['distance_km'],0)
+        self.assertEqual(row['distance_reference'],'municipal_model_point_not_campus')
+        self.assertEqual(row['metadata_status'],'coordinates_matched_by_station_code')
+
+    def test_missing_metadata_does_not_invent_station_position(self):
+        history={'records':[{'source':'cemaden-rain','station':'12345'}]}
+        row=station_catalog(history,primary(),{}, {'stations':[{'code':'other','latitude':0,'longitude':0}]})[0]
+        self.assertEqual(row['name'],'12345')
+        self.assertIsNone(row['latitude'])
+        self.assertIsNone(row['distance_km'])
+        self.assertEqual(row['metadata_status'],'partial')
+
+    def test_invalid_coordinates_and_metar_metadata(self):
+        history={'records':[{'source':'cemaden-rain','station':'A'}, {'source':'metar','station':'SBJV'}]}
+        p=primary();p['recent_observations']=[{'source':'NOAA/METAR','code':'SBJV','name':'Joinville','distance_km':21}]
+        rows=station_catalog(history,p,{'location':{'latitude':-26,'longitude':-48}},
+                             {'stations':[{'code':'A','latitude':100,'longitude':0}]})
+        self.assertIsNone(rows[0]['latitude'])
+        self.assertEqual(rows[1]['name'],'Joinville')
+        self.assertEqual(rows[1]['distance_km'],21)
+        self.assertIsNone(rows[1]['latitude'])
 
 
 class DeploymentTests(unittest.TestCase):
