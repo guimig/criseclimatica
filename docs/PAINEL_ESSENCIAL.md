@@ -1,6 +1,8 @@
 # Painel essencial — implementação
 
-A composição aprovada na simulação passa a utilizar os dados publicados e as interações reais da aplicação. O retrato congelado, as datas, valores de exemplo e os textos promocionais da simulação não são incorporados. O título da inicial é **Tempo em Araquari**, sob a marca independente **Observatório · Tempo e Clima**. A página detalhada usa o mesmo cabeçalho, cores, tipografia e controles.
+A composição aprovada na simulação passa a utilizar os dados publicados e as interações reais da aplicação. O retrato congelado, as datas, valores de exemplo e os textos promocionais da simulação não são incorporados. A inicial usa apenas o título **Tempo em Araquari**, sem marca, logo ou chamada acima dele. A barra superior reúne os links Painel e Dados e fontes e o botão de tema em uma única linha, inclusive a 320 px. A página detalhada usa o mesmo cabeçalho, cores, tipografia e controles.
+
+O tema claro combina fundo gelo acinzentado, superfícies suaves e verde como destaque. O escuro usa fundo grafite e superfícies neutras, com verde apenas nos detalhes. As cores dos seis níveis de risco mantêm os significados existentes.
 
 ## Organização
 
