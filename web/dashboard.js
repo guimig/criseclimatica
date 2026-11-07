@@ -33,6 +33,10 @@ function signalDescription(signal,data) {
   const where=observed?` em ${stationName(ref,'uma estação próxima')}`:' para Araquari';
   return `${observed?'Medição':'Previsão'} de ${variableNames[signal.variable]||'condição meteorológica'}${where}: ${num(signal.value)} ${signal.unit}, ${date(signal.start_at)}${signal.start_at!==signal.end_at?' a '+date(signal.end_at):''}.`;
 }
+function signalBrief(signal,data) {
+  const observed=signal.kind==='observation',ref=stationReference(data,signal.source==='cemaden'?'cemaden-rain':signal.source,signal.station);
+  return `${variableNames[signal.variable]||'Condição meteorológica'} ${observed?'medida em '+stationName(ref,'estação próxima'):'prevista'}: ${num(signal.value)} ${signal.unit}.`;
+}
 function riskPresentation(data,now=Date.now()) {
   if(!dashboardCurrent(data,now))return {color:'neutral',active:null,title:'Atualização necessária',kind:'Dados desatualizados',reason:'A última atualização perdeu validade. Consulte as fontes oficiais enquanto aguarda novos dados.'};
   const policy=effectiveAssessment(data,now),objective=policy?.numeric_support;
@@ -42,7 +46,7 @@ function riskPresentation(data,now=Date.now()) {
   if(policy.suggested_level)return {color:policy.suggested_level,active:policy.suggested_level,title:riskNames[policy.suggested_level]||policy.title,kind:'Nível sugerido · '+policy.suggested_level,
     reason:description||'Um aviso Epagri/Ciram para a região contém informações compatíveis com este nível. Confira o período e a abrangência nos detalhes.'};
   if(policy.monitoring_state==='routine'&&objective?.core_complete&&objective.maximum_band===0&&objective.signals?.length)return {color:'verde',active:'verde',title:'Normalidade nos dados acompanhados',kind:'Referência verde · leitura consultiva',reason:'As fontes necessárias foram consultadas e os dados válidos de chuva e vento estão abaixo das faixas de atenção utilizadas. Nenhum aviso aplicável foi identificado. É uma leitura do painel, não uma declaração institucional.'};
-  if(highest)return {color:'amarelo',active:null,title:'Atenção a '+(families.length>1?'chuva e vento':highest.variable.startsWith('rain_')?'chuva':highest.variable==='gust_kmh'?'rajadas de vento':'vento'),kind:'Sinal técnico · avaliar contexto',reason:signals.slice(0,2).map(signal=>signalDescription(signal,data)).join(' ')+' Há valores em faixas auxiliares de atenção. Isoladamente, não define um nível institucional.'};
+  if(highest)return {color:'amarelo',active:null,title:'Atenção a '+(families.length>1?'chuva e vento':highest.variable.startsWith('rain_')?'chuva':highest.variable==='gust_kmh'?'rajadas de vento':'vento'),kind:'Leitura dos dados',reason:signals.slice(0,2).map(signal=>signalBrief(signal,data)).join(' ')+' Esses valores pedem atenção. Consulte horários e referências na explicação antes de decidir.'};
   if(policy.monitoring_state==='official_context')return {color:'amarelo',active:null,title:'Há aviso meteorológico para conferir',kind:'Aviso regional',reason:'Uma publicação oficial pode ser relevante para Araquari. A abrangência ou o conteúdo ainda não permite sugerir um nível específico; abra as evidências.'};
   return {color:'neutral',active:null,title:'Dados insuficientes para classificar',kind:'Leitura parcial',reason:'Há informações disponíveis, mas faltam referências válidas para uma leitura completa. Falta de dados não significa normalidade.'};
 }
@@ -254,9 +258,9 @@ function renderChart() {
   el('chart-period').textContent='Horários de Brasília';
   const base=Number.isFinite(Date.parse(data?.forecast?.start_at))?Date.parse(data.forecast.start_at):Math.floor(anchor/3600000)*3600000;
   const values=[...observed,...forecast].flatMap(s=>s.points.filter(p=>Number.isFinite(p.value)).map(p=>p.value));
-  const shared=panel.mode==='context'&&(!rain||panel.rainWindow===1)&&values.length?chartScale(values,panel.variable==='temperature_c'):null;
+  let shared=panel.mode==='context'&&(!rain||panel.rainWindow===1)&&values.length?chartScale(values,panel.variable==='temperature_c'):null;
   const times=new Set(observed.flatMap(s=>s.points.map(p=>p.time))),view=panel.observedView==='auto'?(times.size<4?'stations':'timeline'):panel.observedView;
-  const snapshot=rain&&view==='stations';
+  const snapshot=rain&&view==='stations';if(snapshot)shared=null;
   for(const b of document.querySelectorAll('[data-observed-view]')){const selected=b.dataset.observedView===view;b.classList.toggle('active',selected);b.setAttribute('aria-pressed',String(selected));}
   if(snapshot)drawStationSnapshot(el('plot'),el('chart-legend'),el('chart-tooltip'),observed,unit,shared);
   else drawWeatherChart(el('plot'),el('chart-legend'),el('chart-tooltip'),observed,[anchor-panel.hours*3600000,anchor],el('observed-heading').textContent,unit,shared);
@@ -265,11 +269,11 @@ function renderChart() {
   el('observed-period').textContent=snapshot?'Última leitura disponível de cada estação':date(new Date(anchor-panel.hours*3600000).toISOString())+' — '+date(new Date(anchor).toISOString());
   const names=[...new Set(allObserved.map(s=>s.name))];
   el('observed-source').textContent=rain?'Cemaden':'Estações · METAR / Cemaden';
-  el('station-coverage').textContent=rain?(nearby?`${names.length} estações do entorno com posição verificada, a até ${data?.regional_rain_context?.radius_km||40} km do ponto de Araquari. Apenas últimas leituras; não entram nos indicadores locais.`:`${names.length} estações com amostras neste período em Araquari${names.length?' — '+names.join(', '):''}. A seleção é municipal; não há limite fixo de três.`):'Medições pontuais de estações próximas, com fontes e distâncias nos detalhes.';
+  el('station-coverage').textContent=rain?(nearby?`${names.length} estações do entorno com posição verificada, a até ${data?.regional_rain_context?.radius_km||40} km do ponto de Araquari. Apenas últimas leituras; não entram nos indicadores locais.`:`Araquari · ${names.length} estações de chuva com amostras neste período. Altere a área para consultar o entorno.`):'Medições pontuais de estações próximas, com fontes e distâncias nos detalhes.';
   el('forecast-period').textContent=date(new Date(base).toISOString())+' — '+date(new Date(base+panel.hours*3600000).toISOString());
-  el('observed-caption').textContent=rain&&snapshot?`Compare o acumulado de ${panel.rainWindow} h de cada estação. As janelas podem terminar em horários diferentes; confira ao tocar nas barras.`:rain?(panel.rainWindow===1?'Cada faixa ocupa a hora realmente medida. Espaços sem faixas são períodos sem amostra; o histórico é coletado a cada 3 h.':'Faixas de acumulado móvel de 24 h podem se sobrepor. Não some as faixas nem compare sua altura com chuva prevista de 1 h.'):'Amostras de estação; linhas interrompidas em lacunas superiores a 4 h. Não são médias municipais.';
-  el('forecast-caption').textContent=rain?'Cada barra representa a chuva prevista no intervalo indicado. A primeira pode incluir a hora em curso; não é previsão exclusiva do tempo restante. Lacunas não são zero.':'Open-Meteo · modelo para o ponto municipal de Araquari. Linha tracejada; ausência de pontos mantém lacunas.';
-  el('chart-caption').textContent=(shared?(snapshot?'Valores na mesma unidade e escala de quantidade; janelas observadas e previstas são diferentes. ':'Mesma escala vertical nos dois gráficos. '):rain&&panel.rainWindow===24?'Escalas e acumulados diferentes: observado de 24 h e previsto de 1 h. ':'')+'Estações e modelo representam locais e produtos diferentes; este quadro não mede a precisão da previsão. '+(!dashboardCurrent(data)?'Atualização vencida: gráficos como referência anterior. ':'')+'Explore com o ponteiro, toque ou setas do teclado.';
+  el('observed-caption').textContent=rain&&snapshot?`Acumulado de ${panel.rainWindow} h por estação. As leituras podem ter horários diferentes; toque nas barras para conferir.`:rain?(panel.rainWindow===1?'Cada faixa ocupa a hora realmente medida. Espaços sem faixas são períodos sem amostra; o histórico é coletado a cada 3 h.':'Faixas de acumulado móvel de 24 h podem se sobrepor. Não some as faixas nem compare sua altura com chuva prevista de 1 h.'):'Amostras de estação; linhas interrompidas em lacunas superiores a 4 h. Não são médias municipais.';
+  el('forecast-caption').textContent=rain?'Cada barra é uma hora de previsão. A primeira pode incluir a hora em curso. Espaços sem dados não significam chuva zero.':'Open-Meteo · modelo para o ponto municipal de Araquari. Linha tracejada; ausência de pontos mantém lacunas.';
+  el('chart-caption').textContent=(shared?'Mesma escala vertical; períodos observados e previstos diferentes. ':rain&&panel.rainWindow===24?'Acumulados diferentes: 24 h observado e 1 h previsto. Não compare diretamente as alturas. ':snapshot?'Gráficos com escalas próprias; confira os valores e períodos. ':'')+(!dashboardCurrent(data)?'Atualização vencida: referência anterior. ':'')+'Toque nos gráficos ou use as setas para consultar os intervalos.';
   renderStationDetails(allObserved,anchor);
   el('station-details').hidden=panel.mode==='forecast';
 }
@@ -284,7 +288,7 @@ function historyLabel(entry) {return riskNames[entry.state]||{routine:'Sem sinai
 function renderMemory() {
   const target=el('history-strip');target.replaceChildren();const episodes=panel.data?.alert_history?.episodes||[];
   if(!episodes.length){target.append(node('p','small','O histórico de estados será formado a partir desta versão. Avisos já arquivados permanecem nas evidências.'));return;}
-  for(const entry of episodes.slice(0,4)){const card=node('article','history-period');const heading=node('strong');heading.append(node('span','level-dot '+(['verde','azul','amarelo','laranja','vermelho','roxo'].includes(entry.state)?entry.state:'neutral')),node('span','',historyLabel(entry)));card.append(heading,node('span','',date(entry.first_seen_at)+' — '+date(entry.last_seen_at)),node('span','',`${entry.samples} amostra(s) · intervalo registrado ${duration(entry.sampled_span_hours)}`));target.append(card);}
+  for(const entry of episodes.slice(0,4)){const card=node('article','history-period');const heading=node('strong');heading.append(node('span','level-dot '+(['verde','azul','amarelo','laranja','vermelho','roxo'].includes(entry.state)?entry.state:'neutral')),node('span','',historyLabel(entry)));card.append(heading,node('span','',date(entry.first_seen_at)+' — '+date(entry.last_seen_at)),node('span','',entry.samples<2?'Primeiro registro · duração ainda não medida':`${entry.samples} registros · intervalo ${duration(entry.sampled_span_hours)}`));target.append(card);}
 }
 function showHistory() {
   openDialog('Histórico de acompanhamento e avisos',body=>{

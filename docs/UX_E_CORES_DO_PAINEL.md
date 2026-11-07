@@ -28,7 +28,7 @@ A regra consultiva e o histórico original não foram reclassificados. `suggeste
 - Com menos de quatro horários distintos, a apresentação automática de chuva usa a última amostra de cada estação em barras horizontais, com nome e horário. Não cria amostras anteriores.
 - “Ao longo do tempo” mantém as janelas efetivamente medidas, sem ligar os intervalos de chuva esparsos. A alternativa “Por estação” permanece disponível mesmo com histórico maior.
 - A previsão usa barras horárias, preservando intervalos faltantes e a indicação da hora em curso.
-- Os eixos usam passos arredondados. A mesma escala de quantidade é compartilhada apenas para acumulados compatíveis; a disposição horizontal por estação não é um eixo de tempo.
+- Os eixos usam passos arredondados. Gráficos temporais verticais compartilham escala apenas para acumulados compatíveis. A vista horizontal por estação e a previsão usam escalas próprias, explicitadas no texto; o gráfico por estação não possui eixo de tempo.
 - No resumo e nas legendas, os nomes das localidades substituem códigos. A fonte comum aparece uma vez no cabeçalho. Códigos, coordenadas, distância e horários completos ficam no detalhamento.
 - Nomes ausentes não são inventados: usa-se uma identificação de estação sem expor o código na visão inicial. O código original continua no detalhe.
 - A informação ao passar o ponteiro desaparece quando o ponteiro deixa o gráfico. Navegação por teclado e toque continuam disponíveis.

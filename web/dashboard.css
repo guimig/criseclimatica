@@ -23,3 +23,5 @@ html{scroll-behavior:smooth;scroll-padding-top:25px}.topbar{border-top-width:5px
 
 .weather-panel .plot{aspect-ratio:auto}
 @media(max-width:620px){.snapshot-time{font-size:14px}}
+
+@media(min-width:761px){.risk-step{font-size:11px}}
