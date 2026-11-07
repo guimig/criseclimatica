@@ -228,6 +228,7 @@ function svg(tag, attributes = {}, text) {
 }
 function renderChart() {
   const frame=$('chart'),tooltip=$('detail-chart-tooltip');clear(frame);tooltip.hidden=true;
+  if(!state.detail||!freshAt(state.detail.collected_at,8)||!freshAt(state.detail.current?.time,8)){frame.append(child('p','loading-label','Previsão indisponível ou desatualizada. Consulte os horários das fontes.'));return;}
   const rain=state.metric==='precipitation_mm',start=Math.floor(Date.now()/3600000)*3600000,end=start+24*3600000;
   const rows=(state.detail?.hourly||[]).filter(r=>{const t=Date.parse(r.time);return Number.isFinite(t)&&(rain?t>start&&t<=end:t>=start&&t<end);}).sort((a,b)=>Date.parse(a.time)-Date.parse(b.time));
   const points=rows.filter(r=>Number.isFinite(r[state.metric]));

@@ -76,6 +76,14 @@ def main():
                 page.goto(url+'dados.html#model-comparison');page.locator('#model-comparison [data-chart-hit]').wait_for()
                 page.locator('#model-comparison svg').focus();page.keyboard.press('Home')
                 assert 'ECMWF' in page.locator('.comparison-tooltip').inner_text()
+                assert page.locator('#model-comparison [data-chart-cursor]').count()==1
+                if width==390:
+                    record=details['data/places/araquari.json'];old=record['collected_at'];record['collected_at']='2000-01-01T00:00:00Z'
+                    page.goto(url+'dados.html#chart-title');page.reload()
+                    page.get_by_text('Modelo desatualizado',exact=True).wait_for()
+                    page.set_viewport_size({'width':389,'height':1050});page.wait_for_timeout(150)
+                    assert page.locator('#chart svg').count()==0, 'Resizing cannot restore stale forecast'
+                    record['collected_at']=old
                 assert not errors,errors
             except Exception:
                 print('Overflow debug',page.evaluate("[...document.querySelectorAll('body *')].map(el=>({tag:el.tagName,id:el.id,cls:typeof el.className==='string'?el.className:'',right:el.getBoundingClientRect().right,width:el.getBoundingClientRect().width})).filter(el=>el.width>0&&el.right>innerWidth+1).slice(-35)"));page.screenshot(path=str(OUTPUT/f'essential-failure-{width}.png'),full_page=True);raise

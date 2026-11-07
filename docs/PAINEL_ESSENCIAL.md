@@ -25,7 +25,7 @@ A composição aprovada na simulação passa a utilizar os dados publicados e as
 
 Cada SVG usa a largura disponível, com menos rótulos em telas estreitas. `ResizeObserver` refaz o desenho ao abrir uma aba antes oculta ou mudar a largura. A chuva detalhada passa a ocupar seu intervalo de uma hora, com eixo temporal real, em vez de posições equidistantes por índice. Linhas de temperatura/vento não unem lacunas horárias.
 
-O nome correto da integração continua **Open-Meteo**, distinto de OpenWeather. Os coletores e os dados meteorológicos não são alterados neste trabalho. Os horários exibidos continuam em Brasília; as bases e janelas seguem as definições existentes. Referências vencidas continuam identificadas.
+O nome correto da integração continua **Open-Meteo**, distinto de OpenWeather. Os coletores e os dados meteorológicos não são alterados neste trabalho. Os horários exibidos continuam em Brasília; as bases e janelas seguem as definições existentes. Referências vencidas continuam identificadas. No detalhamento, abrir uma aba ou redimensionar a tela não pode restaurar a previsão que foi retirada por desatualização.
 
 ## Compatibilidade e validação
 

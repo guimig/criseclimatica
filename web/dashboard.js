@@ -142,9 +142,9 @@ function comparableReadings(series,anchor,windowHours) {
 }
 function svg(tag,attrs={},text) { const n=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [k,v]of Object.entries(attrs))n.setAttribute(k,String(v));if(text!==undefined)n.textContent=text;return n; }
 function pointDescription(series,p,unit,anchor) {
-  const interval=p.start_at?`${date(p.start_at)} a ${date(p.time)} · acumulado de ${series.field==='rain_24h_mm'?24:1} h`:`Leitura em ${date(p.time)}`;
+  const interval=p.start_at?`${date(p.start_at)} a ${date(p.time)} · acumulado de ${series.field==='rain_24h_mm'?24:1} h`:`${series.kind==='forecast'?'Previsão para':'Medição em'} ${date(p.time)}`;
   const current=series.kind==='forecast'&&p.start_at&&Date.parse(p.start_at)<anchor&&Date.parse(p.time)>anchor?' · inclui a hora em curso':'';
-  return `${series.name}: ${num(p.value)} ${unit} · ${interval}${current}`;
+  return `${series.kind==='forecast'?'Open-Meteo · ':''}${series.name}: ${num(p.value)} ${unit} · ${interval}${current}`;
 }
 function chartScale(values,temperature=false) {
   const min=temperature?Math.min(...values)-1:0,max=Math.max(...values),range=Math.max(1,max-min);
