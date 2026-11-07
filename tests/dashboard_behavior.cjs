@@ -161,3 +161,27 @@ vm.runInContext('panel.scope="local";renderChart()',context);
 assert.equal(plotNodes('plot','rect').filter(n=>n.attributes.class==='station-bar').length,3);
 assert.match(html,/aria-haspopup="dialog"/);assert.equal([...html.matchAll(/data-risk-level=/g)].length,6);
 console.log('UX scenarios passed: descriptive normality vs missing data, six colors, explicit signals, human station names, sparse history, optional verified surroundings and local isolation.');
+
+const {chartReadingsAt,chartReadingText}=require('../web/dashboard.js');
+const tooltipAnchor=Date.parse('2026-11-07T12:00:00Z');
+const tooltipSeries=Array.from({length:7},(_,i)=>({id:'station-'+i,name:'Estação '+i,kind:'observation',field:'rain_24h_mm',gapMs:4*3600000}));
+const tooltipPoints=tooltipSeries.flatMap(series=>Array.from({length:24},(_,i)=>({series,time:new Date(tooltipAnchor-i*3600000).toISOString(),start_at:new Date(tooltipAnchor-(i+24)*3600000).toISOString(),value:i})));
+const tooltipInstant=tooltipAnchor-12.5*3600000;
+const tooltipReadings=chartReadingsAt(tooltipPoints,tooltipInstant,true);
+assert.equal(tooltipReadings.length,7); // one per station, despite 13 overlapping windows each
+assert.ok(tooltipReadings.every(p=>Date.parse(p.time)===tooltipAnchor-12*3600000));
+const tooltipText=chartReadingText(tooltipReadings,'mm',tooltipAnchor);
+assert.equal(tooltipText.split('\n').length,7); // heading + common timestamp + four values + omitted count
+assert.equal((tooltipText.match(/06\/11/g)||[]).length,1); // common reference is written only once
+const mixedTooltip=chartReadingText([tooltipReadings[0],{...tooltipReadings[1],time:new Date(tooltipAnchor).toISOString()}],'mm',tooltipAnchor);
+assert.doesNotMatch(mixedTooltip,/Leituras:/); // different station times must remain individually identified
+assert.match(mixedTooltip,/07\/11/);
+assert.match(tooltipText,/\+3 séries/);
+assert.equal((tooltipText.match(/Estação 0:/g)||[]).length,1);
+assert.equal(chartReadingsAt(tooltipPoints,tooltipAnchor+1,true).length,0);
+assert.equal(chartReadingsAt([],tooltipInstant,true).length,0);
+assert.equal(chartReadingsAt([{...tooltipPoints[0],value:null}],tooltipAnchor,true).length,0);
+assert.match(chartReadingText([],'mm',tooltipAnchor),/não significa zero/);
+const tooltipBefore=tooltipPoints.map(p=>p.value);chartReadingsAt(tooltipPoints,tooltipInstant,true);
+assert.deepEqual(tooltipPoints.map(p=>p.value),tooltipBefore); // compact display cannot alter measurements
+console.log('Dense accumulated rain tooltip passed: one nearest ending window per station, bounded text, empty/missing cases and unchanged values.');

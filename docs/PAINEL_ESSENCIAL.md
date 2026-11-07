@@ -50,3 +50,11 @@ Reversão: reverter o PR restaura a apresentação anterior sem migração, perd
 - Indicadores conservam a composição em faixas e os gráficos mantêm seus controles, fontes e separação entre medição e previsão.
 
 Os testes de navegador verificam controles e expansões abertos/fechados nos seis assuntos da página detalhada, temas claro/escuro e larguras de 320, 390, 768 e 1440 px. Conferem contraste de texto dos controles de pelo menos 4,5:1, áreas de toque, ausência de rolagem horizontal da página e preservação das interações. Tabelas largas e a navegação por assuntos continuam com rolagem local. Diálogos também são conferidos com foco e fechamento por Escape.
+
+## Atalho de chuva e descrições compactas
+
+O indicador de chuva observada abre o gráfico da própria inicial, como os indicadores previstos: seleciona chuva, acumulado de 24 h, Araquari e todas as estações na visão por estação. Não navega para a página detalhada.
+
+Na evolução temporal, acumulados móveis sobrepostos continuam desenhados com seus intervalos reais. O cursor mostra somente a leitura de cada série cujo fim do intervalo está mais próximo do horário consultado, entre os intervalos que contêm esse horário. O texto explicita o acumulado e o horário de referência de cada leitura; não soma, calcula média ou transforma o valor em chuva instantânea. Exibe no máximo quatro séries e informa quantas outras exigem filtro por estação. Marcadores acompanham somente as leituras descritas. O comportamento por teclado segue a mesma regra; sem amostra continua diferente de zero. Os registros, os títulos completos dos pontos e os filtros permanecem disponíveis.
+
+A regressão inclui dezenas de faixas de 24 h por estação, consulta por mouse/toque/teclado, limite de tamanho do tooltip nos dois temas e navegação do indicador sem trocar de página.
