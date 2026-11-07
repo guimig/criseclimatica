@@ -119,7 +119,7 @@ assert.equal(plotNodes('plot','svg').length,1); // repeated rendering stays idem
 vm.runInContext("panel.mode='forecast';renderChart()",context);
 assert.equal(elements.get('observed-panel').hidden,true);
 vm.runInContext("panel.mode='context';panel.rainWindow=24;renderChart()",context);
-assert.match(elements.get('chart-caption').textContent,/Escalas e acumulados diferentes/);
+assert.match(elements.get('chart-caption').textContent,/Acumulados diferentes: 24 h observado e 1 h previsto/);
 vm.runInContext("panel.variable='temperature_c';panel.history=null;renderChart()",context);
 assert.equal(plotNodes('plot','svg').length,0);assert.equal(plotNodes('forecast-plot','svg').length,1);
 vm.runInContext('panel.data=null;panel.history=null;renderChart()',context);
