@@ -1,6 +1,6 @@
 # Painel de acompanhamento de Araquari
 
-> A leitura exclusivamente qualitativa descrita nesta primeira entrega foi ampliada com [apoio quantitativo multifontes e memória](LEITURA_MULTIFONTES_E_MEMORIA.md). As referências institucionais e sua competência permanecem preservadas.
+> A referência técnica vigente é o [algoritmo completo de classificação e apresentação](ALGORITMO_CLASSIFICACAO_NIVEIS.md). O método qualitativo abaixo é uma parte dele; a integração atual também usa [apoio quantitativo e memória](LEITURA_MULTIFONTES_E_MEMORIA.md).
 
 ## Referência vigente no aplicativo
 
@@ -14,15 +14,15 @@ Por isso, o painel distingue:
 - **Nível formal:** não é declarado pelo aplicativo. Não há ato decisório, cadastro administrativo nem registro de danos internos presumido.
 - **Em avaliação:** faltam elementos suficientes para um enquadramento. Esse estado é neutro, sem cor verde automática.
 
-## Método de enquadramento
+## Caminho qualitativo do enquadramento
 
-Somente avisos Epagri/Ciram, em sua categoria própria, com consulta recente, URL oficial, região explícita incluindo Araquari/Litoral Norte e início/fim com fuso verificável podem sustentar uma sugestão. Boletim editorial, registro geográfico ou cor do INMET não substituem essa evidência. Referências regionais continuam identificadas como regionais, sem confirmação municipal de ocorrência.
+No caminho qualitativo, somente avisos Epagri/Ciram, em sua categoria própria, com consulta recente, URL oficial, região explícita incluindo Araquari/Litoral Norte e início/fim com fuso verificável podem sustentar uma sugestão. Boletim editorial, registro geográfico ou cor do INMET não substituem essa evidência. Referências regionais continuam identificadas como regionais, sem confirmação municipal de ocorrência.
 
-As regras conservadoras estão em `src/observatorio/protocol.py`:
+O apoio numérico pode sugerir amarelo/laranja ou elevar uma sugestão menor; veja a integração no documento completo. A tabela a seguir descreve somente `src/observatorio/protocol.py`, não toda a cor exibida pela home:
 
 | Categoria | Tratamento no aplicativo |
 | --- | --- |
-| Verde / Normalidade | Não inferida da ausência de aviso, de valores baixos do modelo ou de fontes indisponíveis. Requer avaliação externa de normalidade |
+| Verde / Normalidade | O parser qualitativo não emite verde. A tela pode apresentar verde descritivo pelas condições de rotina/completude do algoritmo integrado, sem declarar nível formal |
 | Azul / Preparação | Aviso prioritário com evento adverso explícito e janela começando em sete dias ou mais |
 | Amarelo / Atenção | Aviso prioritário que menciona evento adverso e possíveis impactos pontuais, como alagamentos, destelhamentos ou interrupção de energia |
 | Laranja / Alerta | Aviso prioritário com evento e expressão afirmativa de risco alto/elevado ou alta probabilidade. Correspondência exploratória, não equivalência oficial de escalas |
@@ -63,9 +63,9 @@ Após a primeira publicação, falha de recuperação ou desaparecimento desse a
 
 ## Apresentação
 
-A página inicial apresenta apenas o enquadramento, o aviso prioritário, quatro indicadores e um gráfico. As opções de chuva, vento/rajadas, temperatura, previsão/observações e período têm controles interativos, tooltip e exploração por teclado. Evidências, métodos e as seis categorias abrem em caixas de diálogo. A página `dados.html` conserva as fontes, estações, arquivos e municípios complementares, com retorno ao painel.
+A página inicial apresenta apenas o enquadramento, o aviso prioritário, quatro indicadores e dois gráficos sempre visíveis, de observações e previsão. Cada um mantém sua variável, com período comum diretamente acessível, tooltip e exploração por teclado. Evidências, métodos e as seis categorias abrem em caixas de diálogo. A página `dados.html` conserva as fontes, estações, arquivos e municípios complementares, com retorno ao painel.
 
-Não há logotipos oficiais ou afirmação de vínculo institucional. A inspiração cromática usa verde, branco e tons claros, com cores das categorias apenas como referência identificada. Fonte visual consultada: [paleta institucional publicada pelo IFFluminense](https://portal1.iff.edu.br/nossos-campi/reitoria/diretorias-sistemicas/diretoria-de-comunicacao/identidade-visual/elementos-secundarios). Adotam-se verde de acento `#2f9e41`, verde escuro `#23723b` para texto/contraste e fundo `#f5f8f4`; não se reproduz a composição gráfica da marca.
+Não há logotipos oficiais ou afirmação de vínculo institucional. A inspiração cromática usa verde, branco e tons claros, com cores das categorias apenas como referência identificada. Fonte visual consultada: [paleta institucional publicada pelo IFFluminense](https://portal1.iff.edu.br/nossos-campi/reitoria/diretorias-sistemicas/diretoria-de-comunicacao/identidade-visual/elementos-secundarios). A paleta atual está centralizada em `web/essential.css`, com fundo gelo no claro e grafite no escuro; não se reproduz a composição gráfica da marca.
 
 ## Validade e verificações
 

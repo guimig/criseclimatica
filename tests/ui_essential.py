@@ -66,6 +66,14 @@ def main():
                 assert 'Valores essenciais' not in page.locator('body').inner_text()
                 assert not page.locator('.forecast-comparison-card').get_attribute('open')
                 assert page.locator('#rain-window').input_value()=='24'
+                assert page.locator('[data-mode]').count()==0
+                assert page.locator('.shared-chart-controls').count()==0
+                assert page.locator('#chart-range').is_visible()
+                for period in ('72','168','240','24'):
+                    page.locator('#chart-range').select_option(period)
+                    assert page.locator('#observed-panel').is_visible() and page.locator('#forecast-panel').is_visible()
+                    assert page.locator('#chart-range').input_value()==period
+                    if period=='240':assert 'até 7 dias' in page.locator('#observed-caption').inner_text()
                 probe=page.locator('#forecast-plot [data-chart-hit]');probe.scroll_into_view_if_needed();rect=probe.bounding_box()
                 page.mouse.move(rect['x']+rect['width']*.2,rect['y']+rect['height']*.4)
                 assert page.locator('#forecast-tooltip').is_visible()
@@ -131,15 +139,11 @@ def main():
                 page.locator('[data-observed-focus]').click()
                 assert page.url==before_url and '/dados.html' not in page.url
                 assert page.locator('[data-observed-focus] .metric-action').inner_text()=='Ver no gráfico ↓'
-                assert page.locator('#observed-panel').is_visible() and not page.locator('#forecast-panel').is_visible()
+                assert page.locator('#observed-panel').is_visible() and page.locator('#forecast-panel').is_visible()
                 assert page.locator('#observed-variable').input_value()=='precipitation_mm'
                 assert page.locator('#rain-window').input_value()=='24'
                 assert page.locator('#rain-scope').input_value()=='local'
                 assert page.locator('#plot .station-bar').count()==3
-                if width>=1024:
-                    plot=page.locator('#plot').bounding_box();container=page.locator('#chart-panels').bounding_box()
-                    assert plot['width']<=720,plot
-                    assert abs(plot['x']+plot['width']/2-container['x']-container['width']/2)<1,(plot,container)
                 home['observation_history.json']['records']=original
                 page.goto(url+'dados.html#chart-title');page.locator('#chart [data-chart-hit]').wait_for()
                 if page.locator('html').get_attribute('data-theme')=='dark':page.locator('#theme-toggle').click()

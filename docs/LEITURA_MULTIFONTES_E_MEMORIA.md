@@ -1,5 +1,7 @@
 # Leitura multifontes, estados de acompanhamento e memória
 
+> Referência técnica atual: [algoritmo completo da classificação e da cor apresentada](ALGORITMO_CLASSIFICACAO_NIVEIS.md), com seleção de fontes/estações, critérios, validade e limitações da completude.
+
 Esta evolução complementa o painel baseado nas PN 13/2026 e 14/2026. A Epagri/Ciram permanece prioritária e o nível formal continua sob competência institucional. A avaliação deixa de depender exclusivamente de correspondências de palavras em boletins: medições e previsões recebem referências numéricas auxiliares identificadas e cruzamentos explícitos, sem votação entre fontes ou nota única de risco.
 
 ## Referências objetivas auxiliares
@@ -49,9 +51,9 @@ Referências vencidas retiram os indicadores atuais. Uma consulta indisponível 
 
 ## Observações e previsão em dois gráficos
 
-A visualização inicial **Dois gráficos** apresenta observações e previsão em painéis separados, lado a lado em telas largas e empilhados abaixo de 1.000 px. Os controles também permitem ampliar apenas Observações ou Previsão. Os horários são de Brasília. O horário de geração aparece fora dos gráficos, como **Painel atualizado em**; não representa emissão do modelo nem início de um evento.
+A visualização inicial **Dois gráficos** apresenta observações e previsão em painéis separados, lado a lado em telas largas e empilhados até 800 px. Os dois permanecem sempre visíveis; o período (24 h, 72 h, 7 dias, 10 dias) aparece diretamente, sem controle de modo ou bloco recolhível. A janela de 10 dias não amplia a retenção observada de 7 dias. Os horários são de Brasília. O horário de geração aparece fora dos gráficos, como **Painel atualizado em**; não representa emissão do modelo nem início de um evento.
 
-- **Observações:** amostras efetivamente registradas por estação, nos horários informados pela fonte. A chuva começa com acumulados móveis de **1 h**, inclusive no modo exclusivamente observado. O seletor explícito permite consultar **24 h**; essas janelas se sobrepõem e não podem ser somadas.
+- **Observações:** amostras efetivamente registradas por estação, nos horários informados pela fonte. A chuva começa com acumulados móveis de **24 h**. O seletor explícito permite consultar **1 h**; essas janelas se sobrepõem e não podem ser somadas.
 - **Previsão:** chuva em barras com início e fim de cada intervalo de **1 h**. A primeira hora pode estar em curso na atualização do painel; a barra representa a hora completa, sem ratear ou apresentar o total como chuva exclusiva do tempo restante.
 - **Intervalos de chuva observada:** cada faixa ocupa apenas a janela informada pela fonte. Não há linha ligando amostras horárias coletadas aproximadamente a cada três horas. Os espaços continuam sem preenchimento, sem interpolação e sem atribuição de zero. Janelas cortadas pela borda do período mantêm seu intervalo integral no detalhe.
 - **Escalas:** no modo com dois gráficos, a mesma variável usa a mesma escala vertical, quando ambos usam a mesma duração de acumulado. Observação de 24 h e previsão de 1 h recebem escalas próprias e aviso explícito de incompatibilidade de acumulados. Os eixos temporais são independentes e identificados; não se mede erro de previsão.
@@ -76,7 +78,7 @@ Uma publicação repetida no mesmo instante não aumenta a quantidade de amostra
 
 ## Apresentação e tema
 
-O cabeçalho tem navegação para Visão geral, Evolução, Memória e Dados. O contraste foi reforçado com texto mais escuro, bordas mais definidas e verdes mais presentes, preservando fundos suaves. O botão de tema alterna claro/escuro, respeita inicialmente a preferência do sistema e guarda a escolha no navegador. Falha de acesso ao armazenamento local não interrompe o painel. O tema também se aplica à área detalhada.
+O cabeçalho compacto tem links Painel e Dados e fontes, além do botão de tema. O contraste foi reforçado com texto mais escuro, bordas mais definidas e verdes mais presentes, preservando fundos suaves. O botão de tema alterna claro/escuro, respeita inicialmente a preferência do sistema e guarda a escolha no navegador. Falha de acesso ao armazenamento local não interrompe o painel. O tema também se aplica à área detalhada.
 
 ## Validação
 

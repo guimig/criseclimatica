@@ -422,14 +422,10 @@
 .essential-page :is(.weather-panel, .chart-panel, #model-comparison) { position: relative; }
 .essential-page .chart-panels { gap: var(--space-5); }
 .essential-page .weather-panel + .weather-panel { padding-left: var(--space-5); }
-.essential-page .single-panel .weather-panel { padding-left: 0; }
 .essential-page .weather-panel > .small { margin-top: var(--space-2); font-size: var(--text-small); }
 .essential-page .plot-tools { margin: var(--space-4) 0; min-height: 140px; }
 .essential-page .station-filter { margin-top: var(--space-2); }
 .essential-page .forecast-tools > label { max-width: 300px; }
-.essential-page .shared-chart-controls { padding-block: var(--space-2); margin-bottom: var(--space-5); }
-.essential-page .shared-controls-row { gap: var(--space-4); padding-top: var(--space-3); }
-.essential-page .controls-scope { font-size: var(--text-small); }
 .essential-page .chart-caption { margin-top: var(--space-4); }
 .essential-page .chart-hint { margin-block: var(--space-3); }
 .essential-page :is(.chart-legend, .comparison-legend) { font-size: var(--text-small); gap: var(--space-2) var(--space-4); }
@@ -483,10 +479,6 @@
   }
   .essential-page .panel-heading { min-height: 56px; align-items: flex-start; }
   .essential-page :is(.metric-grid, .metrics) .metric-label { min-height: 40px; align-items: flex-start; }
-  .essential-page .single-panel .weather-panel {
-    width: min(100%, 720px);
-    margin-inline: auto;
-  }
   .essential-page :is(.chart-frame, .model-comparison-plot) {
     max-width: 720px;
     margin-inline: auto;
@@ -510,7 +502,6 @@
   .essential-page.home-page .metric:nth-child(even) { border-right: 0; }
   .essential-page.home-page .metric:nth-child(odd) { padding-left: 0; }
   .essential-page .weather-panel + .weather-panel { padding: var(--space-5) 0 0; }
-  .essential-page .single-panel .weather-panel { padding: 0; }
   .essential-page .plot-tools { min-height: 0; }
 }
 @media (max-width: 620px) {
@@ -544,3 +535,16 @@
 @media (prefers-reduced-motion: reduce) {
   .essential-page * { scroll-behavior: auto !important; transition: none !important; }
 }
+
+/* One visible period selector; observations and forecast always share the row. */
+.essential-page .period-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-5);
+  flex-wrap: wrap;
+  padding-block: var(--space-3);
+  margin-bottom: var(--space-5);
+  border-block: 1px solid var(--line);
+}
+.essential-page .period-controls .range-control { margin: 0; }

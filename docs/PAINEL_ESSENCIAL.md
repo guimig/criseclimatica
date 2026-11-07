@@ -8,7 +8,7 @@ O tema claro combina fundo gelo acinzentado, superfícies suaves e verde como de
 
 - Estado atual em uma faixa com a cor e o significado da referência. Os critérios, seis níveis e avisos prioritários ficam disponíveis por expansão ou explicação em diálogo. As regras de enquadramento e validade permanecem inalteradas.
 - Indicadores essenciais em quatro colunas no desktop e duas no celular, com fonte, período e atalhos para os dados/gráficos.
-- Observações e previsão permanecem separadas. Cada gráfico tem sua própria variável, para consultar rajadas previstas sem perder a chuva observada. O período comum, a escolha de um ou dois gráficos, os filtros por estação/entorno e a evolução observada continuam acessíveis em controles expansíveis.
+- Observações e previsão permanecem separadas. Cada gráfico tem sua própria variável, para consultar rajadas previstas sem perder a chuva observada. Os dois gráficos são sempre exibidos. O período comum fica visível diretamente (24 h, 72 h, 7 dias ou 10 dias); os filtros por estação/entorno e apresentação observada continuam expansíveis. O histórico observado é retido por até 7 dias; a janela de 10 dias não reconstrói os dias sem registros.
 - A chuva observada começa com acumulado explícito de 24 h, consistente com o indicador superior. A opção de 1 h permanece disponível. As barras de previsão continuam horárias; seus valores não são comparados diretamente com acumulados de 24 h.
 - Comparação de modelos e memória de estados/avisos ficam recolhidas na abertura. Não há descarte de fontes, arquivos, períodos ou filtros. Os links e identificadores anteriores são preservados.
 - A página de dados mantém os seis assuntos, consulta municipal e acumulados completos, com a mesma identidade visual da inicial. Araquari permanece a referência principal da síntese e da comparação de modelos.
@@ -61,6 +61,10 @@ A regressão inclui dezenas de faixas de 24 h por estação, consulta por mouse/
 
 ## Leitura em computador
 
-A partir de 1024 px de viewport, a coluna principal e a barra de navegação são centralizadas e limitadas a 960 px, com margens laterais de pelo menos 48 px. Os gráficos individuais e de comparação têm no máximo 720 px. Os dois gráficos da inicial continuam lado a lado no modo de comparação; ao exibir somente um, ele fica centralizado com largura limitada. A página detalhada mantém navegação lateral mais estreita e empilha os blocos de pluviômetros para evitar três cartões estreitos dentro da coluna. Textos explicativos ficam limitados a 72 caracteres de largura aproximada.
+A partir de 1024 px de viewport, a coluna principal e a barra de navegação são centralizadas e limitadas a 960 px, com margens laterais de pelo menos 48 px. Os gráficos individuais e de comparação têm no máximo 720 px. Os dois gráficos da inicial são sempre visíveis, lado a lado acima de 800 px e empilhados até 800 px. Não há mais escolha de um único gráfico. A página detalhada mantém navegação lateral mais estreita e empilha os blocos de pluviômetros para evitar três cartões estreitos dentro da coluna. Textos explicativos ficam limitados a 72 caracteres de largura aproximada.
 
-As regras são exclusivas do desktop. O layout abaixo de 1024 px, os controles de período/comparação, filtros e comportamentos dos gráficos permanecem os mesmos. A regressão inclui notebook de 1024 px e monitor de 1920 px, além das larguras já testadas.
+As regras são exclusivas do desktop. O layout abaixo de 1024 px, o seletor de período direto, os filtros e os comportamentos dos gráficos permanecem disponíveis. A regressão inclui notebook de 1024 px e monitor de 1920 px, além das larguras já testadas.
+
+## Referência dos níveis
+
+O [algoritmo completo de classificação e apresentação](ALGORITMO_CLASSIFICACAO_NIVEIS.md) documenta as fontes, seleção espacial/temporal, faixas quantitativas, análise qualitativa, integração e estados visuais. Esta simplificação dos controles não modifica os critérios de classificação. Os atalhos dos quatro indicadores levam ao gráfico correspondente sem ocultar o outro.

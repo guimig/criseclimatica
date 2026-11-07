@@ -4,15 +4,21 @@ Portal meteorológico aberto com prioridade em Araquari e cobertura de vinte mun
 
 ## Painel de acompanhamento de Araquari
 
-A página inicial **Tempo em Araquari** adota o Painel essencial: faixa de referência, quatro indicadores e gráficos separados de observações e previsão. Avisos, comparação de modelos e históricos permanecem acessíveis por expansão. Previsão, observações, chuva, vento/rajadas e temperatura podem ser explorados por período, ponteiro, toque e teclado. Fontes, estações e municípios complementares permanecem em `dados.html`, fora da leitura principal.
+A página inicial **Tempo em Araquari** adota o Painel essencial: faixa de referência, quatro indicadores e dois gráficos sempre visíveis, separados entre observações e previsão, com seletor de período direto na tela. Avisos, comparação de modelos e históricos permanecem acessíveis por expansão. Previsão, observações, chuva, vento/rajadas e temperatura podem ser explorados por período, ponteiro, toque e teclado. Fontes, estações e municípios complementares permanecem em `dados.html`, fora da leitura principal.
 
-**PN 13/2026 e PN 14/2026 — ASSINST/REI** substituem o protocolo anterior. As seis categorias são qualitativas; não se atribui um nível por média de chuva/vento ou pela cor de outro órgão. O enquadramento é uma sugestão rastreável, quando há evidência prioritária suficiente; a decisão formal permanece humana. Ausência de dados nunca produz verde automático.
+**PN 13/2026 e PN 14/2026 — ASSINST/REI** substituem o protocolo anterior. As seis categorias são qualitativas; não se atribui um nível por média de chuva/vento ou pela cor de outro órgão. A sugestão é rastreável e combina evidência qualitativa Epagri com apoio quantitativo identificado; o apoio pode elevar a sugestão conforme regras explícitas. A decisão formal permanece humana. Dados ausentes não são tratados como zero; o verde descritivo exige as condições de completude documentadas.
 
 Há distribuição de chuva por estações contemporâneas (mediana com n ≥ 3 e extremos preservados), previsão de até dez dias, revisão dos mesmos horários futuros e histórico observado de sete dias sem reconstrução retroativa. O visual é claro, verde e branco, com tema escuro opcional, independente e sem logotipos oficiais. Veja [layout, interações e compatibilidade do Painel essencial](docs/PAINEL_ESSENCIAL.md). Veja [métodos, critérios, normas e limites](docs/PAINEL_ARAQUARI_PN13_PN14.md).
 
+## Algoritmo dos níveis: documentação completa
+
+Veja [todo o algoritmo da referência dos níveis da norma](docs/ALGORITMO_CLASSIFICACAO_NIVEIS.md): entradas e fontes, municípios e estações elegíveis, janelas temporais, limites de chuva/vento, expressões qualitativas, coincidências, prioridade de integração, completude, validade e cor efetivamente exibida. Inclui inventário datado das estações de Araquari, exemplos e caminhos JSON para auditar cada classificação.
+
+A cor da home, o nível consultivo sugerido e o nível formal são coisas distintas. Amarelo pode representar referência técnica sem nível sugerido; verde é descrição de rotina nos dados acompanhados; o caminho numérico não gera vermelho ou roxo automaticamente. O documento registra também as limitações concretas da flag de completude.
+
 ## Leitura multifontes e memória
 
-O painel usa referências numéricas auxiliares INMET para chuva e vento, com variáveis, janelas e fontes identificadas. Coincidências temporais e geográficas podem subsidiar sugestões consultivas, preservando a prioridade Epagri/Ciram e sem média de cores ou nota única de risco. Estados neutros distinguem **monitoramento de rotina**, **monitoramento parcial** e referências de atenção. O gráfico começa com observações e previsão separadas; a memória mostra estados registrados e validade dos avisos, sem confundir isso com duração de desastre. Há alternância entre tema claro e escuro. Veja [metodologia, limites e históricos](docs/LEITURA_MULTIFONTES_E_MEMORIA.md).
+O painel usa referências numéricas auxiliares INMET para chuva e vento, com variáveis, janelas e fontes identificadas. Coincidências temporais e geográficas podem subsidiar sugestões consultivas, preservando a prioridade Epagri/Ciram e sem média de cores ou nota única de risco. Os estados internos distinguem **monitoramento de rotina**, **monitoramento parcial** e referências de atenção; a apresentação aplica os critérios de cor descritos na documentação do algoritmo. O gráfico começa com observações e previsão separadas; a memória mostra estados registrados e validade dos avisos, sem confundir isso com duração de desastre. Há alternância entre tema claro e escuro. Veja [metodologia, limites e históricos](docs/LEITURA_MULTIFONTES_E_MEMORIA.md).
 
 A apresentação distingue normalidade nos dados monitorados de leitura incompleta, usa as seis cores da norma e permite explorar o entorno sem misturar seus dados com Araquari. Veja [UX, cores e cobertura das estações](docs/UX_E_CORES_DO_PAINEL.md).
 
