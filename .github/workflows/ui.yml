@@ -8,6 +8,7 @@ on:
       - 'tests/ui_details.py'
       - 'tests/ui_forecasts.py'
       - 'tests/ui_essential.py'
+      - 'tests/ui_style_system.py'
       - '.github/workflows/ui.yml'
   workflow_dispatch:
 
