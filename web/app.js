@@ -228,7 +228,7 @@ function svg(tag, attributes = {}, text) {
 }
 function renderChart() {
   const frame = $('chart');
-  clear(frame);
+  clear(frame);$('detail-chart-tooltip').hidden=true;
   const hourly = state.detail?.hourly || [];
   const now = Date.now();
   const valid = hourly.filter((item) => {
@@ -247,7 +247,7 @@ function renderChart() {
   const max = ceiling + gap;
   const x = (i) => left + (i / Math.max(1, valid.length - 1)) * innerW;
   const y = (v) => top + innerH - (v - min) / (max - min) * innerH;
-  const root = svg('svg', { viewBox: `0 0 ${width} ${height}`, role: 'img', 'aria-label': descriptors[state.metric] + ' nas proximas 24 horas' });
+  const root = svg('svg', { viewBox: `0 0 ${width} ${height}`, role: 'img', tabindex:0,'aria-label': descriptors[state.metric] + ' nas próximas 24 horas. Use as setas para consultar horários.' });
   for (let n = 0; n <= 4; n++) {
     const v = min + (max - min) * n / 4;
     const py = y(v);
@@ -274,6 +274,12 @@ function renderChart() {
     if (i % 5 !== 0 && i !== valid.length - 1) return;
     root.append(svg('text', { x: x(i), y: height - 12, 'text-anchor': 'middle', class: 'chart-label' }, datetime(item.time, { hour: '2-digit', minute: '2-digit' }).split(' ').slice(-1)[0]));
   });
+  const tooltip=$('detail-chart-tooltip');let cursor=0;
+  function show(index){cursor=index;const row=valid[index],number=row[state.metric];tooltip.textContent=`${datetime(row.time)} · ${descriptors[state.metric]}: ${Number.isFinite(number)?value(number,1)+' '+units[state.metric]:'Sem dado'}. Fonte: Open-Meteo.`;tooltip.hidden=false;}
+  root.addEventListener('pointermove',event=>{const box=root.getBoundingClientRect(),position=(event.clientX-box.left)/box.width*width;show(Math.max(0,Math.min(valid.length-1,Math.round((position-left)/innerW*(valid.length-1)))));});
+  root.addEventListener('click',event=>{const box=root.getBoundingClientRect();show(Math.max(0,Math.min(valid.length-1,Math.round(((event.clientX-box.left)/box.width*width-left)/innerW*(valid.length-1)))));});
+  root.addEventListener('pointerleave',()=>{tooltip.hidden=true;});
+  root.addEventListener('keydown',event=>{if(!['ArrowRight','ArrowLeft','Home','End'].includes(event.key))return;event.preventDefault();show(event.key==='Home'?0:event.key==='End'?valid.length-1:Math.max(0,Math.min(valid.length-1,cursor+(event.key==='ArrowRight'?1:-1))));});
   frame.append(root);
   $('chart-legend').textContent = `${descriptors[state.metric]} (${units[state.metric]}) \u2022 fonte Open-Meteo`;
 }
@@ -681,7 +687,7 @@ function renderCemaden() {
   const local = data?.locations?.find((place) => place.location_id === state.slug);
   const status = local?.status || data?.status;
   const statusText = {
-    not_configured: 'A coleta Cemaden depende da configuração das credenciais SGAA em GitHub Secrets. Não há leitura instrumental disponível sem essa autorização.',
+    not_configured: 'Esta fonte não está habilitada nesta publicação. Não há leitura instrumental disponível; consulte as outras fontes.',
     access_restricted: 'A API PED recusou o token ou o acesso à informação. Necessário validar a autorização no Cemaden.',
     unavailable: 'O serviço Cemaden não respondeu adequadamente nesta publicação. Não é possível confirmar a chuva observada.',
     no_recent_data: 'Consulta concluída: nenhuma leitura recente válida neste município. Isso não significa chuva zero.',
@@ -698,7 +704,9 @@ function renderCemaden() {
     const cards = [];
     for (const station of rows) {
       const item = child('article', 'rain-station');
-      item.append(child('strong', '', `Estação ${station.code}`));
+      const reference=state.cemadenSensors?.stations?.find(r=>r.code===station.code);
+      const name=reference?.name&&reference.name!==station.code?reference.name:'Estação sem nome informado';
+      item.append(child('strong','',name),child('small','station-code',`${reference?.municipality||state.overview?.locations?.find(r=>r.id===state.slug)?.name||'Localidade selecionada'} · código ${station.code}`));
       const metrics = child('div', 'observed-metrics');
       const periods = [
         ['1H', station.rain_1h_mm], ['3H', station.rain_3h_mm],
@@ -707,19 +715,22 @@ function renderCemaden() {
         ['72H', station.rain_72h_mm], ['96H', station.rain_96h_mm],
         ['120H', station.rain_120h_mm]
       ];
+      const extra=child('details','accumulation-more'),additional=child('div','observed-metrics');
+      extra.append(child('summary','','Outros acumulados · 6 a 120 h'));
       for (const [windowHours, val] of periods) {
         const label = `CHUVA MEDIDA ${windowHours}`;
         const tile = child('div', 'observed-metric');
         tile.append(child('span', '', label), child('strong', '', Number.isFinite(val) ? `${value(val, 1)} mm` : 'Sem dado'));
-        metrics.append(tile);
+        (['1H','3H','24H'].includes(windowHours)?metrics:additional).append(tile);
       }
-      item.append(metrics, child('p', 'analysis-foot', `Registro da estação: ${datetime(station.observed_at)} · medição bruta.`));
+      extra.append(additional);
+      item.append(metrics,extra, child('p', 'analysis-foot', `Registro da estação: ${datetime(station.observed_at)} · medição bruta.`));
       cards.push(item);
     }
     if (cards.length) target.append(child('p', 'analysis-foot', `${cards.length} pluviômetro(s) com leitura válida neste município.`));
     appendStationCards(target, cards);
   }
-  $('cemaden-updated').textContent = `Cemaden PED · estado: ${status || 'indisponível'} · consulta: ${datetime(data?.checked_at)}. DADOS DA REDE OBSERVACIONAL DO CEMADEN/MCTIC · Credenciais nunca são enviadas ao navegador.`;
+  $('cemaden-updated').textContent = `Cemaden · consulta: ${datetime(data?.checked_at)}. DADOS DA REDE OBSERVACIONAL DO CEMADEN/MCTIC. Os acumulados pertencem a cada estação.`;
 }
 function renderCemadenSensors() {
   const target = $('cemaden-sensors-data');
@@ -969,7 +980,7 @@ async function selectLocation(slug) {
   const requestId = ++state.requestId;
   const place = state.overview.locations.find((item) => item.id === slug);
   $('place-title').textContent = place.name + ' / ' + place.state;
-  $('place-subtitle').textContent = slug === 'araquari' ? 'Referência principal · município do IFC Campus Araquari' : 'Consulta complementar · a síntese do IFC permanece em Araquari';
+  $('place-subtitle').textContent = slug === 'araquari' ? 'Referência principal · dados do município selecionado' : 'Consulta complementar · a síntese principal permanece em Araquari';
   $('location-select').value = slug;
   renderSynthesis();
   renderTerritory();

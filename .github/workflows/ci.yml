@@ -26,6 +26,7 @@ jobs:
           node --check web/app.js
           node --check web/dashboard.js
           node --check web/theme.js
+          node --check web/explore.js
       - name: Test browser reliability without network
         run: |
           node tests/web_reliability.cjs

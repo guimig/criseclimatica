@@ -73,6 +73,9 @@ def check_layout(page):
     assert page.locator('#plot').inner_text().count('4201307') == 0
     assert 'superaç' not in page.locator('.level-card').inner_text()
     assert page.locator('[data-risk-level]').count() == 6
+    assert page.locator('.shared-chart-controls').locator('[data-mode]').count()==3
+    assert page.locator('.shared-chart-controls').locator('[data-variable]').count()==3
+    assert 'amarela' in page.locator('#level-kind').inner_text()
     assert page.locator('#level-card').get_attribute('data-risk') == 'amarelo'
     assert 'chuva e vento' in page.locator('#level-title').inner_text()
     # Main controls must remain comfortably operable on mobile.
@@ -127,6 +130,8 @@ def main():
             if width == 1440:
                 a, b = page.locator('#observed-panel').bounding_box(), page.locator('#forecast-panel').bounding_box()
                 assert abs(a['y']-b['y']) < 3, 'Desktop graphs must align'
+                left,right=page.locator('#plot').bounding_box(),page.locator('#forecast-plot').bounding_box()
+                assert abs(left['y']-right['y'])<4, 'Plot starts must align below shared controls'
             else:
                 a, b = page.locator('#observed-panel').bounding_box(), page.locator('#forecast-panel').bounding_box()
                 assert b['y'] > a['y'] + a['height'], 'Mobile graphs must stack'
