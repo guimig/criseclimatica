@@ -94,9 +94,9 @@ class Element {
 const elements=new Map([...ids].map(id=>[id,new Element('div')]));
 const context=vm.createContext({module:{exports:{}},console,Intl,Date,URL,location:{href:'https://guimig.github.io/criseclimatica/'}});
 vm.runInContext(js,context); // No document yet: avoid application boot and network.
-context.document={getElementById:id=>elements.get(id),createElement:t=>new Element(t),createElementNS:(_,t)=>new Element(t),documentElement:{dataset:{theme:'dark'}}};
+context.document={querySelectorAll:()=>[],getElementById:id=>elements.get(id),createElement:t=>new Element(t),createElementNS:(_,t)=>new Element(t),documentElement:{dataset:{theme:'dark'}}};
 context.fixture=irregular;context.stationHistory=aligned;
-vm.runInContext('panel.data=fixture;panel.history=stationHistory;renderChart()',context);
+vm.runInContext('panel.data=fixture;panel.history=stationHistory;panel.observedView="timeline";renderChart()',context);
 function descendants(n){return [n,...n.children.flatMap(descendants)];}
 function plotNodes(id,tag){return descendants(elements.get(id)).filter(n=>n.tag===tag);}
 assert.equal(elements.get('observed-panel').hidden,false);assert.equal(elements.get('forecast-panel').hidden,false);
@@ -119,9 +119,45 @@ assert.equal(plotNodes('plot','svg').length,1); // repeated rendering stays idem
 vm.runInContext("panel.mode='forecast';renderChart()",context);
 assert.equal(elements.get('observed-panel').hidden,true);
 vm.runInContext("panel.mode='context';panel.rainWindow=24;renderChart()",context);
-assert.match(elements.get('chart-caption').textContent,/Escalas e acumulados diferentes/);
+assert.match(elements.get('chart-caption').textContent,/Acumulados diferentes: 24 h observado e 1 h previsto/);
 vm.runInContext("panel.variable='temperature_c';panel.history=null;renderChart()",context);
 assert.equal(plotNodes('plot','svg').length,0);assert.equal(plotNodes('forecast-plot','svg').length,1);
 vm.runInContext('panel.data=null;panel.history=null;renderChart()',context);
 assert.equal(plotNodes('forecast-plot','svg').length,0);
 console.log('SVG rendering passed: two panels, real rain intervals, no interpolation, exact cohorts, keyboard, missing-hour tooltip, station filter, repeated/empty renders.');
+
+const {riskPresentation,stationName,chartScale}=require('../web/dashboard.js');
+const normal={...data,assessment:{valid_until:data.valid_until,suggested_level:null,monitoring_state:'routine',numeric_support:{core_complete:true,maximum_band:0,signals:[{band:0}]}}};
+assert.equal(riskPresentation(normal,now).color,'verde');
+assert.match(riskPresentation(normal,now).title,/Normalidade nos dados/);
+assert.equal(normal.assessment.suggested_level,null); // descriptive green is not an official classification
+assert.equal(riskPresentation({...normal,assessment:{...normal.assessment,numeric_support:{core_complete:false,maximum_band:0}}},now).color,'neutral');
+assert.equal(riskPresentation({...normal,assessment:{...normal.assessment,monitoring_state:'partial'}},now).color,'neutral');
+assert.equal(riskPresentation(normal,Date.parse('2026-11-10T20:00:00Z')).color,'neutral');
+for(const level of ['azul','amarelo','laranja','vermelho','roxo']){
+ const result=riskPresentation({...normal,assessment:{...normal.assessment,suggested_level:level}},now);
+ assert.equal(result.color,level);assert.equal(result.active,level);
+}
+const signal={station:'A',source:'cemaden',variable:'rain_1h_mm',value:20.8,unit:'mm',kind:'observation',band:1,start_at:'2026-11-06T19:00:00Z',end_at:'2026-11-06T20:00:00Z'};
+const attention={...normal,station_catalog:[{source:'cemaden-rain',station:'A',name:'Porto Grande'}],assessment:{...normal.assessment,monitoring_state:'technical_attention',numeric_support:{core_complete:true,maximum_band:1,signals:[signal],coincidences:[]}}};
+const reading=riskPresentation(attention,now);
+assert.equal(reading.color,'amarelo');assert.equal(reading.active,null);
+assert.match(reading.reason,/Porto Grande/);assert.match(reading.reason,/20,8/);assert.doesNotMatch(reading.reason,/superaç|coincidência/);
+assert.equal(stationName({name:'Cemaden Rainha',station:'420130701A'}),'Rainha');
+assert.equal(stationName({name:'420130701A',station:'420130701A'},'Estação 1'),'Estação 1');
+assert.equal(chartScale([0,20.8]).step,5);assert.ok(chartScale([0,0]).high>0);
+context.fixture={...irregular,station_catalog:[{source:'cemaden-rain',station:'A',name:'Rainha',municipality:'Araquari'},{source:'cemaden-rain',station:'B',name:'Porto Grande',municipality:'Araquari'},{source:'cemaden-rain',station:'C',name:'Centro',municipality:'Araquari'}],regional_rain_context:{radius_km:40,stations:[{source:'cemaden-rain',station:'N',name:'Pirabeiraba',municipality:'Joinville'}],records:[{source:'cemaden-rain',station:'N',observed_at:'2026-11-06T20:20:00Z',rain_1h_mm:5}]}};
+vm.runInContext('panel.data=fixture;panel.history=stationHistory;panel.mode="context";panel.variable="precipitation_mm";panel.rainWindow=1;panel.observedView="auto";renderChart()',context);
+assert.equal(plotNodes('plot','rect').filter(n=>n.attributes.class==='station-bar').length,3);
+assert.equal(plotNodes('plot','path').length,0);
+assert.match(plotNodes('plot','text').map(n=>n.textContent).join(' '),/Rainha/);
+assert.doesNotMatch(plotNodes('plot','text').map(n=>n.textContent).join(' '),/cemaden|4201307/i);
+vm.runInContext('panel.scope="nearby";renderChart()',context);
+assert.equal(plotNodes('plot','rect').filter(n=>n.attributes.class==='station-bar').length,1);
+assert.match(elements.get('station-coverage').textContent,/não entram nos indicadores locais/);
+assert.match(plotNodes('plot','text').map(n=>n.textContent).join(' '),/Joinville/);
+assert.ok(!plotNodes('plot','text').map(n=>n.textContent).join(' ').includes('Rainha'));
+vm.runInContext('panel.scope="local";renderChart()',context);
+assert.equal(plotNodes('plot','rect').filter(n=>n.attributes.class==='station-bar').length,3);
+assert.match(html,/aria-haspopup="dialog"/);assert.equal([...html.matchAll(/data-risk-level=/g)].length,6);
+console.log('UX scenarios passed: descriptive normality vs missing data, six colors, explicit signals, human station names, sparse history, optional verified surroundings and local isolation.');

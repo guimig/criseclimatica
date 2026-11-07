@@ -34,6 +34,8 @@ O acumulado móvel de 24 h é **aproximação comparativa** da referência diár
 
 A regra é identificada como `numeric-support-v1`, com integração `pn13-14-2026-multisource-v2`. Mudanças metodológicas iniciam novos episódios históricos; não reclassificam retroativamente o passado.
 
+> A apresentação foi revisada: [textos da situação, seis cores, gráficos por estação e entorno](UX_E_CORES_DO_PAINEL.md). Os identificadores de acompanhamento abaixo permanecem no histórico, mas a página usa descrições mais diretas.
+
 ## Estado neutro e qualidade
 
 A expressão genérica “Em avaliação” foi substituída por estados que descrevem o acompanhamento:

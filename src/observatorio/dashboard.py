@@ -140,6 +140,54 @@ def station_catalog(history, primary, detail, sensors=None):
     return result
 
 
+
+def regional_rain_context(analysis, details, sensors, stamp, radius_km=40):
+    """Reuse collected stations around Araquari; require a verified station position."""
+    now = moment(stamp)
+    point = details.get('araquari', {}).get('location', {})
+    result = {'radius_km': radius_km, 'stations': [], 'records': [],
+              'kind': 'nearby_station_snapshot_not_municipal_history',
+              'status': 'unavailable', 'excluded_unlocated': 0}
+    if not all(valid_number(point.get(k), -limit, limit)
+               for k, limit in (('latitude', 90), ('longitude', 180))):
+        return result
+    refs = {s['code']: s for s in (sensors or {}).get('stations', [])}
+    local_codes = {s['code'] for s in local(analysis, 'araquari').get('observed_rain', {}).get('stations', [])}
+    selected = {}
+    for place in analysis.get('locations', []):
+        if place.get('location_id') == 'araquari':
+            continue
+        observed = place.get('observed_rain', {})
+        if observed.get('status') != 'available':
+            continue
+        for station in observed.get('stations', []):
+            code = station['code']
+            if code in local_codes or not fresh(station.get('observed_at'), now, 6):
+                continue
+            ref = refs.get(code, {})
+            if not all(valid_number(ref.get(k), -limit, limit)
+                       for k, limit in (('latitude', 90), ('longitude', 180))):
+                result['excluded_unlocated'] += 1
+                continue
+            distance = haversine_km(point['latitude'], point['longitude'], ref['latitude'], ref['longitude'])
+            if distance > radius_km:
+                continue
+            record = {'source': 'cemaden-rain', 'station': code, 'observed_at': station['observed_at'],
+                      'scope': 'nearby_station_snapshot_not_araquari_measurement', 'distance_km': round(distance, 2),
+                      **{k: station.get(k) for k in ('rain_1h_mm', 'rain_24h_mm')}}
+            metadata = {'source': 'cemaden-rain', 'station': code, 'name': ref.get('name') or code,
+                        'municipality': place.get('name'), 'latitude': ref['latitude'], 'longitude': ref['longitude'],
+                        'distance_km': round(distance, 2), 'distance_reference': 'municipal_model_point_not_campus',
+                        'metadata_status': 'coordinates_matched_by_station_code'}
+            old = selected.get(code)
+            if old is None or moment(record['observed_at']) > moment(old[0]['observed_at']):
+                selected[code] = record, metadata
+    for record, metadata in sorted(selected.values(), key=lambda pair: (pair[0]['distance_km'], pair[0]['station']))[:24]:
+        result['records'].append(record)
+        result['stations'].append(metadata)
+    result['status'] = 'available' if result['records'] else 'no_verified_recent_stations'
+    return result
+
 def summarize(analysis, details, epagri, bulletins, defesa, stamp, previous_history=None, sensors=None):
     primary=local(analysis,'araquari')
     if not primary:
@@ -165,6 +213,11 @@ def summarize(analysis, details, epagri, bulletins, defesa, stamp, previous_hist
         'forecast':forecast,'forecast_series':chart_rows(detail,stamp),'revision':primary.get('revision',{}),
         'recent_observations':primary.get('recent_observations',[]),'temperature_context':primary.get('temperature_context',{}),
         'station_catalog':station_catalog(history,primary,detail,sensors),
+        'regional_rain_context':regional_rain_context(analysis,details,sensors,stamp),
+        'station_coverage':{'municipality':'Araquari','selection':'exact_municipality_ibge',
+            'latest_station_count':len(primary.get('observed_rain',{}).get('stations',[])),
+            'local_status':primary.get('observed_rain',{}).get('status','unavailable'),
+            'note':'All valid recent stations returned for Araquari; no three-station cap; not a complete network registry.'},
         'suggestions':primary.get('suggestions',[]),'limitations':primary.get('limitations',[]),
         'complementary_notices':alerts,'source_status':source_status,
         'editorial_context':{'status':bulletins.get('status','unavailable'),'bulletins':bulletins.get('bulletins',[])[:4]},
