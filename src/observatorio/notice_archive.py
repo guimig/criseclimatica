@@ -40,12 +40,13 @@ def _place_refs(feed: dict[str, Any]) -> dict[str, dict[str, Any]]:
                     "type": notice["type"], "severity": notice["severity"],
                     "window_as_reported": notice["window_as_reported"],
                     "municipality_ids": [place["location_id"]],
+                    **{field:notice.get(field) for field in ("start_at", "end_at", "start_as_reported", "end_as_reported", "validity_hours", "duration_kind")},
                 }
             else:
                 existing["municipality_ids"].append(place["location_id"])
                 if notice["revision"] > existing["revision"]:
-                    for field in ("revision", "type", "severity", "window_as_reported"):
-                        existing[field] = notice[field]
+                    for field in ("revision", "type", "severity", "window_as_reported", "start_at", "end_at", "start_as_reported", "end_as_reported", "validity_hours", "duration_kind"):
+                        existing[field] = notice.get(field)
     for item in found.values():
         item["municipality_ids"].sort()
     return found
@@ -90,7 +91,7 @@ def merge_notice_archive(previous: dict[str, Any] | None, alerts: dict[str, Any]
             if key in records:
                 row = records[key]
                 if observed["revision"] >= row["revision"]:
-                    for field in ("revision", "type", "severity", "window_as_reported", "municipality_ids"):
+                    for field in ("revision", "type", "severity", "window_as_reported", "municipality_ids", "start_at", "end_at", "start_as_reported", "end_as_reported", "validity_hours", "duration_kind"):
                         row[field] = observed[field]
                 row["last_seen_at"] = stamp
                 row["present_in_latest_successful_feed"] = True

@@ -74,6 +74,28 @@ def _explicit_time(value: Any) -> str | None:
         return None
 
 
+def _reported_time(date_value: Any, clock_value: Any) -> str | None:
+    """Preserve a source clock; a missing timezone stays missing."""
+    if not isinstance(date_value, str): return None
+    text = date_value.strip()
+    if 'T' not in text and isinstance(clock_value, str):
+        text += 'T' + clock_value.strip()
+    try:
+        return datetime.fromisoformat(text.replace('Z', '+00:00')).isoformat() if 'T' in text else None
+    except ValueError:
+        return None
+
+
+def _duration(start: str | None, end: str | None) -> tuple[float | None, str]:
+    try:
+        a,b=datetime.fromisoformat(start),datetime.fromisoformat(end)
+        hours=(b-a).total_seconds()/3600
+        if hours < 0 or hours > 24*400: return None, 'invalid_window'
+        return round(hours,3), 'explicit_instants' if a.tzinfo and b.tzinfo else 'nominal_source_clock_no_timezone'
+    except (ValueError,TypeError):
+        return None, 'unavailable'
+
+
 def _sequence(value: Any) -> int:
     try:
         number = int(value)
@@ -124,12 +146,16 @@ def normalize_alerts(payload: Any, locations: list[dict[str, Any]], collected_at
             if ibge not in code_set:
                 continue
             regional_ids.add(identifier)
+            start = _reported_time(raw.get("data_inicio"), raw.get("hora_inicio"))
+            end = _reported_time(raw.get("data_fim"), raw.get("hora_fim"))
+            duration, duration_kind = _duration(start, end)
             matches.append({
                 "id": identifier, "revision": seq, "type": _text(raw.get("descricao"), 140) or "Aviso meteorológico",
                 "severity": _text(raw.get("severidade"), 80) or "Não informada",
                 "window_as_reported": _source_window(raw),
-                "start_at": _explicit_time(raw.get("data_inicio")),
-                "end_at": _explicit_time(raw.get("data_fim")),
+                "start_at": _explicit_time(start), "end_at": _explicit_time(end),
+                "start_as_reported": start, "end_as_reported": end,
+                "validity_hours": duration, "duration_kind": duration_kind,
                 "risks": _lines(raw.get("riscos")),
                 "instructions": _lines(raw.get("instrucoes")),
                 "phases": sorted(source_blocks),

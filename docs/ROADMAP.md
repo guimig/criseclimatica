@@ -112,3 +112,15 @@ Detalhamento: [síntese consultiva](SINTESE_CONSULTIVA_ARAQUARI.md).
 - [ ] Resolver institucionalmente a divergência sobre avaliações no laranja entre PN 13, art. 10, I, e PN 14, art. 8º, III.
 
 [Metodologia atual](PAINEL_ARAQUARI_PN13_PN14.md).
+
+
+## Evolução visual, apoio objetivo e retrospectiva
+
+- [x] Cabeçalho com navegação por seções e tema escuro persistente.
+- [x] Estados neutros que distinguem rotina, cobertura parcial e atenção.
+- [x] Referências numéricas INMET auxiliares e cruzamento por variável/horário/proximidade.
+- [x] Passado observado e previsão no gráfico inicial, com intervalos compatíveis.
+- [x] Memória de episódios amostrados e janelas de validade dos avisos.
+- [x] Proteção de continuidade e testes de idempotência dos históricos.
+
+[Critérios e limitações](LEITURA_MULTIFONTES_E_MEMORIA.md).

@@ -79,11 +79,17 @@ def validate(output: Path, *, fixture: bool = False) -> None:
             or [r.get("id") for r in dashboard.get("protocol", {}).get("levels", [])] != list(allowed_levels)):
         raise ValueError("Dashboard must preserve six qualitative reference levels")
     if policy.get("suggested_level"):
-        if (policy.get("suggested_level") in ("verde", "roxo")
-                or not any(e.get("status") == "eligible" and e.get("supports_level") == policy["suggested_level"]
+        primary_support = any(e.get("status") == "eligible" and e.get("supports_level") == policy["suggested_level"]
                            and e.get("matched_cue") and e.get("valid_from") and e.get("valid_until")
-                           for e in policy.get("evidence", []))):
-            raise ValueError("Level suggestion requires explicit primary evidence")
+                           for e in policy.get("evidence", []))
+        numeric = policy.get("numeric_support", {})
+        numeric_support = (policy.get("basis_kind") == "complementary_numeric_evidence"
+                           and policy["suggested_level"] in ("amarelo", "laranja")
+                           and numeric.get("method_version") == "numeric-support-v1"
+                           and numeric.get("proposed_level") == policy["suggested_level"]
+                           and any(s.get("band", 0) > 0 for s in numeric.get("signals", [])))
+        if policy.get("suggested_level") in ("verde", "roxo") or not (primary_support or numeric_support):
+            raise ValueError("Level suggestion requires explicit primary or auxiliary evidence")
     gauge = dashboard.get("gauge_distribution", {})
     if gauge.get("station_count", 0) < 3 and gauge.get("median_mm") is not None:
         raise ValueError("Station median requires at least three comparable gauges")
@@ -98,6 +104,14 @@ def validate(output: Path, *, fixture: bool = False) -> None:
             or (data / "observation_history.json").stat().st_size > 3_000_000
             or overview.get("observation_history_published") is not True):
         raise ValueError("Invalid bounded station observation history")
+    assessment_history = json.loads((data / "assessment_history.json").read_text(encoding="utf-8"))
+    if (assessment_history.get("kind") != "araquari_assessment_episodes_and_epagri_notice_history"
+            or assessment_history.get("location_id") != "araquari"
+            or assessment_history.get("generated_at") != overview.get("generated_at")
+            or assessment_history.get("fixture_mode", False) is not fixture
+            or len(assessment_history.get("episodes", [])) > 3000 or len(assessment_history.get("notices", [])) > 500
+            or overview.get("assessment_history_published") is not True):
+        raise ValueError("Invalid bounded assessment history")
     for record in observed_history["records"]:
         if record.get("source") not in ("cemaden-rain", "metar", "cemaden-temperature") or not record.get("observed_at"):
             raise ValueError("Observation history cannot contain model snapshots")

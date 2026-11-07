@@ -10,6 +10,10 @@ A página inicial reúne nível de referência, aviso prioritário Epagri/Ciram,
 
 Há distribuição de chuva por estações contemporâneas (mediana com n ≥ 3 e extremos preservados), previsão de até dez dias, revisão dos mesmos horários futuros e histórico observado de sete dias sem reconstrução retroativa. O visual é claro, verde e branco, independente e sem logotipos oficiais. Veja [métodos, critérios, normas e limites](docs/PAINEL_ARAQUARI_PN13_PN14.md).
 
+## Leitura multifontes e memória
+
+O painel usa referências numéricas auxiliares INMET para chuva e vento, com variáveis, janelas e fontes identificadas. Coincidências temporais e geográficas podem subsidiar sugestões consultivas, preservando a prioridade Epagri/Ciram e sem média de cores ou nota única de risco. Estados neutros distinguem **monitoramento de rotina**, **monitoramento parcial** e referências de atenção. O gráfico começa com passado observado e previsão separados; a memória mostra estados registrados e validade dos avisos, sem confundir isso com duração de desastre. Há alternância entre tema claro e escuro. Veja [metodologia, limites e históricos](docs/LEITURA_MULTIFONTES_E_MEMORIA.md).
+
 ## O que está implementado
 
 - Open-Meteo: estimativas atuais e previsão horária/diária, com identificação explícita de modelo.
