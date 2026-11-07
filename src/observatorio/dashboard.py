@@ -7,6 +7,7 @@ from statistics import median
 from .analysis import fresh, hourly_bins, iso, local, moment, valid_number
 from .protocol import assess, reference
 from .objective_analysis import summarize as summarize_objective, integrate
+from .inmet import haversine_km
 
 KIND = 'araquari_weather_dashboard_not_official_decision'
 HISTORY_KIND = 'araquari_point_observation_history_not_climatology'
@@ -112,6 +113,33 @@ def chart_rows(detail, stamp):
             for i in range(241) if any(start+timedelta(hours=i) in values for values in fields.values())]
 
 
+def station_catalog(history, primary, detail, sensors=None):
+    """Attach available metadata by exact station code; never infer a position."""
+    point = detail.get('location', {})
+    sensor_refs = {r['code']: r for r in (sensors or {}).get('stations', [])}
+    recent_refs = {('metar' if r['source'] == 'NOAA/METAR' else 'cemaden-temperature', r['code']): r
+                   for r in primary.get('recent_observations', [])}
+    result = []
+    for source, station in sorted({(r['source'], r['station']) for r in history['records']}):
+        ref = sensor_refs.get(station, {}) if source.startswith('cemaden') else {}
+        recent = recent_refs.get((source, station), {})
+        position = all(valid_number(ref.get(k), -limit, limit)
+                       for k, limit in (('latitude', 90), ('longitude', 180)))
+        municipal_point = all(valid_number(point.get(k), -limit, limit)
+                              for k, limit in (('latitude', 90), ('longitude', 180)))
+        distance = (round(haversine_km(point['latitude'], point['longitude'], ref['latitude'], ref['longitude']), 2)
+                    if position and municipal_point else recent.get('distance_km'))
+        result.append({'source': source, 'station': station,
+                       'name': str(ref.get('name') or recent.get('name') or station)[:100],
+                       'municipality': str(ref['municipality'])[:100] if ref.get('municipality') else None,
+                       'latitude': ref['latitude'] if position else None,
+                       'longitude': ref['longitude'] if position else None,
+                       'distance_km': distance if valid_number(distance, 0, 130) else None,
+                       'distance_reference': 'municipal_model_point_not_campus',
+                       'metadata_status': 'coordinates_matched_by_station_code' if position else 'partial'})
+    return result
+
+
 def summarize(analysis, details, epagri, bulletins, defesa, stamp, previous_history=None, sensors=None):
     primary=local(analysis,'araquari')
     if not primary:
@@ -136,6 +164,7 @@ def summarize(analysis, details, epagri, bulletins, defesa, stamp, previous_hist
         'assessment':policy,'protocol':reference(),'gauge_distribution':gauge_distribution(primary.get('observed_rain',{})),
         'forecast':forecast,'forecast_series':chart_rows(detail,stamp),'revision':primary.get('revision',{}),
         'recent_observations':primary.get('recent_observations',[]),'temperature_context':primary.get('temperature_context',{}),
+        'station_catalog':station_catalog(history,primary,detail,sensors),
         'suggestions':primary.get('suggestions',[]),'limitations':primary.get('limitations',[]),
         'complementary_notices':alerts,'source_status':source_status,
         'editorial_context':{'status':bulletins.get('status','unavailable'),'bulletins':bulletins.get('bulletins',[])[:4]},

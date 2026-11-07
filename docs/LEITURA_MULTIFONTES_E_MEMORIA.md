@@ -45,11 +45,21 @@ A expressão genérica “Em avaliação” foi substituída por estados que des
 
 Referências vencidas retiram os indicadores atuais. Uma consulta indisponível não é tratada como ausência de avisos. A interface apresenta os trechos prioritários, os números auxiliares e as lacunas em campos próprios.
 
-## Passado e futuro no mesmo gráfico
+## Observações e previsão em dois gráficos
 
-O modo inicial **Passado + previsão** mostra linhas contínuas para amostras observadas e tracejadas para o modelo, com a publicação como divisor. A chuva usa acumulados de **uma hora em ambos os lados**. O modo exclusivamente observado mantém a opção histórica de acumulados móveis de 24 h, identificada no título. Não há linha contínua ligando uma estação ao modelo nem somas de janelas sobrepostas.
+A visualização inicial **Dois gráficos** apresenta observações e previsão em painéis separados, lado a lado em telas largas e empilhados abaixo de 1.000 px. Os controles também permitem ampliar apenas Observações ou Previsão. Os horários são de Brasília. O horário de geração aparece fora dos gráficos, como **Painel atualizado em**; não representa emissão do modelo nem início de um evento.
 
-Os antecedentes resumem valores de uma mesma referência de estação (por exemplo, mínima/máxima e quantidade de amostras de temperatura nas 24 h anteriores à publicação), sem misturar municípios ou chamar isso de média regional. Períodos ausentes não são reconstruídos; o histórico observado continua limitado a sete dias e às coletas realmente registradas.
+- **Observações:** amostras efetivamente registradas por estação, nos horários informados pela fonte. A chuva começa com acumulados móveis de **1 h**, inclusive no modo exclusivamente observado. O seletor explícito permite consultar **24 h**; essas janelas se sobrepõem e não podem ser somadas.
+- **Previsão:** chuva em barras com início e fim de cada intervalo de **1 h**. A primeira hora pode estar em curso na atualização do painel; a barra representa a hora completa, sem ratear ou apresentar o total como chuva exclusiva do tempo restante.
+- **Intervalos de chuva observada:** cada faixa ocupa apenas a janela informada pela fonte. Não há linha ligando amostras horárias coletadas aproximadamente a cada três horas. Os espaços continuam sem preenchimento, sem interpolação e sem atribuição de zero. Janelas cortadas pela borda do período mantêm seu intervalo integral no detalhe.
+- **Escalas:** no modo com dois gráficos, a mesma variável usa a mesma escala vertical, quando ambos usam a mesma duração de acumulado. Observação de 24 h e previsão de 1 h recebem escalas próprias e aviso explícito de incompatibilidade de acumulados. Os eixos temporais são independentes e identificados; não se mede erro de previsão.
+- **Interatividade:** ponteiro/toque informa os valores e o intervalo completos. No espaço sem intervalo de chuva, o texto informa a ausência de amostra, sem deslocar silenciosamente o ponteiro para outra hora. As setas permitem percorrer registros. É possível isolar uma estação, mantendo suas cores.
+
+O detalhamento recolhido **Entender as diferenças entre estações** apresenta a última amostra por estação/variável, nome disponível, código, localidade, coordenadas disponíveis, distância ao ponto municipal usado pelo modelo, intervalo e idade relativa à atualização. A distância não é ao campus. Metadados Cemaden são associados por código exato ao cadastro de sensores já coletado; ausências são identificadas, sem geocodificação ou posição presumida. Códigos de estações antigas continuam utilizáveis quando o cadastro atual não contém seus nomes.
+
+A comparação numérica deste detalhamento usa apenas os últimos valores de chuva com **o mesmo horário de fim e a mesma duração**; exigir igualdade evita apresentar janelas apenas próximas como idênticas. Leituras de 1 h com mais de uma hora de idade, ou de 24 h com mais de seis horas, não formam esse grupo recente. Exibe quantidade e amplitude, sem atribuir causa às diferenças nem diagnosticar defeito do sensor. Esta regra do gráfico não altera o agrupamento descritivo do cartão de chuva de 24 h, que continua usando tolerância explícita de 30 minutos, nem as regras do enquadramento consultivo.
+
+Os antecedentes resumem amostras de uma mesma referência de estação, sem misturar municípios ou chamar isso de média regional. Períodos ausentes não são reconstruídos; o histórico observado continua limitado a sete dias e às coletas realmente registradas.
 
 ## Memória dos estados e dos avisos
 
@@ -68,4 +78,4 @@ O cabeçalho tem navegação para Visão geral, Evolução, Memória e Dados. O 
 
 ## Validação
 
-Testes cobrem limites e valores inválidos; rotina versus cobertura parcial; picos futuros não usados como confirmação de observações; distância/horário/variável; precedência Epagri; validade das referências; persistência idempotente; lacunas e mudanças de estado; duração nominal versus fuso explícito; seleção de tema e indisponibilidade de armazenamento; chuva horária compatível no gráfico misto.
+Testes cobrem limites e valores inválidos; rotina versus cobertura parcial; picos futuros não usados como confirmação de observações; distância/horário/variável; precedência Epagri; validade das referências; persistência idempotente; lacunas e mudanças de estado; duração nominal versus fuso explícito; seleção de tema e indisponibilidade de armazenamento; gráficos separados, intervalos de chuva sem interpolação, hora prevista em curso, comparação de janelas idênticas, metadados ausentes, filtros por estação, navegação por teclado e renderização repetida ou vazia.
