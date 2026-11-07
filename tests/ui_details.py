@@ -9,6 +9,7 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path[:0]=[str(ROOT/'scripts'),str(ROOT/'src')]
 from build_site import build
 from ui_dashboard import server, OUTPUT
+from ui_style_system import check_style_system
 
 
 def datasets():
@@ -48,7 +49,7 @@ def main():
     data=datasets();OUTPUT.mkdir(exist_ok=True)
     with server() as url,sync_playwright() as playwright:
         browser=playwright.chromium.launch()
-        for width,height in [(1440,1100),(390,844)]:
+        for width,height in [(1440,1100),(768,1050),(390,844),(320,900)]:
             context=browser.new_context(viewport={'width':width,'height':height},color_scheme='light')
             context.route('**/data/**',lambda route: route.fulfill(content_type='application/json',body=json.dumps(data.get('data/'+route.request.url.split('/data/')[-1].split('?')[0],{}))))
             page=context.new_page();errors=[];page.on('pageerror',lambda error:errors.append(str(error)))
@@ -74,6 +75,15 @@ def main():
                     page.get_by_role('tab',name=name,exact=True).click()
                     assert page.locator('[data-explore-panel]:visible').count()==1
                     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),name+' overflow'
+                    for theme in ('light','dark'):
+                        if page.locator('html').get_attribute('data-theme')!=theme:page.locator('#theme-toggle').click()
+                        check_style_system(page)
+                        # Reveal nested controls as well as the collapsed topic view.
+                        panel=page.locator('[data-explore-panel]:visible')
+                        panel.locator('details').evaluate_all("els=>els.forEach(el=>el.open=true)")
+                        check_style_system(page)
+                        page.screenshot(path=str(OUTPUT/f'style-{page.locator("[data-explore-panel]:visible").get_attribute("data-explore-panel")}-{theme}-{width}.png'),full_page=True)
+                        panel.locator('details').evaluate_all("els=>els.forEach(el=>el.open=false)")
                 page.get_by_role('tab',name='Previsões',exact=True).click()
                 page.locator('#chart svg').wait_for()
                 page.locator('#chart svg').focus();page.keyboard.press('Home')

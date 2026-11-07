@@ -36,3 +36,17 @@ O tema claro/escuro e a preferência persistida são preservados. Os recursos de
 A validação inclui os testes Python e JavaScript existentes, geração/validação do site e navegador real nas duas páginas. Os testes de UX cobrem 320, 390, 768 e 1440 px, ambos os temas, links diretos, teclado, fontes, filtros, seleção de município, modelos e fixação/liberação da leitura por toque/clique.
 
 Reversão: reverter o PR restaura a apresentação anterior sem migração, perda de históricos ou alteração de classificação. Não há credenciais novas ou consultas externas adicionais.
+
+## Padronização dos componentes
+
+`web/essential.css` concentra os padrões compartilhados, organizados em seções legíveis: paleta, tipografia, navegação, ações, controles, expansões, painéis, indicadores, gráficos/tabelas, diálogos e responsividade. Os arquivos anteriores conservam os layouts específicos e as cores semânticas dos níveis de risco.
+
+- Fundo claro `#edf2f0`, superfície `#f5f8f6` e superfície secundária `#e4ece7`: um passo mais escuros que a versão anterior. O escuro mantém a base grafite.
+- Escala de espaçamento de 4, 8, 12, 16, 24 e 32 px. Painéis usam 24 px de recuo interno no computador e 16 px no celular; itens internos usam 12 ou 16 px conforme a densidade. Cantos de painéis com 8 px e controles com 6 px.
+- Textos explicativos com 14 px, metadados com 13 px e rótulos com 12 px. A hierarquia de títulos distingue página, seção e painel; controles de seleção sobem para 16 px no celular para evitar zoom automático.
+- Botões, filtros, links de ação e resumos expansíveis têm área de interação mínima de 44 × 44 px. Ações usam a mesma altura, fonte, borda, foco visível e estado de hover. Links no meio do texto mantêm a apresentação de link.
+- As expansões usam o mesmo indicador à esquerda; conteúdo aberto recebe o mesmo recuo dos outros painéis. Painéis aninhados não duplicam bordas e cantos.
+- Atualizar continua junto à referência de atualização nas duas páginas, inclusive no celular. Ações locais permanecem junto do respectivo conteúdo.
+- Indicadores conservam a composição em faixas e os gráficos mantêm seus controles, fontes e separação entre medição e previsão.
+
+Os testes de navegador verificam controles e expansões abertos/fechados nos seis assuntos da página detalhada, temas claro/escuro e larguras de 320, 390, 768 e 1440 px. Conferem contraste de texto dos controles de pelo menos 4,5:1, áreas de toque, ausência de rolagem horizontal da página e preservação das interações. Tabelas largas e a navegação por assuntos continuam com rolagem local. Diálogos também são conferidos com foco e fechamento por Escape.

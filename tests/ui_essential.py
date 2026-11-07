@@ -3,9 +3,11 @@ import json
 from ui_dashboard import fixture,server,OUTPUT
 from ui_details import datasets
 from ui_forecasts import comparison_fixture
+from ui_style_system import check_style_system
 
 
 def check_compact_header(page,width):
+    check_style_system(page)
     assert page.locator('h1').count()==1
     assert page.locator('.site-brand,.hero-eyebrow').count()==0
     bar=page.locator('.sitebar').bounding_box()

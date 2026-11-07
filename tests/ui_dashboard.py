@@ -10,6 +10,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
 from threading import Thread
+from ui_style_system import check_style_system
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / 'ui-artifacts'
@@ -88,6 +89,7 @@ def check_layout(page):
     page.get_by_role('button', name='Por que esta leitura?').click()
     assert page.get_by_role('dialog').is_visible()
     assert '20,8' in page.get_by_role('dialog').inner_text()
+    check_style_system(page)
     page.keyboard.press('Escape')
     assert not page.get_by_role('dialog').is_visible()
     page.get_by_label('Área', exact=True).select_option('nearby')
@@ -143,6 +145,15 @@ def main():
             page.screenshot(path=str(OUTPUT/f'attention-light-{width}.png'), full_page=True)
             page.locator('#theme-toggle').click()
             assert page.locator('html').get_attribute('data-theme') == 'dark'
+            check_style_system(page)
+            for trigger in ['level-explain','methods-open','protocol-open']:
+                page.locator('#'+trigger).click()
+                check_style_system(page)
+                page.keyboard.press('Tab')
+                page.locator('#dialog-close').focus()
+                assert page.locator('#dialog-close').evaluate("el=>getComputedStyle(el).outlineStyle!=='none'")
+                page.keyboard.press('Escape')
+                assert not page.get_by_role('dialog').is_visible()
             page.screenshot(path=str(OUTPUT/f'attention-dark-{width}.png'), full_page=True)
             context.close()
         # Positive routine data may show descriptive green; missing/expired data may not.
