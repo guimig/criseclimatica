@@ -1,5 +1,5 @@
 """Actual Chromium checks for topic navigation and rich station data (CI only)."""
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import json
 from pathlib import Path
 import sys
@@ -20,6 +20,17 @@ def datasets():
     for data in result.values():
         if isinstance(data,dict):data.pop('fixture_mode',None)
     stamp=datetime.now(timezone.utc).isoformat().replace('+00:00','Z')
+    # The model fixture has fixed historical timestamps. Move only test model
+    # references forward so that a current-view interaction can be exercised.
+    anchor=datetime.now(timezone.utc).replace(minute=0,second=0,microsecond=0)
+    iso=lambda t:t.isoformat().replace('+00:00','Z')
+    for path,model in result.items():
+        if path.startswith('data/places/'):
+            model['current']['time']=iso(anchor)
+            for index,row in enumerate(model['hourly']):row['time']=iso(anchor+timedelta(hours=index))
+            for index,row in enumerate(model['daily']):row['time']=(anchor+timedelta(days=index)).date().isoformat()
+    for place in result['data/latest.json']['locations']:
+        if place.get('current'):place['current']['time']=iso(anchor)
     catalog=[{'code':code,'name':name,'municipality':'Araquari','latitude':-26.37,'longitude':-48.72,'readings':[]}
              for code,name in [('420130701A','Rainha'),('420130702A','Porto Grande'),('420130704A','Centro')]]
     rain=result['data/cemaden.json'];rain.update(status='available',checked_at=stamp)
