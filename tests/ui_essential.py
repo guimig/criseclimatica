@@ -5,6 +5,31 @@ from ui_details import datasets
 from ui_forecasts import comparison_fixture
 
 
+def check_compact_header(page,width):
+    assert page.locator('h1').count()==1
+    assert page.locator('.site-brand,.hero-eyebrow').count()==0
+    bar=page.locator('.sitebar').bounding_box()
+    assert bar['height']<=64, f"Header must fit one compact row at {width}px: {bar}"
+    links=page.locator('.site-nav a')
+    assert links.all_text_contents()==['Painel','Dados e fontes']
+    assert page.locator('.site-nav [aria-current="page"]').count()==1
+    button=page.locator('#theme-toggle').bounding_box()
+    assert button['height']>=44 and button['width']>=44
+    assert button['x']+button['width']<=width
+    assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+    # Check actual rendered text contrast in both palettes, including muted navigation.
+    assert page.evaluate("""() => {
+      const rgb=s=>(s.match(/[0-9.]+/g)||[]).slice(0,3).map(Number);
+      const luminance=c=>c.map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4}).reduce((s,v,i)=>s+v*[.2126,.7152,.0722][i],0);
+      const bg=luminance(rgb(getComputedStyle(document.querySelector('.sitebar')).backgroundColor));
+      return [...document.querySelectorAll('.site-nav a,#theme-toggle')].every(el=>{
+        const style=getComputedStyle(el),color=luminance(rgb(style.color));
+        const surface=style.backgroundColor==='rgba(0, 0, 0, 0)'?bg:luminance(rgb(style.backgroundColor));
+        return (Math.max(color,surface)+.05)/(Math.min(color,surface)+.05)>=4.5;
+      });
+    }"""), 'Header text must retain readable contrast'
+
+
 def main():
     from playwright.sync_api import sync_playwright
     home=fixture();comp=comparison_fixture(home['dashboard.json']['generated_at']);home['dashboard.json']['forecast_comparison']=comp
@@ -56,8 +81,10 @@ def main():
                 chart.focus();page.keyboard.press('Escape');assert chart.get_attribute('data-pinned')=='false'
                 page.locator('#forecast-variable').select_option('precipitation_mm')
                 assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+                check_compact_header(page,width)
                 page.screenshot(path=str(OUTPUT/f'essential-home-light-{width}.png'),full_page=True)
-                page.locator('#theme-toggle').click();page.screenshot(path=str(OUTPUT/f'essential-home-dark-{width}.png'),full_page=True)
+                page.locator('#theme-toggle').click();check_compact_header(page,width)
+                page.screenshot(path=str(OUTPUT/f'essential-home-dark-{width}.png'),full_page=True)
                 # Align default plot starts while the extra filters are closed.
                 if width==1440:
                     a,b=page.locator('#plot').bounding_box(),page.locator('#forecast-plot').bounding_box()
@@ -71,8 +98,10 @@ def main():
                 page.keyboard.press('Escape')
                 assert not page.locator('#detail-chart-tooltip').is_visible()
                 assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+                check_compact_header(page,width)
                 page.screenshot(path=str(OUTPUT/f'essential-details-light-{width}.png'),full_page=True)
-                page.locator('#theme-toggle').click();page.screenshot(path=str(OUTPUT/f'essential-details-dark-{width}.png'),full_page=True)
+                page.locator('#theme-toggle').click();check_compact_header(page,width)
+                page.screenshot(path=str(OUTPUT/f'essential-details-dark-{width}.png'),full_page=True)
                 page.goto(url+'dados.html#model-comparison');page.locator('#model-comparison [data-chart-hit]').wait_for()
                 page.locator('#model-comparison svg').focus();page.keyboard.press('Home')
                 assert 'ECMWF' in page.locator('.comparison-tooltip').inner_text()
@@ -81,6 +110,6 @@ def main():
                 print('Overflow debug',page.evaluate("[...document.querySelectorAll('body *')].map(el=>({tag:el.tagName,id:el.id,cls:typeof el.className==='string'?el.className:'',right:el.getBoundingClientRect().right,width:el.getBoundingClientRect().width})).filter(el=>el.width>0&&el.right>innerWidth+1).slice(-35)"));page.screenshot(path=str(OUTPUT/f'essential-failure-{width}.png'),full_page=True);raise
             finally:context.close()
         browser.close()
-    print('Essential UX passed: real data wiring, no slogans, independent variables, hover/touch/keyboard cursor, pin/Escape, shared identity, 320–1440px and both themes.')
+    print('Essential UX passed: compact header, navigation contrast, real data wiring, no slogans, independent variables, hover/touch/keyboard cursor, pin/Escape, shared identity, 320–1440px and both themes.')
 
 if __name__=='__main__':main()
