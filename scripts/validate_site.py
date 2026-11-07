@@ -49,6 +49,31 @@ def validate(output: Path, *, fixture: bool = False) -> None:
             or (data / "forecast_snapshot.json").stat().st_size > 1_000_000):
         raise ValueError("Invalid bounded forecast snapshot")
 
+    comparison = json.loads((data / 'forecast_comparison.json').read_text(encoding='utf-8'))
+    model_archive = json.loads((data / 'model_forecast_history.json').read_text(encoding='utf-8'))
+    if (comparison.get('kind') != 'araquari_comparable_forecasts_not_probability'
+            or comparison.get('generated_at') != overview.get('generated_at')
+            or comparison.get('location_id') != 'araquari'
+            or comparison.get('fixture_mode', False) is not fixture
+            or comparison.get('primary_id') != 'best_match'
+            or comparison.get('cptec', {}).get('numeric_comparison') is not False):
+        raise ValueError('Invalid comparative forecasts')
+    for window in comparison.get('windows', []):
+        for metric in window['metrics']:
+            eligible = [m['value'] for m in metric['members'] if m['value'] is not None]
+            if metric['status'] == 'comparable' and (len(eligible) < 2 or min(eligible) != metric['minimum'] or max(eligible) != metric['maximum']):
+                raise ValueError('Invalid comparative range')
+            if any(m['value'] is not None and m['valid_hours'] != window['hours'] for m in metric['members']):
+                raise ValueError('Incomplete comparison window cannot produce a total or maximum')
+    if (model_archive.get('kind') != 'araquari_forecasts_saved_before_verification'
+            or model_archive.get('generated_at') != overview.get('generated_at')
+            or model_archive.get('fixture_mode', False) is not fixture
+            or model_archive.get('verification_performed') is not False
+            or len(model_archive.get('publications', [])) > 64
+            or (data / 'model_forecast_history.json').stat().st_size > 5_000_000
+            or overview.get('model_comparison_archive_published') is not True):
+        raise ValueError('Invalid bounded multi-model forecast archive')
+
     stations = json.loads((data / "stations.json").read_text(encoding="utf-8"))
     alerts = json.loads((data / "alerts.json").read_text(encoding="utf-8"))
     observations = json.loads((data / "observations.json").read_text(encoding="utf-8"))

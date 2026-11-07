@@ -6,7 +6,7 @@
   <meta name="description" content="Painel independente de acompanhamento meteorológico de Araquari. Evidências, evolução e níveis de referência em uma leitura objetiva.">
   <title>Araquari | Observatório do Tempo</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-  <script src="./theme.js"></script><link rel="stylesheet" href="./dashboard.css"><script defer src="./dashboard.js"></script>
+  <script src="./theme.js"></script><link rel="stylesheet" href="./dashboard.css"><link rel="stylesheet" href="./forecasts.css"><script defer src="./forecasts.js"></script><script defer src="./dashboard.js"></script>
 </head>
 <body>
   <a class="skip" href="#main">Ir para o conteúdo</a>
@@ -25,6 +25,7 @@
       <button class="metric" data-focus="gust_kmh" type="button"><span class="metric-label">MAIOR RAJADA · 24 H</span><strong id="gust-value">—</strong><span id="gust-note">Previsão · horário identificado</span><span class="metric-action">Ver no gráfico ↓</span></button>
       <button class="metric" data-focus="temperature_c" type="button"><span class="metric-label">TEMPERATURA MÁX. · 24 H</span><strong id="temperature-value">—</strong><span id="temperature-note">Previsão · temperatura do ar</span><span class="metric-action">Ver no gráfico ↓</span></button>
     </section>
+    <section class="forecast-comparison-card" aria-labelledby="comparison-title"><h2 id="comparison-title">Como as previsões variam?</h2><div id="forecast-comparison"><p class="comparison-note">Verificando previsões comparáveis para Araquari…</p></div></section>
     <section id="evolution" class="card chart-card" aria-labelledby="chart-heading">
       <div class="chart-top"><div><p class="eyebrow">EVOLUÇÃO NO TEMPO</p><h2 id="chart-heading">Chuva · observações e previsão</h2></div><span id="chart-period" class="small"></span></div>
       <div class="shared-chart-controls" role="group" aria-label="Controles compartilhados dos gráficos">

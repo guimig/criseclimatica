@@ -16,6 +16,10 @@ O painel usa referências numéricas auxiliares INMET para chuva e vento, com va
 
 A apresentação distingue normalidade nos dados monitorados de leitura incompleta, usa as seis cores da norma e permite explorar o entorno sem misturar seus dados com Araquari. Veja [UX, cores e cobertura das estações](docs/UX_E_CORES_DO_PAINEL.md).
 
+## Comparação de previsões
+
+A inicial mostra faixas de 24 h; a área detalhada compara seleção automática Open-Meteo, ECMWF IFS e NOAA GFS por variável e período. CPTEC aparece como contexto diário separado. Não há média, probabilidade ou superioridade local presumida. Previsões futuras são arquivadas por coleta durante sete dias. Veja [fontes, períodos e limites](docs/COMPARACAO_DE_PREVISOES.md).
+
 ## O que está implementado
 
 - Open-Meteo: estimativas atuais e previsão horária/diária, com identificação explícita de modelo.
