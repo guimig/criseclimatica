@@ -280,3 +280,11 @@ const contextData={...data,inmet_context:{status:'available',retrieved_at:data.g
 assert.deepEqual(inmetNotices(contextData,now).map(n=>n.id),['live','unverified']);
 assert.equal(inmetNotices(contextData,now+7*3600000).length,0);
 assert.equal(inmetNotices({...contextData,inmet_context:{status:'unavailable'}},now).length,0);
+
+const {inmetContextStatus}=require('../web/dashboard.js');
+assert.match(inmetContextStatus(null,now).title,/Consultando/);
+assert.match(inmetContextStatus({...data,inmet_context:{status:'unavailable'}},now).title,/indisponível/);
+assert.match(inmetContextStatus({...data,inmet_context:{status:'available',retrieved_at:data.generated_at,notices:[]}},now).title,/Nenhum aviso/);
+assert.match(inmetContextStatus(contextData,now).title,/Avisos para Araquari/);
+assert.match(inmetContextStatus(contextData,now+7*3600000).title,/desatualizada/);
+assert.doesNotMatch(html, /id="inmet-context"[^>]*\bhidden\b/);

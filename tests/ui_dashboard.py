@@ -169,7 +169,13 @@ def main():
         page.get_by_role('heading', name='Normalidade nos dados acompanhados').wait_for()
         assert page.locator('#level-card').get_attribute('data-risk') == 'verde'
         page.screenshot(path=str(OUTPUT/'normality-light-1440.png'), full_page=True)
-        assert not page.locator('#inmet-context').is_visible()
+        assert page.locator('#inmet-context').is_visible()
+        page.locator('#inmet-context > summary').click()
+        assert 'indisponível' in page.locator('#inmet-title').inner_text()
+        data['dashboard.json']['inmet_context'] = {'status': 'available', 'retrieved_at': data['dashboard.json']['generated_at'], 'notices': []}
+        page.reload()
+        page.locator('#inmet-context > summary').click()
+        assert 'Nenhum aviso aplicável' in page.locator('#inmet-title').inner_text()
         data['dashboard.json']['inmet_context'] = {'status': 'available', 'retrieved_at': data['dashboard.json']['generated_at'],
             'notices': [{'id': 'test', 'type': 'Tempestade regional', 'severity': 'Grande perigo', 'lifecycle': 'unverified',
                 'window_as_reported': 'Horários conforme a fonte', 'risks': ['Granizo'], 'instructions': ['Consulte a fonte'],

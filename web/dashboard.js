@@ -420,13 +420,22 @@ function appendInmetNotice(body,n) {
   for(const text of (n.instructions||[]).filter(t=>typeof t==='string').slice(0,2))paragraph(card,'Orientação INMET: '+text);
   body.append(card);
 }
+function inmetContextStatus(data,now=Date.now()) {
+  const feed=data?.inmet_context||data?.complementary_notices;
+  if(!data)return {title:'Consultando avisos INMET',description:'Aguardando a consulta de Araquari e entorno.'};
+  if(feed?.retrieved_at&&!fresh(feed.retrieved_at,6,now))return {title:'Consulta INMET desatualizada',description:'Não foi possível confirmar a situação atual dos avisos. Consulte o portal oficial.'};
+  if(feed?.status!=='available'||!fresh(feed.retrieved_at,6,now))return {title:'Consulta INMET indisponível',description:'Não foi possível verificar os avisos de Araquari e entorno nesta publicação. Indisponibilidade não significa ausência de avisos.'};
+  const count=inmetNotices(data,now).length;
+  return count?{title:'Avisos para Araquari e entorno',description:`${count} aviso(s) retornado(s). Confira abaixo os municípios abrangidos, o período e as limitações de validade.`}:
+    {title:'Nenhum aviso aplicável retornado',description:'A consulta INMET não retornou avisos não encerrados para Araquari e o entorno monitorado. Isso não comprova ausência de risco.'};
+}
 function renderInmetContext() {
-  const target=el('inmet-notices'),notices=inmetNotices(panel.data);
-  el('inmet-context').hidden=!notices.length;
+  const target=el('inmet-notices'),notices=inmetNotices(panel.data),status=inmetContextStatus(panel.data);
+  const feed=panel.data?.inmet_context||panel.data?.complementary_notices;
+  el('inmet-title').textContent=status.title;
+  el('inmet-description').textContent=status.description;
+  el('inmet-updated').textContent=feed?.retrieved_at?'Consulta registrada em '+date(feed.retrieved_at)+'. Abrangência por município; distâncias entre pontos de referência.':'Sem horário de consulta verificável.';
   target.replaceChildren();
-  if(!notices.length)return;
-  const feed=panel.data.inmet_context||panel.data.complementary_notices;
-  el('inmet-updated').textContent='Consulta em '+date(feed.retrieved_at)+'. Abrangência por município; distâncias entre pontos de referência.';
   for(const notice of notices)appendInmetNotice(target,notice);
 }
 function showEvidence() {
@@ -521,7 +530,7 @@ async function loadDashboard() {
   finally{if(id===panel.loadId){panel.loading=false;el('refresh').disabled=false;renderSummary();renderRecent();renderMemory();renderChart();}}
 }
 function selectVariable(variable) {panel.variable=variable;if(el('forecast-variable'))el('forecast-variable').value=variable;for(const button of document.querySelectorAll('[data-variable]')){const selected=button.dataset.variable===variable;button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));}renderChart();}
-if(typeof module!=='undefined')module.exports={inmetNotices,fresh,dashboardCurrent,protocolCurrent,forecastCurrent,currentGauges,signalCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale,chartReadingsAt,chartReadingText};
+if(typeof module!=='undefined')module.exports={inmetContextStatus,inmetNotices,fresh,dashboardCurrent,protocolCurrent,forecastCurrent,currentGauges,signalCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale,chartReadingsAt,chartReadingText};
 if(typeof document!=='undefined'){
   function navigationState(){if(location.hash==='#memory')el('memory').open=true;for(const link of document.querySelectorAll('nav a[href^="#"]')){const active=link.getAttribute('href')===(location.hash||'#main');if(active)link.setAttribute('aria-current','location');else link.removeAttribute('aria-current');}}
   window.addEventListener('hashchange',navigationState);navigationState();
