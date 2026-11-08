@@ -54,6 +54,8 @@ O Actions verifica a publicação a cada 20 min (minutos 7, 27 e 47), com coleta
 
 ## Estrutura e execução
 
+A [auditoria geral de consistência e recuperação](docs/AUDITORIA_GERAL_2026_11_08.md) documenta a identidade compartilhada dos JSON, a recusa de arquivos de publicações diferentes e a recuperação automática do histórico observado.
+
 A [revisão geral da aplicação de 08/11/2026](docs/REVISAO_APLICACAO_2026_11_08.md) registra as correções de backend, frontend, publicação e documentação, com testes e limitações. A [arquitetura](docs/ARQUITETURA.md) descreve o fluxo atual e as garantias de consistência.
 
 - `src/observatorio/`: adaptadores, normalização, qualidade, cobertura e arquivos compactos.

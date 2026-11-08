@@ -36,6 +36,14 @@ def validate(output: Path, *, fixture: bool = False) -> None:
     history = json.loads((data / "history.json").read_text(encoding="utf-8"))
     analysis = json.loads((data / "analysis.json").read_text(encoding="utf-8"))
     snapshot = json.loads((data / "forecast_snapshot.json").read_text(encoding="utf-8"))
+    publication = overview.get('publication_at')
+    if publication is not None:
+        if publication != overview.get('generated_at'):
+            raise ValueError('Invalid publication identity')
+        for path in data.rglob('*.json'):
+            payload = json.loads(path.read_text(encoding='utf-8'))
+            if not isinstance(payload, dict) or payload.get('publication_at') != publication:
+                raise ValueError(f'Mixed publication artifact: {path.relative_to(data)}')
     expected_ids = {row["id"] for row in overview.get("locations", [])}
     if (analysis.get("schema_version") != 1 or analysis.get("kind") != "meteorological_evidence_and_advisory_not_institutional_decision"
             or analysis.get("primary_location_id") != "araquari" or "araquari" not in expected_ids

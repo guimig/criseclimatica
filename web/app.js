@@ -74,6 +74,17 @@ async function readJson(url) {
     return await response.json();
   } finally { clearTimeout(timeout); }
 }
+function publicationMatches(payload, overview) {
+  if(!payload||typeof payload!=='object'||payload.fixture_mode)return false;
+  // A versioned manifest requires every component from that same artifact.
+  if(overview.publication_at!==undefined)return payload.publication_at===overview.generated_at;
+  return payload.publication_at===undefined||payload.publication_at===overview.generated_at;
+}
+async function readSource(path, overview) {
+  const payload=await readJson(path);
+  if(!publicationMatches(payload,overview))throw new Error('Source publication mismatch');
+  return payload;
+}
 function setStatus(message, kind) {
   $('system-status').textContent = message;
   $('signal').className = 'signal' + (kind ? ' ' + kind : '');
@@ -997,7 +1008,7 @@ async function selectLocation(slug) {
   try {
     let detail;
     for(let attempt=0;attempt<2;attempt++){
-      detail=await readJson(`./data/places/${slug}.json`);
+      detail=await readSource(`./data/places/${slug}.json`,state.overview);
       if(!place.collected_at||detail.collected_at===place.collected_at)break;
       detail=null;
     }
@@ -1023,30 +1034,31 @@ async function boot() {
   try {
     const overview = await readJson('./data/latest.json');
     if (!Array.isArray(overview.locations) || overview.schema_version !== 1 || overview.fixture_mode||!Number.isFinite(Date.parse(overview.generated_at))||Date.parse(overview.generated_at)>Date.now()+600000) throw new Error('Invalid or test dataset');
+    if (overview.publication_at!==undefined&&overview.publication_at!==overview.generated_at)throw new Error('Invalid publication identity');
     if (bootId !== state.bootId) return;
     if(state.overview&&Date.parse(overview.generated_at)<Date.parse(state.overview.generated_at))throw new Error('Older publication received');
     const sameVersion=state.overview?.generated_at===overview.generated_at;
     const previousSources=Object.fromEntries(sourceFields.map(key=>[key,state[key]]));
     const [stations, history, alerts, observations, rain, noticeArchive, nasa, cemaden, cemadenSensors, cptec, defesa, archive, epagriGeo, epagriNotices, epagriBulletins, regionalQuality, coverage, alignment, analysis] = await Promise.all([
-      readJson('./data/stations.json').catch(() => null),
-      readJson('./data/history.json').catch(() => null),
-      readJson('./data/alerts.json').catch(() => null),
-      readJson('./data/observations.json').catch(() => null),
-      readJson('./data/rain_gauges.json').catch(() => null),
-      readJson('./data/notice_history.json').catch(() => null),
-      readJson('./data/nasa_power.json').catch(() => null),
-      readJson('./data/cemaden.json').catch(() => null),
-      readJson('./data/cemaden_sensors.json').catch(() => null),
-      readJson('./data/cptec.json').catch(() => null),
-      readJson('./data/defesa_civil_sc.json').catch(() => null),
-      readJson('./data/inmet_archive.json').catch(() => null),
-      readJson('./data/epagri_geo.json').catch(() => null),
-      readJson('./data/epagri_notices.json').catch(() => null),
-      readJson('./data/epagri_bulletins.json').catch(() => null),
-      readJson('./data/regional_quality.json').catch(() => null),
-      readJson('./data/coverage.json').catch(() => null),
-      readJson('./data/territorial_alignment.json').catch(() => null),
-      readJson('./data/analysis.json').catch(() => null),
+      readSource('./data/stations.json', overview).catch(() => null),
+      readSource('./data/history.json', overview).catch(() => null),
+      readSource('./data/alerts.json', overview).catch(() => null),
+      readSource('./data/observations.json', overview).catch(() => null),
+      readSource('./data/rain_gauges.json', overview).catch(() => null),
+      readSource('./data/notice_history.json', overview).catch(() => null),
+      readSource('./data/nasa_power.json', overview).catch(() => null),
+      readSource('./data/cemaden.json', overview).catch(() => null),
+      readSource('./data/cemaden_sensors.json', overview).catch(() => null),
+      readSource('./data/cptec.json', overview).catch(() => null),
+      readSource('./data/defesa_civil_sc.json', overview).catch(() => null),
+      readSource('./data/inmet_archive.json', overview).catch(() => null),
+      readSource('./data/epagri_geo.json', overview).catch(() => null),
+      readSource('./data/epagri_notices.json', overview).catch(() => null),
+      readSource('./data/epagri_bulletins.json', overview).catch(() => null),
+      readSource('./data/regional_quality.json', overview).catch(() => null),
+      readSource('./data/coverage.json', overview).catch(() => null),
+      readSource('./data/territorial_alignment.json', overview).catch(() => null),
+      readSource('./data/analysis.json', overview).catch(() => null),
     ]);
     if (bootId !== state.bootId) return;
     state.overview = overview;

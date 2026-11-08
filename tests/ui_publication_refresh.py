@@ -9,10 +9,12 @@ from ui_forecasts import comparison_fixture
 
 def main():
     from playwright.sync_api import sync_playwright
-    data=fixture();offline=False;counts={}
+    data=fixture();offline=False;fail_history=True;counts={}
     def route(request):
         name=request.request.url.split('/')[-1].split('?')[0]
         counts[name]=counts.get(name,0)+1
+        if fail_history and name=='observation_history.json':
+            request.abort('internetdisconnected');return
         if offline and name=='latest.json':
             request.abort('internetdisconnected');return
         request.fulfill(content_type='application/json',body=json.dumps(data[name]))
@@ -23,6 +25,10 @@ def main():
         page.route('**/data/*.json*',route)
         page.goto(url)
         page.wait_for_function("document.getElementById('forecast-value').textContent.includes('18,0')")
+        assert page.evaluate('panel.incompleteHistory&&panel.history===null')
+        fail_history=False
+        page.clock.fast_forward(61000)
+        page.wait_for_function('!panel.incompleteHistory&&panel.history!==null')
         initial=counts.get('dashboard.json',0)
         page.clock.fast_forward(61000)
         page.wait_for_function('!panel.loading')
@@ -45,6 +51,11 @@ def main():
         offline=False
         page.clock.fast_forward(61000)
         page.wait_for_function("document.getElementById('publication-status').hidden")
+        # Captions must age while an offline tab stays open, without requiring
+        # an interaction to repaint the historical charts.
+        offline=True
+        page.clock.fast_forward(3*3600000+61000)
+        page.wait_for_function("document.getElementById('chart-caption').textContent.includes('Atualização vencida')")
         # The detailed multi-model comparison has an independent loader. It
         # must follow publication changes too, retaining the chosen controls.
         details=datasets();comp=comparison_fixture(details['data/latest.json']['generated_at']);fail_cemaden=True
@@ -64,6 +75,19 @@ def main():
         detail.wait_for_function('state.cemaden!==null&&!state.incompletePublication')
         # Same publication, one failed secondary request: keep the valid cache
         # but continue retrying until that component has been verified again.
+        # A secondary response from another artifact is not accepted even if
+        # its individual measurement dates still look recent.
+        version=details['data/latest.json']['generated_at']
+        for payload in details.values():payload['publication_at']=version
+        details['data/cemaden.json']['publication_at']='2000-01-01T00:00:00Z'
+        detail.locator('#reload').click()
+        detail.wait_for_function('state.incompletePublication')
+        assert detail.evaluate('state.cemaden!==null') # verified same-version cache
+        details['data/cemaden.json']['publication_at']=version
+        detail.clock.fast_forward(61000)
+        detail.wait_for_function('!state.incompletePublication')
+        # Return to the legacy fixture contract for the independent clock tests.
+        for payload in details.values():payload.pop('publication_at',None)
         fail_cemaden=True
         detail.locator('#reload').click()
         detail.wait_for_function('state.incompletePublication')
