@@ -34,7 +34,7 @@ O acumulado móvel de 24 h é **aproximação comparativa** da referência diár
 8. Vermelho não é emitido apenas por soma ou média de números; preserva-se o critério qualitativo prioritário anterior. Roxo continua exigindo verificação externa de impactos/decretos. Não há conversão automática de cor de aviso INMET em nível do IFC.
 9. Referências auxiliares vencem junto às observações que as sustentam (chuva 1 h: idade máxima de 1 h; METAR: 2 h; acumulado 24 h: 6 h). A validade da sugestão é reduzida quando necessário. O vencimento do apoio de curta duração não apaga previsões ainda válidas: a interface retorna ao enquadramento prioritário ainda válido ou a Monitoramento parcial, com a limitação explícita.
 
-A regra é identificada como `numeric-support-v1`, com integração `pn13-14-2026-multisource-v2`. Mudanças metodológicas iniciam novos episódios históricos; não reclassificam retroativamente o passado.
+A regra é identificada como `numeric-support-v1`, com integração `pn13-14-2026-multisource-v3`. Mudanças metodológicas iniciam novos episódios históricos; não reclassificam retroativamente o passado.
 
 > A apresentação foi revisada: [textos da situação, seis cores, gráficos por estação e entorno](UX_E_CORES_DO_PAINEL.md). Os identificadores de acompanhamento abaixo permanecem no histórico, mas a página usa descrições mais diretas.
 
@@ -83,3 +83,6 @@ O cabeçalho compacto tem links Painel e Dados e fontes, além do botão de tema
 ## Validação
 
 Testes cobrem limites e valores inválidos; rotina versus cobertura parcial; picos futuros não usados como confirmação de observações; distância/horário/variável; precedência Epagri; validade das referências; persistência idempotente; lacunas e mudanças de estado; duração nominal versus fuso explícito; seleção de tema e indisponibilidade de armazenamento; gráficos separados, intervalos de chuva sem interpolação, hora prevista em curso, comparação de janelas idênticas, metadados ausentes, filtros por estação, navegação por teclado e renderização repetida ou vazia.
+
+
+Desde 08/11/2026, avisos INMET têm detalhamento próprio na home quando retornam evidências para Araquari ou entorno monitorado até 40 km. São contexto sem participação em nível, cor, estado de acompanhamento ou completude. Isso não remove as referências quantitativas auxiliares de chuva/vento já utilizadas. Ver seleção territorial, validade e contratos na seção 14 de [Algoritmo de classificação](ALGORITMO_CLASSIFICACAO_NIVEIS.md).

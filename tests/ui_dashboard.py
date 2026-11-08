@@ -169,6 +169,21 @@ def main():
         page.get_by_role('heading', name='Normalidade nos dados acompanhados').wait_for()
         assert page.locator('#level-card').get_attribute('data-risk') == 'verde'
         page.screenshot(path=str(OUTPUT/'normality-light-1440.png'), full_page=True)
+        assert not page.locator('#inmet-context').is_visible()
+        data['dashboard.json']['inmet_context'] = {'status': 'available', 'retrieved_at': data['dashboard.json']['generated_at'],
+            'notices': [{'id': 'test', 'type': 'Tempestade regional', 'severity': 'Grande perigo', 'lifecycle': 'unverified',
+                'window_as_reported': 'Horários conforme a fonte', 'risks': ['Granizo'], 'instructions': ['Consulte a fonte'],
+                'municipalities': [{'location_id': 'joinville', 'name': 'Joinville', 'distance_km': 14.9}]}]}
+        page.reload()
+        page.locator('#inmet-context').wait_for(state='visible')
+        page.locator('#inmet-context > summary').click()
+        assert 'Joinville' in page.locator('#inmet-notices').inner_text()
+        assert 'não confirma inclusão de Araquari' in page.locator('#inmet-notices').inner_text()
+        assert 'vigência não confirmada' in page.locator('#inmet-notices').inner_text()
+        assert 'Granizo' in page.locator('#inmet-notices').inner_text()
+        assert page.locator('#level-card').get_attribute('data-risk') == 'verde'
+        check_style_system(page)
+
         policy['monitoring_state'] = 'partial'
         policy['numeric_support']['core_complete'] = False
         page.reload()

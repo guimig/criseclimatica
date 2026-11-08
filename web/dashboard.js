@@ -50,10 +50,7 @@ function effectiveAssessment(data,now=Date.now()) {
   const policy=data?.assessment;
   const objective=policy?.numeric_support;
   const expired=objective?.signals?.filter(s=>!signalCurrent(s,data,now))||[];
-  const complementary=data?.complementary_notices;
-  const contextExpired=complementary?.notices?.some(e=>e.lifecycle!=='expired'&&e.end_at&&now>=Date.parse(e.end_at))||
-    (complementary?.retrieved_at&&!fresh(complementary.retrieved_at,6,now));
-  if(protocolCurrent(data,now)&&!expired.length&&!contextExpired)return policy;
+  if(protocolCurrent(data,now)&&!expired.length)return policy;
   const base=currentPrimaryAssessment(data,now);
   if(dashboardCurrent(data,now)&&base&&now<Date.parse(base.valid_until)) {
     const signals=(objective?.signals||[]).filter(s=>signalCurrent(s,data,now));
@@ -64,12 +61,10 @@ function effectiveAssessment(data,now=Date.now()) {
     const numericWins=proposal&&levels[proposal]>(levels[base.suggested_level]??-1);
     const suggested=numericWins?proposal:base.suggested_level;
     const maximum=signals.length?Math.max(...signals.map(s=>s.band)):null;
-    const notices=complementary?.notices;
-    const noticesFresh=!complementary?.retrieved_at||fresh(complementary.retrieved_at,6,now);
-    const official=(notices?noticesFresh&&complementary.status==='available'&&notices.some(e=>e.lifecycle!=='expired'&&(!e.end_at||now<Date.parse(e.end_at))):objective?.has_complementary_notices)||base.evidence?.some(e=>e.status==='eligible');
+    const official=base.evidence?.some(e=>e.status==='eligible');
     const pending=base.evidence?.some(e=>e.status==='needs_territorial_or_temporal_check'&&(e.scope!=='not_verified'||!e.regions_text));
     // Expired coverage may retain attention, but cannot establish normality.
-    const complete=Boolean(objective?.core_complete&&!expired.length&&!base.primary_coverage_expired&&noticesFresh&&signals.length);
+    const complete=Boolean(objective?.core_complete&&!expired.length&&!base.primary_coverage_expired&&signals.length);
     const state=suggested?'heightened':maximum>0?'technical_attention':official?'official_context':pending?'partial':complete?'routine':'partial';
     const label=state==='partial'?'Monitoramento parcial':state==='routine'?'Monitoramento de rotina':state==='technical_attention'?'Referências de atenção':'Acompanhamento reforçado';
     return {...base,suggested_level:suggested||null,monitoring_state:state,monitoring_label:label,
@@ -141,8 +136,7 @@ function renderSummary() {
     el('priority-title').textContent=sourceReady?'Fontes oficiais acompanhadas':'Cobertura da fonte prioritária';
     el('priority-description').textContent=sourceReady?'Consulta Epagri/Ciram registrada. Nenhum aviso com abrangência e validade aplicáveis foi confirmado nesta publicação. O acompanhamento continua.':'A referência Epagri/Ciram está ausente ou desatualizada. A leitura técnica das outras fontes continua disponível, com essa limitação identificada.';
   }
-  const complementary=(data?.complementary_notices?.notices||[]).filter(n=>n.lifecycle!=='expired');
-  if(current&&data.complementary_notices?.status==='available'&&complementary.length)el('priority-description').textContent+=` Há ${complementary.length} aviso(s) INMET complementar(es); confira validade e abrangência nas evidências.`;
+  renderInmetContext();
   el('priority-link').href=current&&evidence&&safeLink(evidence.url)?safeLink(evidence.url):'https://ciram.epagri.sc.gov.br/index.php/avisos-meteorologicos/';
   const gauges=currentGauges(data);
   if(gauges) {
@@ -408,6 +402,33 @@ function showHistory() {
 }
 function paragraph(host,text,cls='') {host.append(node('p',cls,text));}
 function openDialog(title,render) {const dialog=el('detail-dialog');el('dialog-title').textContent=title;const body=el('dialog-content');body.replaceChildren();render(body);if(!dialog.open)dialog.showModal();}
+function inmetNotices(data,now=Date.now()) {
+  const feed=data?.inmet_context||data?.complementary_notices;
+  if(feed?.status!=='available'||!fresh(feed.retrieved_at,6,now))return [];
+  return (feed.notices||[]).filter(n=>n.lifecycle!=='expired'&&(!n.end_at||now<Date.parse(n.end_at)));
+}
+function appendInmetNotice(body,n) {
+  const card=node('article','evidence-block');
+  card.append(officialLink(n.url||'https://alertas2.inmet.gov.br/',n.type||'Aviso meteorológico'));
+  paragraph(card,`Severidade INMET: ${n.severity||'não informada'}.`);
+  const municipalities=n.municipalities||[{location_id:'araquari',name:'Araquari'}];
+  paragraph(card,'Abrangência confirmada na consulta: '+municipalities.map(m=>m.name+(m.location_id==='araquari'?'':` · ${num(m.distance_km)} km do ponto de Araquari`)).join('; ')+'.');
+  if(!municipalities.some(m=>m.location_id==='araquari'))paragraph(card,'Aviso do entorno; esta consulta não confirma inclusão de Araquari.');
+  const timed=Number.isFinite(Date.parse(n.start_at))&&Number.isFinite(Date.parse(n.end_at));
+  paragraph(card,timed?`Período: ${date(n.start_at)} a ${date(n.end_at)} · ${Date.now()<Date.parse(n.start_at)?'início futuro':'em curso'}.`:`Período informado: ${n.window_as_reported||'não informado'}. Fuso ou validade não conciliados; vigência não confirmada.`);
+  for(const text of (n.risks||[]).filter(t=>typeof t==='string').slice(0,2))paragraph(card,'Riscos informados pelo INMET: '+text);
+  for(const text of (n.instructions||[]).filter(t=>typeof t==='string').slice(0,2))paragraph(card,'Orientação INMET: '+text);
+  body.append(card);
+}
+function renderInmetContext() {
+  const target=el('inmet-notices'),notices=inmetNotices(panel.data);
+  el('inmet-context').hidden=!notices.length;
+  target.replaceChildren();
+  if(!notices.length)return;
+  const feed=panel.data.inmet_context||panel.data.complementary_notices;
+  el('inmet-updated').textContent='Consulta em '+date(feed.retrieved_at)+'. Abrangência por município; distâncias entre pontos de referência.';
+  for(const notice of notices)appendInmetNotice(target,notice);
+}
 function showEvidence() {
   openDialog('Evidências de Araquari',body=>{
     const data=panel.data;if(!data){paragraph(body,'Publicação não disponível.');return;}
@@ -421,8 +442,10 @@ function showEvidence() {
     for(const p of data.forecast?.rain_peaks||[])paragraph(body,`Open-Meteo · maior janela de ${p.hours} h: ${num(p.total_mm)} mm, de ${date(p.start_at)} a ${date(p.end_at)}.`);
     for(const r of data.recent_observations||[])paragraph(body,`${r.source} ${r.code} · ${num(r.distance_km)} km do ponto municipal · ${date(r.observed_at)} · temperatura ${num(r.temperature_c)} °C; vento ${num(r.wind_kmh)} km/h; rajada ${num(r.gust_kmh)} km/h. ${Date.now()<Date.parse(r.valid_until)?'':'Referência vencida.'}`);
     body.append(node('h3','','Avisos complementares · INMET'));
-    const notices=data.complementary_notices;paragraph(body,`Estado da consulta: ${notices?.status||'indisponível'}. Cores do INMET não são convertidas em níveis deste protocolo.`);
-    for(const n of notices?.notices||[])paragraph(body,`${n.type} · ${n.severity} · ${n.window_as_reported||'janela não informada'}. Fuso/validade: ${n.temporal_relation==='unverified_timezone_or_window'?'não conciliados':'conforme a referência original'}.`);
+    paragraph(body,'Contexto regional para conferência. Presença, severidade e indisponibilidade destes avisos não alteram o nível, a cor ou a completude da classificação.');
+    const notices=inmetNotices(data);
+    if(!notices.length)paragraph(body,'Nenhum aviso regional verificável disponível nesta consulta. Isso não comprova ausência de risco.');
+    for(const notice of notices)appendInmetNotice(body,notice);
     body.append(node('h3','','Qualidade das fontes'));
     for(const s of data.source_status||[])paragraph(body,`${s.source} · ${s.role} · ${s.status} · referência ${date(s.reference_at)}.${s.checked_at?' Última tentativa: '+date(s.checked_at)+'.':''}${s.diagnostics?.length?' Diagnóstico: '+s.diagnostics.join('; '):''}`);
     const a=node('a','','Todas as estações e fontes →');a.href='./dados.html';body.append(a);
@@ -498,7 +521,7 @@ async function loadDashboard() {
   finally{if(id===panel.loadId){panel.loading=false;el('refresh').disabled=false;renderSummary();renderRecent();renderMemory();renderChart();}}
 }
 function selectVariable(variable) {panel.variable=variable;if(el('forecast-variable'))el('forecast-variable').value=variable;for(const button of document.querySelectorAll('[data-variable]')){const selected=button.dataset.variable===variable;button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));}renderChart();}
-if(typeof module!=='undefined')module.exports={fresh,dashboardCurrent,protocolCurrent,forecastCurrent,currentGauges,signalCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale,chartReadingsAt,chartReadingText};
+if(typeof module!=='undefined')module.exports={inmetNotices,fresh,dashboardCurrent,protocolCurrent,forecastCurrent,currentGauges,signalCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale,chartReadingsAt,chartReadingText};
 if(typeof document!=='undefined'){
   function navigationState(){if(location.hash==='#memory')el('memory').open=true;for(const link of document.querySelectorAll('nav a[href^="#"]')){const active=link.getAttribute('href')===(location.hash||'#main');if(active)link.setAttribute('aria-current','location');else link.removeAttribute('aria-current');}}
   window.addEventListener('hashchange',navigationState);navigationState();
