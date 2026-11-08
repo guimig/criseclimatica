@@ -169,18 +169,23 @@ def main():
         page.get_by_role('heading', name='Normalidade nos dados acompanhados').wait_for()
         assert page.locator('#level-card').get_attribute('data-risk') == 'verde'
         page.screenshot(path=str(OUTPUT/'normality-light-1440.png'), full_page=True)
-        assert page.locator('#inmet-context').is_visible()
-        page.locator('#inmet-context > summary').click()
-        assert 'indisponível' in page.locator('#inmet-title').inner_text()
+        assert not page.locator('#epagri-context').is_visible()
+        assert not page.locator('#inmet-context').is_visible()
         data['dashboard.json']['inmet_context'] = {'status': 'available', 'retrieved_at': data['dashboard.json']['generated_at'], 'notices': []}
         page.reload()
-        page.locator('#inmet-context > summary').click()
-        assert 'Nenhum aviso aplicável' in page.locator('#inmet-title').inner_text()
+        page.get_by_role('heading', name='Normalidade nos dados acompanhados').wait_for()
+        assert not page.locator('#inmet-context').is_visible()
+        policy['evidence'] = [{'status': 'eligible', 'title': 'Aviso regional de teste',
+            'valid_from': data['dashboard.json']['generated_at'], 'valid_until': data['dashboard.json']['valid_until'],
+            'regions_text': 'Litoral Norte', 'url': 'https://ciram.epagri.sc.gov.br/'}]
         data['dashboard.json']['inmet_context'] = {'status': 'available', 'retrieved_at': data['dashboard.json']['generated_at'],
             'notices': [{'id': 'test', 'type': 'Tempestade regional', 'severity': 'Grande perigo', 'lifecycle': 'unverified',
                 'window_as_reported': 'Horários conforme a fonte', 'risks': ['Granizo'], 'instructions': ['Consulte a fonte'],
                 'municipalities': [{'location_id': 'joinville', 'name': 'Joinville', 'distance_km': 14.9}]}]}
         page.reload()
+        page.locator('#epagri-context').wait_for(state='visible')
+        page.locator('#epagri-context > summary').click()
+        assert 'Aviso regional de teste' in page.locator('#priority-title').inner_text()
         page.locator('#inmet-context').wait_for(state='visible')
         page.locator('#inmet-context > summary').click()
         assert 'Joinville' in page.locator('#inmet-notices').inner_text()

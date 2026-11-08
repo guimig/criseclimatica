@@ -127,15 +127,10 @@ function renderSummary() {
     const active=item.dataset.riskLevel===presentation.active;item.classList.toggle('is-active',active);
     if(active)item.setAttribute('aria-current','step');else item.removeAttribute('aria-current');
   }
-  const evidence=(policy?.evidence||[]).find(n=>n.status==='eligible');
+  const evidence=primaryNotice(data);
+  el('epagri-context').hidden=!evidence;
   el('priority-title').textContent=current&&evidence?evidence.title:current?'Conferir avisos prioritários':'Verificar atualização das fontes';
   el('priority-description').textContent=current&&evidence?`${evidence.regions_text||'Abrangência a conferir'} · ${date(evidence.valid_from)} a ${date(evidence.valid_until)}. ${evidence.supports_level?'Trecho explícito sustenta a leitura sugerida.':'O texto disponível requer avaliação do enquadramento.'}`:'A Epagri/Ciram é a referência prioritária. Falta de aviso ou indisponibilidade não comprova normalidade.';
-  if(current&&!evidence){
-    const source=data.source_status?.find(s=>s.source==='Epagri/Ciram · avisos');
-    const sourceReady=['available','cached','no_recent_notices'].includes(source?.status)&&fresh(source?.reference_at,6);
-    el('priority-title').textContent=sourceReady?'Fontes oficiais acompanhadas':'Cobertura da fonte prioritária';
-    el('priority-description').textContent=sourceReady?'Consulta Epagri/Ciram registrada. Nenhum aviso com abrangência e validade aplicáveis foi confirmado nesta publicação. O acompanhamento continua.':'A referência Epagri/Ciram está ausente ou desatualizada. A leitura técnica das outras fontes continua disponível, com essa limitação identificada.';
-  }
   renderInmetContext();
   el('priority-link').href=current&&evidence&&safeLink(evidence.url)?safeLink(evidence.url):'https://ciram.epagri.sc.gov.br/index.php/avisos-meteorologicos/';
   const gauges=currentGauges(data);
@@ -402,6 +397,10 @@ function showHistory() {
 }
 function paragraph(host,text,cls='') {host.append(node('p',cls,text));}
 function openDialog(title,render) {const dialog=el('detail-dialog');el('dialog-title').textContent=title;const body=el('dialog-content');body.replaceChildren();render(body);if(!dialog.open)dialog.showModal();}
+function primaryNotice(data,now=Date.now()) {
+  if(!dashboardCurrent(data,now))return null;
+  return (effectiveAssessment(data,now)?.evidence||[]).find(n=>n.status==='eligible'&&now<Date.parse(n.valid_until))||null;
+}
 function inmetNotices(data,now=Date.now()) {
   const feed=data?.inmet_context||data?.complementary_notices;
   if(feed?.status!=='available'||!fresh(feed.retrieved_at,6,now))return [];
@@ -432,6 +431,7 @@ function inmetContextStatus(data,now=Date.now()) {
 function renderInmetContext() {
   const target=el('inmet-notices'),notices=inmetNotices(panel.data),status=inmetContextStatus(panel.data);
   const feed=panel.data?.inmet_context||panel.data?.complementary_notices;
+  el('inmet-context').hidden=!notices.length;
   el('inmet-title').textContent=status.title;
   el('inmet-description').textContent=status.description;
   el('inmet-updated').textContent=feed?.retrieved_at?'Consulta registrada em '+date(feed.retrieved_at)+'. Abrangência por município; distâncias entre pontos de referência.':'Sem horário de consulta verificável.';
@@ -530,7 +530,7 @@ async function loadDashboard() {
   finally{if(id===panel.loadId){panel.loading=false;el('refresh').disabled=false;renderSummary();renderRecent();renderMemory();renderChart();}}
 }
 function selectVariable(variable) {panel.variable=variable;if(el('forecast-variable'))el('forecast-variable').value=variable;for(const button of document.querySelectorAll('[data-variable]')){const selected=button.dataset.variable===variable;button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));}renderChart();}
-if(typeof module!=='undefined')module.exports={inmetContextStatus,inmetNotices,fresh,dashboardCurrent,protocolCurrent,forecastCurrent,currentGauges,signalCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale,chartReadingsAt,chartReadingText};
+if(typeof module!=='undefined')module.exports={primaryNotice,inmetContextStatus,inmetNotices,fresh,dashboardCurrent,protocolCurrent,forecastCurrent,currentGauges,signalCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale,chartReadingsAt,chartReadingText};
 if(typeof document!=='undefined'){
   function navigationState(){if(location.hash==='#memory')el('memory').open=true;for(const link of document.querySelectorAll('nav a[href^="#"]')){const active=link.getAttribute('href')===(location.hash||'#main');if(active)link.setAttribute('aria-current','location');else link.removeAttribute('aria-current');}}
   window.addEventListener('hashchange',navigationState);navigationState();
