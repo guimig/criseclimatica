@@ -122,7 +122,7 @@
         let loaded=null;
         for(let attempt=0;attempt<2;attempt++){
           const [data,latest]=await Promise.all([read('forecast_comparison'),read('latest')]);
-          if(latest.fixture_mode||latest.schema_version!==1||!validComparison(data))throw Error('Invalid publication');
+          if(latest.fixture_mode||latest.schema_version!==1||!validComparison(data)||Date.parse(data.generated_at)>Date.now()+600000)throw Error('Invalid publication');
           if(latest.generated_at===data.generated_at){loaded=data;break;}
         }
         if(!loaded)throw Error('Publication mismatch');

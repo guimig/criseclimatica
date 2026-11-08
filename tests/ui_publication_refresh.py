@@ -47,15 +47,31 @@ def main():
         page.wait_for_function("document.getElementById('publication-status').hidden")
         # The detailed multi-model comparison has an independent loader. It
         # must follow publication changes too, retaining the chosen controls.
-        details=datasets();comp=comparison_fixture(details['data/latest.json']['generated_at'])
+        details=datasets();comp=comparison_fixture(details['data/latest.json']['generated_at']);fail_cemaden=True
         details['data/forecast_comparison.json']=comp
         context=browser.new_context(viewport={'width':1440,'height':1000})
         def detailed_route(request):
             key='data/'+request.request.url.split('/data/')[-1].split('?')[0]
+            if fail_cemaden and key=='data/cemaden.json':
+                request.abort('internetdisconnected');return
             request.fulfill(content_type='application/json',body=json.dumps(details.get(key,{})))
         context.route('**/data/**',detailed_route)
         detail=context.new_page();detail.clock.install(time=datetime.now(timezone.utc))
         detail.goto(url+'dados.html#model-comparison');detail.locator('#model-comparison svg').wait_for()
+        detail.wait_for_function('state.incompletePublication')
+        fail_cemaden=False
+        detail.clock.fast_forward(61000)
+        detail.wait_for_function('state.cemaden!==null&&!state.incompletePublication')
+        # Same publication, one failed secondary request: keep the valid cache
+        # but continue retrying until that component has been verified again.
+        fail_cemaden=True
+        detail.locator('#reload').click()
+        detail.wait_for_function('state.incompletePublication')
+        assert detail.evaluate('state.cemaden!==null')
+        assert detail.locator('#cemaden-data .rain-station').count()==3
+        fail_cemaden=False
+        detail.clock.fast_forward(61000)
+        detail.wait_for_function('!state.incompletePublication')
         detail.get_by_label('Variável da comparação',exact=True).select_option('gust_kmh')
         detail.get_by_label('Período da comparação',exact=True).select_option('72')
         newer=(datetime.now(timezone.utc)+timedelta(minutes=1)).isoformat().replace('+00:00','Z')
