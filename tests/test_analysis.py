@@ -161,6 +161,14 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(row['official_notices']['notices'][0]['lifecycle'],'expired')
         self.assertFalse(row['suggestions'])
 
+    def test_notice_end_does_not_expire_unrelated_data(self):
+        end=iso(NOW+timedelta(minutes=10))
+        alerts=feed(locations=[{'location_id':'araquari','alerts':[{'id':'1','type':'Vento',
+            'start_at':iso(NOW-timedelta(hours=1)), 'end_at':end}]}])
+        row=synthesis(alerts=alerts)['locations'][0]
+        self.assertEqual(row['valid_until'],end)
+        self.assertEqual(row['data_valid_until'],iso(NOW+timedelta(hours=3)))
+
     def test_stale_notice_does_not_generate_advisory(self):
         alerts=feed(retrieved_at=iso(NOW-timedelta(hours=7)),locations=[{'location_id':'araquari','alerts':[{'id':'1'}]}])
         self.assertFalse(synthesis(details={},alerts=alerts)['locations'][0]['suggestions'])

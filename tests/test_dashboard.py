@@ -263,6 +263,14 @@ class RegionalRainContextTests(unittest.TestCase):
 
 
 class DeploymentTests(unittest.TestCase):
+    def test_notice_expiry_does_not_expire_entire_dashboard(self):
+        p=primary()
+        p['valid_until']='2026-11-06T20:10:00Z'
+        p['data_valid_until']='2026-11-06T23:00:00Z'
+        result,_=summarize({'locations':[p]}, {},feed([notice(valid_until=p['valid_until'])]), {},{},STAMP)
+        self.assertEqual(result['valid_until'],p['data_valid_until'])
+        self.assertEqual(result['assessment']['base_assessment']['valid_until'],p['valid_until'])
+
     def test_build_has_new_dashboard_and_preserved_detail_page(self):
         with tempfile.TemporaryDirectory() as directory:
             target=Path(directory)/'site';build(target,fixture=ROOT/'tests/fixtures/open_meteo.json');validate(target,fixture=True)

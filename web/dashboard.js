@@ -8,6 +8,19 @@ function date(v) { return v && Number.isFinite(Date.parse(v)) ? new Intl.DateTim
 function fresh(v, hours=3, now=Date.now()) { const t=typeof v==='string'?Date.parse(v):NaN;return Number.isFinite(t)&&now-t>=-600000&&now-t<=hours*3600000; }
 function dashboardCurrent(data, now=Date.now()) { return Boolean(data&&fresh(data.generated_at,3,now)&&Number.isFinite(Date.parse(data.valid_until))&&now<Date.parse(data.valid_until)); }
 function protocolCurrent(data, now=Date.now()) { return dashboardCurrent(data,now)&&Number.isFinite(Date.parse(data.assessment?.valid_until))&&now<Date.parse(data.assessment.valid_until); }
+function currentPrimaryAssessment(data,now) {
+  const base=data?.assessment?.base_assessment;
+  if(!base||now<Date.parse(base.valid_until))return base;
+  const source=data.source_status?.find(s=>s.source==='Epagri/Ciram · avisos');
+  const sourceReady=['available','cached','no_recent_notices'].includes(source?.status)&&fresh(source.reference_at,6,now);
+  const evidence=(base.evidence||[]).map(e=>({...e,status:e.status==='eligible'&&(!sourceReady||!(now<Date.parse(e.valid_until)))?'expired':e.status}));
+  const order={azul:1,amarelo:2,laranja:3,vermelho:4};
+  const supported=evidence.filter(e=>e.status==='eligible'&&order[e.supports_level]).sort((a,b)=>order[b.supports_level]-order[a.supports_level]);
+  return {...base,valid_until:data.valid_until,evidence,suggested_level:supported[0]?.supports_level||null,
+    status:supported.length?'suggested_for_review':evidence.some(e=>e.status==='eligible')?'official_advisory_under_review':'insufficient_evidence',
+    primary_coverage_expired:!sourceReady,
+    reason:sourceReady?'Avisos reavaliados pelos prazos individuais; publicações encerradas não sustentam o nível atual.':'A consulta Epagri/Ciram perdeu validade; as outras referências são avaliadas separadamente.'};
+}
 function signalCurrent(signal,data,now=Date.now()) {
   if(!dashboardCurrent(data,now))return false;
   if(signal.kind==='observation') {
@@ -23,7 +36,7 @@ function effectiveAssessment(data,now=Date.now()) {
   const objective=policy?.numeric_support;
   const expired=objective?.signals?.filter(s=>!signalCurrent(s,data,now))||[];
   if(protocolCurrent(data,now)&&!expired.length)return policy;
-  const base=policy?.base_assessment;
+  const base=currentPrimaryAssessment(data,now);
   if(dashboardCurrent(data,now)&&base&&now<Date.parse(base.valid_until)) {
     const signals=(objective?.signals||[]).filter(s=>signalCurrent(s,data,now));
     const coincidences=(objective?.coincidences||[]).filter(c=>signals.some(s=>s.kind==='observation'&&!s.period_proxy&&s.band>0&&s.variable===c.variable&&s.station===c.station&&s.end_at===c.observed_at));
@@ -32,10 +45,11 @@ function effectiveAssessment(data,now=Date.now()) {
     const levels={verde:0,azul:1,amarelo:2,laranja:3,vermelho:4,roxo:5};
     const suggested=proposal&&levels[proposal]>(levels[base.suggested_level]??-1)?proposal:base.suggested_level;
     const maximum=signals.length?Math.max(...signals.map(s=>s.band)):null;
-    const official=objective?.has_complementary_notices||base.evidence?.some(e=>e.status==='eligible');
+    const complementary=data.complementary_notices?.notices;
+    const official=(complementary?complementary.some(e=>e.lifecycle!=='expired'&&(!e.end_at||now<Date.parse(e.end_at))):objective?.has_complementary_notices)||base.evidence?.some(e=>e.status==='eligible');
     const pending=base.evidence?.some(e=>e.status==='needs_territorial_or_temporal_check'&&(e.scope!=='not_verified'||!e.regions_text));
     // Expired coverage may retain attention, but cannot establish normality.
-    const complete=Boolean(objective?.core_complete&&!expired.length&&signals.length);
+    const complete=Boolean(objective?.core_complete&&!expired.length&&!base.primary_coverage_expired&&signals.length);
     const state=suggested?'heightened':maximum>0?'technical_attention':official?'official_context':pending?'partial':complete?'routine':'partial';
     const label=state==='partial'?'Monitoramento parcial':state==='routine'?'Monitoramento de rotina':state==='technical_attention'?'Referências de atenção':'Acompanhamento reforçado';
     return {...base,suggested_level:suggested||null,monitoring_state:state,monitoring_label:label,

@@ -306,6 +306,7 @@ def summarize(locations, details, cemaden, metars, alerts, cptec, generated_at, 
                   "Atualizações programadas a cada 3 horas, sujeitas a atrasos; eventos rápidos exigem consulta aos canais oficiais."]
         suggestions = []
         expirations = [now + timedelta(hours=3)]
+        notice_expirations = []
         def advise(identifier, evidence, text, limitation):
             suggestions.append({"id": identifier, "evidence": evidence, "text": text,
                                 "scope": place["name"], "limitation": limitation})
@@ -337,7 +338,7 @@ def summarize(locations, details, cemaden, metars, alerts, cptec, generated_at, 
         else:
             limits.append("Não há acumulados Cemaden locais recentes utilizáveis nesta síntese; isso não significa chuva zero.")
         if notices["status"] == "available":
-            expirations.append(moment(notices["retrieved_at"])+timedelta(hours=6))
+            notice_expirations.append(moment(notices["retrieved_at"])+timedelta(hours=6))
             if any(n["lifecycle"] != "expired" for n in notices["notices"]):
                 advise("official_notice", "official_notices.notices", "Pode ser pertinente reforçar o acompanhamento dos avisos oficiais para este município e avaliar ajustes nas atividades conforme a evolução e a validade informada pela fonte.",
                        "A presença na consulta não comprova ocorrência. Suspensão, permanência abrigada e saída são possibilidades distintas, dependentes das condições locais e de deslocamento.")
@@ -346,7 +347,7 @@ def summarize(locations, details, cemaden, metars, alerts, cptec, generated_at, 
                     limits.append("O fuso ou a validade de aviso não pôde ser conciliado; coincidência temporal com a previsão não foi afirmada.")
                     break
                 if moment(n.get("end_at")) and moment(n["end_at"]) > now:
-                    expirations.append(moment(n["end_at"]))
+                    notice_expirations.append(moment(n["end_at"]))
         else:
             limits.append("Consulta de avisos ausente ou desatualizada; não se pode afirmar ausência de avisos.")
         for p in pair["pairs"]:
@@ -364,7 +365,8 @@ def summarize(locations, details, cemaden, metars, alerts, cptec, generated_at, 
         results.append({"location_id": slug, "name": place["name"],
             "role": "primary_ifc_reference" if slug == PRIMARY else "complementary_regional_context",
             "status": "evidence_available" if forecast["status"] == "available" or observed["status"] == "available" or notices["status"] == "available" or recent else "insufficient_evidence",
-            "valid_until": iso(min(expirations)), "forecast": forecast, "observed_rain": observed,
+            "valid_until": iso(min(expirations + notice_expirations)),
+            "data_valid_until": iso(min(expirations)), "forecast": forecast, "observed_rain": observed,
             "official_notices": notices, "temperature_context": pair, "recent_observations": recent, "cptec_context": cp_context,
             "revision": revision, "suggestions": suggestions, "limitations": list(dict.fromkeys(limits))})
     return {"schema_version": 1, "kind": KIND, "generated_at": generated_at,
