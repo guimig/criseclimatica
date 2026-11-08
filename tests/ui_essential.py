@@ -164,11 +164,16 @@ def main():
                 assert page.locator('#model-comparison [data-chart-cursor]').count()==1
                 if width==390:
                     record=details['data/places/araquari.json'];old=record['collected_at'];record['collected_at']='2000-01-01T00:00:00Z'
+                    # A stale model must belong to the same collection as its
+                    # summary; mixed-version rejection is tested separately.
+                    summary=next(row for row in details['data/latest.json']['locations'] if row['id']=='araquari')
+                    old_summary=summary['collected_at'];summary['collected_at']=record['collected_at']
                     page.goto(url+'dados.html#chart-title');page.reload()
                     page.get_by_text('Modelo desatualizado',exact=True).wait_for()
                     page.set_viewport_size({'width':389,'height':1050});page.wait_for_timeout(150)
                     assert page.locator('#chart svg').count()==0, 'Resizing cannot restore stale forecast'
                     record['collected_at']=old
+                    summary['collected_at']=old_summary
                 assert not errors,errors
             except Exception:
                 print('Overflow debug',page.evaluate("[...document.querySelectorAll('body *')].map(el=>({tag:el.tagName,id:el.id,cls:typeof el.className==='string'?el.className:'',right:el.getBoundingClientRect().right,width:el.getBoundingClientRect().width})).filter(el=>el.width>0&&el.right>innerWidth+1).slice(-35)"));page.screenshot(path=str(OUTPUT/f'essential-failure-{width}.png'),full_page=True);raise

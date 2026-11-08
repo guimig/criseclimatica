@@ -6,6 +6,7 @@ import json
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch,MagicMock
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,7 +16,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from observatorio.config import load_locations
-from observatorio.open_meteo import ProviderError, normalize
+from observatorio.open_meteo import ProviderError, normalize,timestamp,OpenMeteoClient
 from observatorio.pipeline import collect, next_24h_rain
 from observatorio.storage import daily_index, read_jsonl_gzip, write_json_atomic, write_jsonl_gzip_atomic
 from build_site import build
@@ -51,6 +52,20 @@ class TestConfiguration(unittest.TestCase):
 
 
 class TestProviderAdapter(unittest.TestCase):
+    def test_explicit_timezone_is_converted_without_duplicate_suffix(self):
+        self.assertEqual(timestamp('2026-11-08T10:00-03:00'),'2026-11-08T13:00:00Z')
+        self.assertEqual(timestamp('2026-11-08T13:00+00:00'),'2026-11-08T13:00:00Z')
+        self.assertEqual(timestamp('2026-11-08T13:00Z'),'2026-11-08T13:00Z')
+        with self.assertRaises(ProviderError):timestamp('2026-11-08')
+
+    def test_connection_reset_uses_existing_bounded_retry(self):
+        response=MagicMock();response.__enter__.return_value=response;response.status=200
+        response.read.return_value=json.dumps(sample()).encode()
+        with patch('observatorio.open_meteo.urlopen',side_effect=[ConnectionResetError(),response]) as fetch,patch('observatorio.open_meteo.time.sleep'):
+            result=OpenMeteoClient(attempts=2).fetch(LOCATION)
+        self.assertEqual(fetch.call_count,2)
+        self.assertEqual(result['source']['id'],'open-meteo')
+
     def test_normalize_and_attribution(self):
         result = normalize(LOCATION, sample(), TIMESTAMP)
         self.assertEqual(result["source"]["id"], "open-meteo")

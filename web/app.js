@@ -953,6 +953,7 @@ function renderDetail() {
 }
 async function selectLocation(slug) {
   if (!/^[a-z0-9-]+$/.test(slug) || !state.overview.locations.some((item) => item.id === slug)) return;
+  const previousDetail=state.slug===slug?state.detail:null;
   state.slug = slug;
   state.detail = null;
   const requestId = ++state.requestId;
@@ -984,16 +985,23 @@ async function selectLocation(slug) {
   clearDetails();
   if (place.status !== 'available') return;
   try {
-    const detail = await readJson(`./data/places/${slug}.json`);
+    let detail;
+    for(let attempt=0;attempt<2;attempt++){
+      detail=await readJson(`./data/places/${slug}.json`);
+      if(!place.collected_at||detail.collected_at===place.collected_at)break;
+      detail=null;
+    }
     if (requestId !== state.requestId) return;
-    if (detail.location?.id !== slug || detail.source?.id !== 'open-meteo') throw new Error('Inconsistent location data');
+    if (!detail||detail.fixture_mode||detail.location?.id !== slug || detail.source?.id !== 'open-meteo') throw new Error('Inconsistent location data or publication');
     state.detail = detail;
     renderDetail();
     renderCptec();
   } catch (err) {
     if (requestId !== state.requestId) return;
     console.error('Failed to load municipality data:', err);
-    clearDetails();
+    if(previousDetail&&(!place.collected_at||previousDetail.collected_at===place.collected_at)){
+      state.detail=previousDetail;renderDetail();
+    }else clearDetails();
   }
 }
 async function boot() {
@@ -1004,6 +1012,7 @@ async function boot() {
     const overview = await readJson('./data/latest.json');
     if (!Array.isArray(overview.locations) || overview.schema_version !== 1 || overview.fixture_mode) throw new Error('Invalid or test dataset');
     if (bootId !== state.bootId) return;
+    if(state.overview&&Date.parse(overview.generated_at)<Date.parse(state.overview.generated_at))throw new Error('Older publication received');
     state.overview = overview;
     const [stations, history, alerts, observations, rain, noticeArchive, nasa, cemaden, cemadenSensors, cptec, defesa, archive, epagriGeo, epagriNotices, epagriBulletins, regionalQuality, coverage, alignment, analysis] = await Promise.all([
       readJson('./data/stations.json').catch(() => null),

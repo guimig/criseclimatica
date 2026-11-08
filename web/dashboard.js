@@ -492,6 +492,7 @@ async function loadDashboard() {
       if(latest.generated_at===data.generated_at){loaded={data,history:history?.kind==='araquari_point_observation_history_not_climatology'&&history?.location_id==='araquari'&&!history.fixture_mode&&history.generated_at===data.generated_at?history:null};break;}
     }
     if(!loaded)throw new Error('Publication mismatch');if(id!==panel.loadId)return;
+    if(panel.data&&Date.parse(loaded.data.generated_at)<Date.parse(panel.data.generated_at))throw new Error('Older publication received');
     panel.data=loaded.data;panel.history=loaded.history;panel.fetchError=false;
   }catch(err){if(id!==panel.loadId)return;console.error('Dashboard unavailable:',err.message);panel.fetchError=true;}
   finally{if(id===panel.loadId){panel.loading=false;el('refresh').disabled=false;renderSummary();renderRecent();renderMemory();renderChart();}}

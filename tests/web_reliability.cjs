@@ -143,4 +143,26 @@ console.log('Advisory scenarios passed: Araquari priority, regional complement, 
   assert.match(text('place-title'), /Araquari/);
   assert.match(text('place-subtitle'), /Referência principal/);
   console.log('Initial selection passed: Araquari stays primary during its model outage.');
+  // A CDN may serve a new summary alongside the previous municipal file.
+  run("state.overview.locations[0].status='available';state.overview.locations[0].collected_at='2026-11-06T12:00:00Z';");
+  const municipal={location:{id:'araquari',latitude:-26.375,longitude:-48.721},source:{id:'open-meteo'},
+    collected_at:'2026-11-06T12:00:00Z',current:{time:'2026-11-06T12:00:00Z',temperature_c:24},hourly:[],daily:[]};
+  let requests=0;
+  context.fetch=async()=>({ok:true,json:async()=>({...municipal,collected_at:++requests===1?'2026-11-06T11:00:00Z':municipal.collected_at})});
+  await run("selectLocation('araquari')");
+  assert.equal(requests,2);assert.equal(run('state.detail.collected_at'),municipal.collected_at);
+  assert.match(text('temp'),/24,0/);
+  const expectedErrors=[];context.console={...console,error:(...args)=>expectedErrors.push(args)};
+  context.fetch=async()=>{throw Error('simulated offline');};
+  await run("selectLocation('araquari')");
+  assert.equal(run('state.detail.collected_at'),municipal.collected_at);assert.match(text('temp'),/24,0/);
+  run("state.overview.locations[0].collected_at='2026-11-06T13:00:00Z';");
+  requests=0;context.fetch=async()=>({ok:true,json:async()=>{requests++;return municipal;}});
+  await run("selectLocation('araquari')");
+  assert.equal(requests,2);assert.equal(run('state.detail'),null);assert.equal(text('temp'),'--');
+  context.fetch=async()=>({ok:true,json:async()=>({schema_version:1,generated_at:'2026-11-06T11:00:00Z',locations:[]})});
+  await run('boot()');
+  assert.equal(run('state.overview.generated_at'),'2026-11-06T12:00:00Z');
+  assert.equal(expectedErrors.length,3);
+  console.log('Publication consistency passed: municipal version mismatch retry, same-version offline preservation, no mixing of old detail/new summary and no publication rollback.');
 })().catch(err => { console.error(err); process.exitCode = 1; });
