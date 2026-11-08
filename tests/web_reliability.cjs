@@ -174,3 +174,10 @@ console.log('Advisory scenarios passed: Araquari priority, regional complement, 
   assert.equal(expectedErrors.length,5);
   console.log('Publication consistency passed: municipal version mismatch retry, same-version offline preservation, no mixing of old detail/new summary and no publication rollback.');
 })().catch(err => { console.error(err); process.exitCode = 1; });
+
+// Artifact version checks do not substitute for the source's own time limits.
+assert.equal(run("publicationMatches({schema_version:1}, {generated_at:'v1'})"),true);
+assert.equal(run("publicationMatches({fixture_mode:true}, {generated_at:'v1'})"),false);
+assert.equal(run("publicationMatches({publication_at:'v1'}, {generated_at:'v1',publication_at:'v1'})"),true);
+assert.equal(run("publicationMatches({publication_at:'v0'}, {generated_at:'v1',publication_at:'v1'})"),false);
+assert.equal(run("publicationMatches({}, {generated_at:'v1',publication_at:'v1'})"),false);

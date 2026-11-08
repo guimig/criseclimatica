@@ -19,7 +19,11 @@ def datasets():
         result={str(p.relative_to(target)):json.loads(p.read_text()) for p in (target/'data').rglob('*.json')}
     # Test interception only: no synthetic dataset is written to the site.
     for data in result.values():
-        if isinstance(data,dict):data.pop('fixture_mode',None)
+        if isinstance(data,dict):
+            data.pop('fixture_mode',None)
+            # Most tests deliberately alter collection clocks independently;
+            # use the legacy contract here, and test artifact identity separately.
+            data.pop('publication_at',None)
     stamp=datetime.now(timezone.utc).isoformat().replace('+00:00','Z')
     # The model fixture has fixed historical timestamps. Move only test model
     # references forward so that a current-view interaction can be exercised.

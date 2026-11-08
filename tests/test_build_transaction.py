@@ -1,6 +1,7 @@
 """Regression for safe destination checks and rollback before replacing output."""
 import sys
 import tempfile
+import json
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -62,6 +63,24 @@ class BuildTransactionTests(unittest.TestCase):
             output=Path(directory)/'dist';build(output,fixture=ROOT/'tests/fixtures/open_meteo.json')
             (output/'forecasts.js').unlink()
             with self.assertRaisesRegex(ValueError,'frontend asset'):
+                validate(output,fixture=True)
+
+    def test_publication_identity_is_shared_without_replacing_source_clocks(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory)/'dist';build(output,fixture=ROOT/'tests/fixtures/open_meteo.json')
+            overview=json.loads((output/'data/latest.json').read_text())
+            for path in (output/'data').rglob('*.json'):
+                payload=json.loads(path.read_text())
+                self.assertEqual(payload['publication_at'],overview['generated_at'])
+            model=json.loads((output/'data/places/araquari.json').read_text())
+            self.assertNotEqual(model['current']['time'],model['publication_at'])
+
+    def test_mixed_secondary_publication_blocks_artifact_validation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory)/'dist';build(output,fixture=ROOT/'tests/fixtures/open_meteo.json')
+            source=output/'data/cemaden.json';payload=json.loads(source.read_text())
+            payload['publication_at']='2000-01-01T00:00:00Z';source.write_text(json.dumps(payload))
+            with self.assertRaisesRegex(ValueError,'Mixed publication artifact'):
                 validate(output,fixture=True)
 
 

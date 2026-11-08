@@ -115,8 +115,8 @@ function renderSummary() {
   if(typeof ForecastComparison!=='undefined')ForecastComparison.renderCompact(el('forecast-comparison'),panel.data?.forecast_comparison);
   const data=panel.data, current=dashboardCurrent(data), policy=effectiveAssessment(data), validPolicy=current&&Date.now()<Date.parse(policy?.valid_until);
   el('publication-time').textContent=data?'Painel atualizado em '+date(data.generated_at):'Atualização indisponível';
-  el('publication-status').hidden=current&&!panel.fetchError;
-  el('publication-status').textContent=panel.fetchError?'Falha ao consultar a publicação. A última leitura foi preservada com seus horários originais; o painel tentará novamente automaticamente.':data?'A coleta publicada está atrasada. A classificação foi suspensa; confira os horários das referências. O painel busca novas publicações automaticamente.':'Não foi possível carregar uma publicação verificável de Araquari. O painel tentará novamente automaticamente.';
+  el('publication-status').hidden=current&&!panel.fetchError&&!panel.incompleteHistory;
+  el('publication-status').textContent=panel.fetchError?'Falha ao consultar a publicação. A última leitura foi preservada com seus horários originais; o painel tentará novamente automaticamente.':current&&panel.incompleteHistory?'O histórico observado não pôde ser verificado por completo. As demais referências foram preservadas; nova tentativa automática.':data?'A coleta publicada está atrasada. A classificação foi suspensa; confira os horários das referências. O painel busca novas publicações automaticamente.':'Não foi possível carregar uma publicação verificável de Araquari. O painel tentará novamente automaticamente.';
   const presentation=riskPresentation(data);
   el('level-dot').className='level-dot '+presentation.color;
   el('level-card').dataset.risk=presentation.color;
@@ -334,6 +334,7 @@ function renderStationDetails(series,anchor) {
   table.append(body);target.append(table);
 }
 function renderChart() {
+  panel.chartExpired=!dashboardCurrent(panel.data);
   const data=panel.data,anchor=Number.isFinite(Date.parse(data?.generated_at))?Date.parse(data.generated_at):Date.now(),rain=panel.observedVariable==='precipitation_mm',forecastRain=panel.variable==='precipitation_mm';
   const palette=document.documentElement.dataset.theme==='dark'?['#79d39a','#82b7ef','#efba74','#c4a0ed','#f47b7f','#78cac9']:colors;
   const nearby=rain&&panel.scope==='nearby',history=nearby?{records:data?.regional_rain_context?.records||[]}:panel.history;
@@ -521,10 +522,13 @@ async function loadDashboard() {
     for(let attempt=0;attempt<2;attempt++){
       const [latest,data,history]=await Promise.all([readJson('./data/latest.json'),readJson('./data/dashboard.json'),readJson('./data/observation_history.json').catch(()=>null)]);
       if(latest.schema_version!==1||latest.fixture_mode||data.fixture_mode||data.schema_version!==1||data.kind!=='araquari_weather_dashboard_not_official_decision'||data.location_id!=='araquari'||data.decision_automated!==false||!Number.isFinite(Date.parse(data.generated_at))||Date.parse(data.generated_at)>Date.now()+600000)throw new Error('Invalid dashboard source');
-      if(latest.generated_at===data.generated_at){loaded={data,history:history?.kind==='araquari_point_observation_history_not_climatology'&&history?.location_id==='araquari'&&!history.fixture_mode&&history.generated_at===data.generated_at?history:null};break;}
+      if(latest.publication_at!==undefined&&(latest.publication_at!==latest.generated_at||data.publication_at!==latest.generated_at))throw new Error('Dashboard publication mismatch');
+      if(latest.generated_at===data.generated_at){loaded={data,history:history?.kind==='araquari_point_observation_history_not_climatology'&&Array.isArray(history.records)&&history?.location_id==='araquari'&&!history.fixture_mode&&history.generated_at===data.generated_at&&(latest.publication_at===undefined||history.publication_at===latest.generated_at)?history:null};break;}
     }
     if(!loaded)throw new Error('Publication mismatch');if(id!==panel.loadId)return;
     if(panel.data&&Date.parse(loaded.data.generated_at)<Date.parse(panel.data.generated_at))throw new Error('Older publication received');
+    panel.incompleteHistory=!loaded.history;
+    if(!loaded.history&&panel.data?.generated_at===loaded.data.generated_at)loaded.history=panel.history;
     panel.data=loaded.data;panel.history=loaded.history;panel.fetchError=false;
   }catch(err){if(id!==panel.loadId)return;console.error('Dashboard unavailable:',err.message);panel.fetchError=true;}
   finally{if(id===panel.loadId){panel.loading=false;el('refresh').disabled=false;renderSummary();renderRecent();renderMemory();renderChart();}}
@@ -554,11 +558,11 @@ if(typeof document!=='undefined'){
   el('history-open').addEventListener('click',showHistory);document.addEventListener('observatorythemechange',renderChart);
   el('evidence-open').addEventListener('click',showEvidence);el('level-explain').addEventListener('click',showAssessment);el('protocol-open').addEventListener('click',showProtocol);el('methods-open').addEventListener('click',showMethods);el('dialog-close').addEventListener('click',()=>el('detail-dialog').close());
   const publicationRefresh=typeof PublicationRefresh!=='undefined'?PublicationRefresh.create({
-    getVersion:()=>panel.data?.generated_at,readLatest:()=>readJson('./data/latest.json'),
+    getVersion:()=>panel.data?.generated_at,needsReload:()=>panel.incompleteHistory,readLatest:()=>readJson('./data/latest.json'),
     reload:loadDashboard,isVisible:()=>!document.hidden,
     onSuccess:()=>{panel.fetchError=false;renderSummary();},
     onError:()=>{panel.fetchError=true;renderSummary();}}):null;
-  setInterval(()=>{renderSummary();publicationRefresh?.check();if(!dashboardCurrent(panel.data)&&el('detail-dialog').open)el('detail-dialog').close();},60000);
+  setInterval(()=>{renderSummary();renderRecent();if(panel.chartExpired!==!dashboardCurrent(panel.data))renderChart();publicationRefresh?.check();if(!dashboardCurrent(panel.data)&&el('detail-dialog').open)el('detail-dialog').close();},60000);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden){renderSummary();renderChart();publicationRefresh?.check();if(!dashboardCurrent(panel.data)&&el('detail-dialog').open)el('detail-dialog').close();}});
   window.addEventListener('online',()=>publicationRefresh?.check());
   let chartWidth=0;

@@ -85,3 +85,10 @@ Se um provedor alterar o esquema, o adaptador deve falhar de forma explicita, se
 ## Confiabilidade e cobertura por localidade
 
 O build publica `data/coverage.json`, preserva os contratos existentes e adiciona janela/completude à previsão de chuva e diagnóstico municipal Cemaden. A interface reavalia a idade das referências. O manifesto marca `publication_status=partial` quando o modelo não cobre todas as localidades; uma publicação sem nenhum modelo exige outra fonte operacional disponível. O histórico diário marcado como previamente publicado não pode desaparecer silenciosamente. Consulte [Confiabilidade](CONFIABILIDADE.md). Armazenamento externo permanece adiado.
+
+
+## Identidade do artefato entre arquivos
+
+Cada JSON publica `publication_at`, igual ao `generated_at` de `latest.json`, independentemente de seus horários de coleta/medição. A validação do build rejeita combinações divergentes. A página detalhada exige essa identidade nas fontes secundárias e arquivos municipais quando o manifesto contém o campo; respostas incompatíveis acionam a recuperação automática. O formato anterior sem o campo continua legível para compatibilidade.
+
+A home tenta novamente o histórico observado incompleto da mesma publicação, preservando apenas cache de versão correspondente. A expiração da publicação atualiza a indicação dos gráficos sem exigir interação. Ver [auditoria geral](AUDITORIA_GERAL_2026_11_08.md).
