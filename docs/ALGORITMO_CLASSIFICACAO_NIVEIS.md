@@ -225,11 +225,11 @@ A prioridade Epagri **não é um veto absoluto ao apoio numérico**: a implement
 1. previsão de Araquari `available`;
 2. verificação completa e coerente da chuva prevista de 24 h;
 3. máximos de vento **e** rajada com séries de 24 referências completas;
-4. `observed_rain.status = available` para Araquari;
+4. ao menos um sinal Cemaden local utilizável de chuva em 1 h **e** um de 24 h, após validar valores e horários;
 5. Epagri com status `available/cached/no_recent_notices` e consulta até 6 h;
 6. consulta de avisos INMET municipais `available`.
 
-**Limite dessa flag:** ela verifica disponibilidade dos componentes, não que todos os pluviômetros tenham todas as variáveis, nem que haja vento observado recente. `observed_rain = available` pode decorrer de outro acumulado válido da estação; a flag não exige explicitamente um sinal de chuva de 1 h em todas elas. Tetos numéricos do normalizador e de `band()` também são distintos. Sinais rejeitados não viram zero, mas `core_complete` não é uma auditoria adicional de cada sinal descartado. Essas são propriedades do código atual, não garantias de cobertura instrumental completa.
+`coverage_gaps` enumera os componentes ausentes e é exibido em “Por que esta leitura?”. Um status de fonte disponível sem acumulados utilizáveis não permite normalidade. A flag não exige todas as variáveis em todos os pluviômetros nem vento observado recente: vento/rajada previstos são componentes de rotina, e observações METAR são apoio quando presentes. Tetos do normalizador e de `band()` continuam distintos; sinais rejeitados não viram zero. Não há garantia de cobertura instrumental completa.
 
 O primeiro caso atendido determina `monitoring_state`:
 
@@ -294,13 +294,19 @@ Há relógios diferentes:
 
 Quando a validade qualitativa original termina antes da publicação, o navegador reavalia as evidências Epagri já publicadas: retira a contribuição dos avisos encerrados e preserva a maior sugestão sustentada por aviso restante. A consulta prioritária continua exigindo fonte disponível e idade de até 6 h; se venceu, perde a capacidade de sustentar sugestão/normalidade, sem apagar sinais numéricos ainda válidos. Não se consulta nem interpreta novo texto no navegador. Uma sugestão vermelha não permanece ativa após o término de seu único aviso. A publicação continua vencendo em até 3 h; esse prazo não foi ampliado.
 
-A coleta é agendada a cada 40 min, sujeita a atraso do GitHub Actions. O navegador reavalia a validade a cada minuto e ao retornar à aba, mas **não coleta novos sensores nem recalcula faixas a partir de novos dados**. Entre publicações, remove referências vencidas, recalcula coincidências/sugestões com as restantes e impede normalidade quando houve perda de cobertura. Assim, a indicação descreve a coleta e seus prazos; não é monitoramento contínuo ou garantia de situação atual.
+O Actions verifica a idade da publicação aos minutos 7, 27 e 47 de cada hora. Em execução agendada, só pula a coleta se uma publicação real válida tiver menos de 35 min: em condições regulares, coleta aproximadamente a cada 40 min. Publicação vencida, consulta falha ou dados inválidos sempre solicitam coleta. Push e execução manual forçam coleta. O agendamento continua sujeito a atrasos/omissões do GitHub; não existe garantia de pontualidade.
+
+Home e dados detalhados consultam `latest.json` a cada minuto com a aba visível, ao retornar à aba e ao recuperar conexão, com limite de uma tentativa por minuto e sem consultas concorrentes. Só recarregam os conjuntos quando aparece versão mais nova ou falta uma primeira leitura. Versão anterior de uma borda CDN não causa regressão. Falha transitória preserva a última publicação com suas datas originais. O navegador **não coleta sensores nem renova horários**; depende da publicação no servidor.
+
+A classificação e o indicador geral de publicação nas duas páginas exigem referência de até 3 h. Na home, após esse prazo, a classificação fica suspensa. Os cartões podem continuar mostrando **“Última leitura” / “Publicação anterior”**, com períodos originais, se o acumulado local tiver até 6 h e a coleta/referência do modelo até 8 h. Não são apresentados como uma nova janela de 24 h, nem usados para prolongar a classificação. Ao vencer o prazo de cada referência, seu valor sai do cartão. Isso distingue atraso de coleta de ausência de medição.
+
+Entre publicações válidas, sinais e avisos vencidos são retirados separadamente. A explicação de um nível sustentado pela Epagri aponta a fonte prioritária; não atribui esse nível a uma rajada de faixa inferior. Títulos de atenção incluem chuva e vento quando ambos contribuem, inclusive acumulados móveis de 24 h. Os limites quantitativos e a separação entre referência técnica e decisão institucional foram preservados.
 
 Falha de fonte, dado ausente, conflito, trecho sem amostra e leitura vencida não são preenchidos com zero. Uma condição abaixo das faixas não é prova de segurança. Não há verificação automática de alagamento no campus, queda de árvore, energia, estradas, granizo, raios ou decreto.
 
 ### Falha de atualização e testes com datas fixas
 
-O workflow de publicação executa a suíte antes de consultar as fontes. Se um teste falha, a publicação anterior é preservada e pode vencer normalmente, deixando o aviso “Atualização necessária”. Em 08/11/2026 UTC, o teste de contrato CPTEC passou a falhar porque comparava uma previsão sintética de 05–06/11 com o relógio real. Esse teste agora fixa `build_site.now_utc` na data de sua própria fixture; mantém a validação de disponibilidade parcial e não modifica as regras de validade dos dados reais. O agendamento do Actions pode atrasar ou omitir execuções; 40 min é a frequência programada, não garantia de atualização.
+O workflow de publicação executa a suíte antes de consultar as fontes. Se um teste falha, a publicação anterior é preservada e pode vencer normalmente, deixando o aviso “Atualização necessária”. Em 08/11/2026 UTC, o teste de contrato CPTEC passou a falhar porque comparava uma previsão sintética de 05–06/11 com o relógio real. Esse teste agora fixa `build_site.now_utc` na data de sua própria fixture; mantém a validação de disponibilidade parcial e não modifica as regras de validade dos dados reais. Veja também a [auditoria de confiabilidade](AUDITORIA_CONFIABILIDADE.md).
 
 `assessment_history.json` grava `suggested_level` ou, quando nulo, `monitoring_state`. Por isso pode registrar `routine` enquanto a home apresenta verde descritivo. Os episódios mantêm versão e amostras por até 366 dias, limitados a 3000 episódios e 500 avisos. Mudança de estado/versão ou intervalo maior que 6 h inicia novo episódio. Duração entre coletas não prova permanência contínua do nível nem duração de desastre. O histórico observado de 7 dias e o filtro dos gráficos **não são usados para reclassificar a referência presente**.
 

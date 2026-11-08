@@ -121,6 +121,24 @@ assert.equal(require('../web/dashboard.js').riskPresentation(evening,Date.parse(
 assert.equal(evening.assessment.base_assessment.evidence[0].status,'eligible');
 console.log('Official notice expiry passed: expired level withdrawn, remaining notices/data preserved, stale priority cannot establish normality, publication still expires at three hours.');
 
+const {forecastCurrent,currentGauges}=require('../web/dashboard.js');
+const delayed={...capture,forecast:{status:'available',collected_at:capture.generated_at,reference_at:capture.generated_at},
+ gauge_distribution:{status:'available',stations:[{code:'A',observed_at:capture.generated_at,rain_24h_mm:0},{code:'B',observed_at:capture.generated_at,rain_24h_mm:50},{code:'C',observed_at:capture.generated_at,rain_24h_mm:55}]}};
+const fiveHours=Date.parse(capture.generated_at)+5*3600000;
+assert.equal(dashboardCurrent(delayed,fiveHours),false);
+assert.equal(require('../web/dashboard.js').riskPresentation(delayed,fiveHours).color,'neutral');
+assert.equal(forecastCurrent(delayed,fiveHours),true);
+assert.equal(currentGauges(delayed,fiveHours).median_mm,50);
+assert.equal(currentGauges(delayed,fiveHours+2*3600000),null);
+assert.equal(forecastCurrent(delayed,fiveHours+4*3600000),false);
+assert.equal(forecastCurrent({...delayed,forecast:{...delayed.forecast,reference_at:'invalid'}},fiveHours),false);
+assert.equal(currentGauges({...delayed,gauge_distribution:{status:'available',stations:[]}},fiveHours),null);
+assert.match(require('../web/dashboard.js').riskPresentation(capture,captureNow).title,/chuva e vento/);
+const redWithWeakWind={...capture,assessment:{...capture.assessment,suggested_level:'vermelho',valid_until:capture.valid_until,basis_kind:'primary_epagri_advisory',base_assessment:{...capture.assessment.base_assessment,suggested_level:'vermelho'}}};
+assert.match(require('../web/dashboard.js').riskPresentation(redWithWeakWind,captureNow).reason,/Epagri/);
+assert.doesNotMatch(require('../web/dashboard.js').riskPresentation(redWithWeakWind,captureNow).reason,/49,3/);
+console.log('Delayed publication passed: classification withheld at 3h, individually dated measurements/model retained until their limits, no missing-data zero, primary level reason and combined rain/wind title.');
+
 // Hourly accumulations remain intervals, including the partially elapsed model hour.
 const {comparableReadings,pointDescription}=require('../web/dashboard.js');
 const irregular={...data,generated_at:'2026-11-06T20:29:00Z'};

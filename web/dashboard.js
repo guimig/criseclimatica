@@ -1,5 +1,5 @@
 'use strict';
-const panel = {data:null, history:null, variable:'precipitation_mm', hours:24, rainWindow:24, observedVariable:'precipitation_mm', station:'all', scope:'local', observedView:'auto', loadId:0};
+const panel = {data:null, history:null, variable:'precipitation_mm', hours:24, rainWindow:24, observedVariable:'precipitation_mm', station:'all', scope:'local', observedView:'auto', loadId:0,loading:false,fetchError:false};
 const el = id => document.getElementById(id);
 const colors = ['#2f8548','#377fb1','#b27a2b','#8a5a9f','#bf4e48','#458a88'];
 const timeZone = 'America/Sao_Paulo';
@@ -8,6 +8,21 @@ function date(v) { return v && Number.isFinite(Date.parse(v)) ? new Intl.DateTim
 function fresh(v, hours=3, now=Date.now()) { const t=typeof v==='string'?Date.parse(v):NaN;return Number.isFinite(t)&&now-t>=-600000&&now-t<=hours*3600000; }
 function dashboardCurrent(data, now=Date.now()) { return Boolean(data&&fresh(data.generated_at,3,now)&&Number.isFinite(Date.parse(data.valid_until))&&now<Date.parse(data.valid_until)); }
 function protocolCurrent(data, now=Date.now()) { return dashboardCurrent(data,now)&&Number.isFinite(Date.parse(data.assessment?.valid_until))&&now<Date.parse(data.assessment.valid_until); }
+function forecastCurrent(data,now=Date.now()) {
+  const f=data?.forecast;
+  return Boolean(f?.status==='available'&&fresh(f.collected_at,8,now)&&fresh(f.reference_at,8,now));
+}
+function currentGauges(data,now=Date.now()) {
+  const gauge=data?.gauge_distribution;
+  if(gauge?.status!=='available')return null;
+  if(!Array.isArray(gauge.stations))return dashboardCurrent(data,now)?gauge:null;
+  const stations=gauge.stations.filter(s=>Number.isFinite(s.rain_24h_mm)&&fresh(s.observed_at,6,now));
+  if(!stations.length)return null;
+  const values=stations.map(s=>s.rain_24h_mm).sort((a,b)=>a-b),mid=Math.floor(values.length/2);
+  return {...gauge,stations,station_count:stations.length,maximum_mm:values.at(-1),
+    median_mm:values.length>=3?(values.length%2?values[mid]:(values[mid-1]+values[mid])/2):null,
+    latest_at:stations.map(s=>s.observed_at).sort().at(-1)};
+}
 function currentPrimaryAssessment(data,now) {
   const base=data?.assessment?.base_assessment;
   if(!base||now<Date.parse(base.valid_until))return base;
@@ -35,7 +50,10 @@ function effectiveAssessment(data,now=Date.now()) {
   const policy=data?.assessment;
   const objective=policy?.numeric_support;
   const expired=objective?.signals?.filter(s=>!signalCurrent(s,data,now))||[];
-  if(protocolCurrent(data,now)&&!expired.length)return policy;
+  const complementary=data?.complementary_notices;
+  const contextExpired=complementary?.notices?.some(e=>e.lifecycle!=='expired'&&e.end_at&&now>=Date.parse(e.end_at))||
+    (complementary?.retrieved_at&&!fresh(complementary.retrieved_at,6,now));
+  if(protocolCurrent(data,now)&&!expired.length&&!contextExpired)return policy;
   const base=currentPrimaryAssessment(data,now);
   if(dashboardCurrent(data,now)&&base&&now<Date.parse(base.valid_until)) {
     const signals=(objective?.signals||[]).filter(s=>signalCurrent(s,data,now));
@@ -43,18 +61,20 @@ function effectiveAssessment(data,now=Date.now()) {
     const direct=signals.filter(s=>s.band>0&&!s.period_proxy);
     const proposal=coincidences.some(c=>c.observed_band>=2&&c.model_band>=2&&c.spatial_match_verified)?'laranja':direct.some(s=>s.band>=2)||coincidences.length?'amarelo':null;
     const levels={verde:0,azul:1,amarelo:2,laranja:3,vermelho:4,roxo:5};
-    const suggested=proposal&&levels[proposal]>(levels[base.suggested_level]??-1)?proposal:base.suggested_level;
+    const numericWins=proposal&&levels[proposal]>(levels[base.suggested_level]??-1);
+    const suggested=numericWins?proposal:base.suggested_level;
     const maximum=signals.length?Math.max(...signals.map(s=>s.band)):null;
-    const complementary=data.complementary_notices?.notices;
-    const official=(complementary?complementary.some(e=>e.lifecycle!=='expired'&&(!e.end_at||now<Date.parse(e.end_at))):objective?.has_complementary_notices)||base.evidence?.some(e=>e.status==='eligible');
+    const notices=complementary?.notices;
+    const noticesFresh=!complementary?.retrieved_at||fresh(complementary.retrieved_at,6,now);
+    const official=(notices?noticesFresh&&complementary.status==='available'&&notices.some(e=>e.lifecycle!=='expired'&&(!e.end_at||now<Date.parse(e.end_at))):objective?.has_complementary_notices)||base.evidence?.some(e=>e.status==='eligible');
     const pending=base.evidence?.some(e=>e.status==='needs_territorial_or_temporal_check'&&(e.scope!=='not_verified'||!e.regions_text));
     // Expired coverage may retain attention, but cannot establish normality.
-    const complete=Boolean(objective?.core_complete&&!expired.length&&!base.primary_coverage_expired&&signals.length);
+    const complete=Boolean(objective?.core_complete&&!expired.length&&!base.primary_coverage_expired&&noticesFresh&&signals.length);
     const state=suggested?'heightened':maximum>0?'technical_attention':official?'official_context':pending?'partial':complete?'routine':'partial';
     const label=state==='partial'?'Monitoramento parcial':state==='routine'?'Monitoramento de rotina':state==='technical_attention'?'Referências de atenção':'Acompanhamento reforçado';
     return {...base,suggested_level:suggested||null,monitoring_state:state,monitoring_label:label,
       title:suggested?riskNames[suggested]:label,
-      basis_kind:suggested===proposal&&proposal?'complementary_numeric_evidence':suggested?'primary_epagri_advisory':'monitoring_state',
+      basis_kind:numericWins?'complementary_numeric_evidence':suggested?'primary_epagri_advisory':'monitoring_state',
       reason:state==='partial'?'Parte das medições venceu e as referências restantes não permitem uma leitura completa. Consulte as fontes e os horários.':'Leitura recalculada com as referências ainda válidas; medições vencidas foram retiradas.',
       numeric_support:{...objective,valid_until:base.valid_until,signals,coincidences,proposed_level:proposal,maximum_band:maximum,core_complete:complete,expired_signals:expired}};
   }
@@ -88,9 +108,9 @@ function riskPresentation(data,now=Date.now()) {
   const policy=effectiveAssessment(data,now),objective=policy?.numeric_support;
   if(!policy||!(now<Date.parse(policy.valid_until)))return {color:'neutral',active:null,title:'Dados insuficientes para classificar',kind:'Leitura parcial',reason:'Não há referências válidas suficientes para distinguir normalidade de uma situação de atenção.'};
   const signals=(objective?.signals||[]).filter(s=>s.band>0).sort((a,b)=>Number(a.period_proxy)-Number(b.period_proxy)||b.band-a.band);
-  const highest=signals[0],families=[...new Set(signals.filter(s=>!s.period_proxy).map(s=>s.variable.startsWith('rain_')?'chuva':'vento'))],description=highest?signalDescription(highest,data):'';
+  const highest=signals[0],families=[...new Set(signals.map(s=>s.variable.startsWith('rain_')?'chuva':'vento'))],description=highest?signalDescription(highest,data):'';
   if(policy.suggested_level)return {color:policy.suggested_level,active:policy.suggested_level,title:riskNames[policy.suggested_level]||policy.title,kind:'Nível sugerido · '+policy.suggested_level,
-    reason:description||'Um aviso Epagri/Ciram para a região contém informações compatíveis com este nível. Confira o período e a abrangência nos detalhes.'};
+    reason:policy.basis_kind==='complementary_numeric_evidence'?description||policy.reason:'Um aviso Epagri/Ciram para a região contém informações compatíveis com este nível. Confira o período e a abrangência nos detalhes.'};
   if(policy.monitoring_state==='routine'&&objective?.core_complete&&objective.maximum_band===0&&objective.signals?.length)return {color:'verde',active:'verde',title:'Normalidade nos dados acompanhados',kind:'Referência verde · leitura consultiva',reason:'As fontes necessárias foram consultadas e os dados válidos de chuva e vento estão abaixo das faixas de atenção utilizadas. Nenhum aviso aplicável foi identificado. É uma leitura do painel, não uma declaração institucional.'};
   if(highest)return {color:'amarelo',active:null,title:'Atenção a '+(families.length>1?'chuva e vento':highest.variable.startsWith('rain_')?'chuva':highest.variable==='gust_kmh'?'rajadas de vento':'vento'),kind:'Referência amarela · atenção',reason:signals.slice(0,2).map(signal=>signalDescription(signal,data)).join(' ')};
   if(policy.monitoring_state==='official_context')return {color:'amarelo',active:null,title:'Há aviso meteorológico para conferir',kind:'Referência amarela · conferir aviso',reason:'Uma publicação oficial pode ser relevante para Araquari. A abrangência ou o conteúdo ainda não permite sugerir um nível específico; abra as evidências.'};
@@ -100,8 +120,8 @@ function renderSummary() {
   if(typeof ForecastComparison!=='undefined')ForecastComparison.renderCompact(el('forecast-comparison'),panel.data?.forecast_comparison);
   const data=panel.data, current=dashboardCurrent(data), policy=effectiveAssessment(data), validPolicy=current&&Date.now()<Date.parse(policy?.valid_until);
   el('publication-time').textContent=data?'Painel atualizado em '+date(data.generated_at):'Atualização indisponível';
-  el('publication-status').hidden=current;
-  el('publication-status').textContent=data?'A publicação ou uma referência venceu. O enquadramento e os indicadores atuais foram retirados; isso não indica melhora.':'Não foi possível carregar uma publicação verificável de Araquari. Consulte as fontes oficiais.';
+  el('publication-status').hidden=current&&!panel.fetchError;
+  el('publication-status').textContent=panel.fetchError?'Falha ao consultar a publicação. A última leitura foi preservada com seus horários originais; o painel tentará novamente automaticamente.':data?'A coleta publicada está atrasada. A classificação foi suspensa; confira os horários das referências. O painel busca novas publicações automaticamente.':'Não foi possível carregar uma publicação verificável de Araquari. O painel tentará novamente automaticamente.';
   const presentation=riskPresentation(data);
   el('level-dot').className='level-dot '+presentation.color;
   el('level-card').dataset.risk=presentation.color;
@@ -124,15 +144,16 @@ function renderSummary() {
   const complementary=(data?.complementary_notices?.notices||[]).filter(n=>n.lifecycle!=='expired');
   if(current&&data.complementary_notices?.status==='available'&&complementary.length)el('priority-description').textContent+=` Há ${complementary.length} aviso(s) INMET complementar(es); confira validade e abrangência nas evidências.`;
   el('priority-link').href=current&&evidence&&safeLink(evidence.url)?safeLink(evidence.url):'https://ciram.epagri.sc.gov.br/index.php/avisos-meteorologicos/';
-  const gauges=data?.gauge_distribution;
-  if(current&&gauges?.status==='available') {
+  const gauges=currentGauges(data);
+  if(gauges) {
     const median=Number.isFinite(gauges.median_mm);
-    updateMetric('observed',num(median?gauges.median_mm:gauges.maximum_mm)+' mm',`${median?'Mediana':'Maior leitura'} · ${gauges.station_count} estações · maior: ${num(gauges.maximum_mm)} mm`);
+    updateMetric('observed',num(median?gauges.median_mm:gauges.maximum_mm)+' mm',`${current?'':'Última leitura · '}${median?'Mediana':'Maior leitura'} · ${gauges.station_count} estações · maior: ${num(gauges.maximum_mm)} mm${gauges.latest_at?' · '+date(gauges.latest_at):''}`);
   } else updateMetric('observed','—','Sem leitura local válida · não é chuva zero');
   const f=data?.forecast, rain=f?.rain, gust=f?.wind?.gust_kmh, heat=f?.heat;
-  updateMetric('forecast',current&&rain?.status==='complete'?num(rain.total_mm)+' mm':'—',current&&rain?.status==='complete'?`${date(rain.start_at)} a ${date(rain.end_at)}`:'Janela incompleta ou referência vencida');
-  updateMetric('gust',current&&Number.isFinite(gust?.maximum)?num(gust.maximum)+' km/h':'—',current&&gust?.at?date(gust.at):'Sem série completa de 24 h');
-  updateMetric('temperature',current&&Number.isFinite(heat?.maximum_c)?num(heat.maximum_c)+' °C':'—',current&&heat?.maximum_at?date(heat.maximum_at):'Sem série completa de 24 h');
+  const forecastValid=forecastCurrent(data),prefix=current?'':'Publicação anterior · ';
+  updateMetric('forecast',forecastValid&&rain?.status==='complete'?num(rain.total_mm)+' mm':'—',forecastValid&&rain?.status==='complete'?`${prefix}${date(rain.start_at)} a ${date(rain.end_at)}`:'Janela incompleta ou referência vencida');
+  updateMetric('gust',forecastValid&&Number.isFinite(gust?.maximum)?num(gust.maximum)+' km/h':'—',forecastValid&&gust?.at?prefix+date(gust.at):'Sem série completa de 24 h');
+  updateMetric('temperature',forecastValid&&Number.isFinite(heat?.maximum_c)?num(heat.maximum_c)+' °C':'—',forecastValid&&heat?.maximum_at?prefix+date(heat.maximum_at):'Sem série completa de 24 h');
   const peak=f?.rain_peaks?.find(p=>p.hours===3), revision=data?.revision;
   let reading=current&&peak?`A chuva prevista se concentra entre ${date(peak.start_at)} e ${date(peak.end_at)}: ${num(peak.total_mm)} mm na maior janela de 3 horas.`:'A distribuição temporal depende de séries completas e recentes; ausência de dados não indica redução do evento.';
   if(current&&revision?.status==='comparable_publications')reading+=` Para os mesmos horários futuros, a chuva passou de ${num(revision.previous_rain_mm)} para ${num(revision.current_rain_mm)} mm entre publicações. Essa revisão não mede precisão.`;
@@ -403,7 +424,7 @@ function showEvidence() {
     const notices=data.complementary_notices;paragraph(body,`Estado da consulta: ${notices?.status||'indisponível'}. Cores do INMET não são convertidas em níveis deste protocolo.`);
     for(const n of notices?.notices||[])paragraph(body,`${n.type} · ${n.severity} · ${n.window_as_reported||'janela não informada'}. Fuso/validade: ${n.temporal_relation==='unverified_timezone_or_window'?'não conciliados':'conforme a referência original'}.`);
     body.append(node('h3','','Qualidade das fontes'));
-    for(const s of data.source_status||[])paragraph(body,`${s.source} · ${s.role} · ${s.status} · referência ${date(s.reference_at)}.`);
+    for(const s of data.source_status||[])paragraph(body,`${s.source} · ${s.role} · ${s.status} · referência ${date(s.reference_at)}.${s.checked_at?' Última tentativa: '+date(s.checked_at)+'.':''}${s.diagnostics?.length?' Diagnóstico: '+s.diagnostics.join('; '):''}`);
     const a=node('a','','Todas as estações e fontes →');a.href='./dados.html';body.append(a);
   });
 }
@@ -415,6 +436,7 @@ function showAssessment() {
     if(objective?.expired_signals?.length)paragraph(body,`${objective.expired_signals.length} medição(ões) vencida(s) retirada(s) desta leitura. As demais referências continuam sendo avaliadas.`,'notice');
     const signals=(objective?.signals||[]).filter(s=>s.band>0);
     if(signals.length){body.append(node('h3','','O que chamou a atenção'));for(const signal of signals.slice(0,8))paragraph(body,signalDescription(signal,panel.data));}
+    if(objective?.coverage_gaps?.length){body.append(node('h3','','Referências necessárias ausentes'));for(const gap of objective.coverage_gaps)paragraph(body,gap);}
     body.append(node('h3','','Como ler os termos técnicos'));
     paragraph(body,'Uma leitura acima da referência significa que um valor atingiu uma faixa auxiliar de chuva ou vento. Chuva de 1 h, chuva de 24 h, vento e rajada são medidas diferentes: contar duas leituras não significa dois eventos ou dois alertas independentes.');
     paragraph(body,'Uma comparação temporal reúne observação e modelo para horários próximos e a mesma variável. Sem comparação compatível, não se conclui que a previsão está certa ou errada. Esses cruzamentos são explicados nos métodos, sem uma nota única de risco.');
@@ -459,6 +481,8 @@ function showMethods() {
 }
 async function readJson(path) {const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),15000);try{const response=await fetch(path,{cache:'no-store',signal:controller.signal});if(!response.ok)throw new Error('HTTP '+response.status);return await response.json();}finally{clearTimeout(timer);}}
 async function loadDashboard() {
+  if(panel.loading)return;
+  panel.loading=true;
   const id=++panel.loadId;el('refresh').disabled=true;
   try{
     let loaded;
@@ -468,12 +492,12 @@ async function loadDashboard() {
       if(latest.generated_at===data.generated_at){loaded={data,history:history?.kind==='araquari_point_observation_history_not_climatology'&&history?.location_id==='araquari'&&!history.fixture_mode&&history.generated_at===data.generated_at?history:null};break;}
     }
     if(!loaded)throw new Error('Publication mismatch');if(id!==panel.loadId)return;
-    panel.data=loaded.data;panel.history=loaded.history;
-  }catch(err){if(id!==panel.loadId)return;console.error('Dashboard unavailable:',err.message);panel.data=null;panel.history=null;}
-  finally{if(id===panel.loadId){el('refresh').disabled=false;renderSummary();renderRecent();renderMemory();renderChart();}}
+    panel.data=loaded.data;panel.history=loaded.history;panel.fetchError=false;
+  }catch(err){if(id!==panel.loadId)return;console.error('Dashboard unavailable:',err.message);panel.fetchError=true;}
+  finally{if(id===panel.loadId){panel.loading=false;el('refresh').disabled=false;renderSummary();renderRecent();renderMemory();renderChart();}}
 }
 function selectVariable(variable) {panel.variable=variable;if(el('forecast-variable'))el('forecast-variable').value=variable;for(const button of document.querySelectorAll('[data-variable]')){const selected=button.dataset.variable===variable;button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));}renderChart();}
-if(typeof module!=='undefined')module.exports={fresh,dashboardCurrent,protocolCurrent,signalCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale,chartReadingsAt,chartReadingText};
+if(typeof module!=='undefined')module.exports={fresh,dashboardCurrent,protocolCurrent,forecastCurrent,currentGauges,signalCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale,chartReadingsAt,chartReadingText};
 if(typeof document!=='undefined'){
   function navigationState(){if(location.hash==='#memory')el('memory').open=true;for(const link of document.querySelectorAll('nav a[href^="#"]')){const active=link.getAttribute('href')===(location.hash||'#main');if(active)link.setAttribute('aria-current','location');else link.removeAttribute('aria-current');}}
   window.addEventListener('hashchange',navigationState);navigationState();
@@ -496,8 +520,14 @@ if(typeof document!=='undefined'){
   el('rain-window').addEventListener('change',event=>{panel.rainWindow=Number(event.target.value)===24?24:1;renderChart();});
   el('history-open').addEventListener('click',showHistory);document.addEventListener('observatorythemechange',renderChart);
   el('evidence-open').addEventListener('click',showEvidence);el('level-explain').addEventListener('click',showAssessment);el('protocol-open').addEventListener('click',showProtocol);el('methods-open').addEventListener('click',showMethods);el('dialog-close').addEventListener('click',()=>el('detail-dialog').close());
-  setInterval(()=>{renderSummary();if(!dashboardCurrent(panel.data)&&el('detail-dialog').open)el('detail-dialog').close();},60000);
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden){renderSummary();renderChart();if(!dashboardCurrent(panel.data)&&el('detail-dialog').open)el('detail-dialog').close();}});
+  const publicationRefresh=typeof PublicationRefresh!=='undefined'?PublicationRefresh.create({
+    getVersion:()=>panel.data?.generated_at,readLatest:()=>readJson('./data/latest.json'),
+    reload:loadDashboard,isVisible:()=>!document.hidden,
+    onSuccess:()=>{panel.fetchError=false;renderSummary();},
+    onError:()=>{panel.fetchError=true;renderSummary();}}):null;
+  setInterval(()=>{renderSummary();publicationRefresh?.check();if(!dashboardCurrent(panel.data)&&el('detail-dialog').open)el('detail-dialog').close();},60000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden){renderSummary();renderChart();publicationRefresh?.check();if(!dashboardCurrent(panel.data)&&el('detail-dialog').open)el('detail-dialog').close();}});
+  window.addEventListener('online',()=>publicationRefresh?.check());
   let chartWidth=0;
   if(typeof ResizeObserver!=='undefined')new ResizeObserver(entries=>{const width=Math.round(entries[0].contentRect.width);if(width>0&&width!==chartWidth){chartWidth=width;requestAnimationFrame(renderChart);}}).observe(el('chart-panels'));
   loadDashboard();

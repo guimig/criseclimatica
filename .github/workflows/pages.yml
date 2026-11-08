@@ -5,8 +5,9 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: '0,40 */2 * * *'
-    - cron: '20 1-23/2 * * *'
+    # Check more often, away from the hour boundary; collect at about 40 min.
+    # GitHub schedules can be delayed/dropped, so every check reconciles age.
+    - cron: '7,27,47 * * * *'
 
 permissions:
   contents: read
@@ -21,19 +22,28 @@ jobs:
   build:
     timeout-minutes: 15
     runs-on: ubuntu-latest
+    outputs:
+      refresh: ${{ steps.freshness.outputs.refresh }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Check publication age
+        id: freshness
+        run: python scripts/check_refresh.py --force "${{ github.event_name != 'schedule' }}" --github-output "$GITHUB_OUTPUT"
       - name: Validate code before collecting
+        if: steps.freshness.outputs.refresh == 'true'
         run: python -m unittest discover -s tests -v
       - name: Test browser reliability without network
+        if: steps.freshness.outputs.refresh == 'true'
         run: |
           node tests/web_reliability.cjs
           node tests/dashboard_behavior.cjs
+          node tests/publication_refresh.cjs
       - name: Fetch live forecast and build static site
+        if: steps.freshness.outputs.refresh == 'true'
         env:
           INMET_API_TOKEN: ${{ secrets.INMET_API_TOKEN }}
           CEMADEN_PED_EMAIL: ${{ secrets.CEMADEN_PED_EMAIL }}
@@ -41,14 +51,18 @@ jobs:
           CEMADEN_PED_TOKEN: ${{ secrets.CEMADEN_PED_TOKEN }} # Legacy fallback only
         run: python scripts/build_site.py --output dist --previous-url https://guimig.github.io/criseclimatica/
       - name: Verify dataset integrity
+        if: steps.freshness.outputs.refresh == 'true'
         run: python scripts/validate_site.py --output dist
       - name: Configure GitHub Pages
+        if: steps.freshness.outputs.refresh == 'true'
         uses: actions/configure-pages@v5
       - name: Upload site artifact
+        if: steps.freshness.outputs.refresh == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
   deploy:
+    if: needs.build.outputs.refresh == 'true'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -58,4 +72,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-

@@ -96,6 +96,14 @@ class NumericSupportTests(unittest.TestCase):
         r=summarize(p,d,epagri(),STAMP)
         self.assertLessEqual(datetime.fromisoformat(r['valid_until'].replace('Z','+00:00')),NOW+timedelta(minutes=10))
 
+    def test_available_source_with_missing_accumulations_cannot_establish_normality(self):
+        for fields in ({'rain_1h_mm':None},{'rain_24h_mm':None},{'rain_1h_mm':None,'rain_24h_mm':None}):
+            p=primary();p['observed_rain']['stations'][0].update(fields)
+            result=summarize(p,detail(),epagri(),STAMP)
+            self.assertFalse(result['core_complete'])
+            self.assertTrue(result['coverage_gaps'])
+            self.assertEqual(integrate(assess(epagri(),{},STAMP),result)['monitoring_state'],'partial')
+
 
 class HistoryTests(unittest.TestCase):
     def test_state_runs_are_idempotent_and_measure_sample_span_only(self):

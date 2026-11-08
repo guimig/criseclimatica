@@ -11,6 +11,8 @@ from __future__ import annotations
 import html
 import json
 import re
+import socket
+import ssl
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from email.utils import parsedate_to_datetime
@@ -245,7 +247,13 @@ def _download(url: str, *, timeout: int = 8, limit: int = MAX_BYTES) -> bytes:
             content = response.read(limit + 1)
     except (HTTPError, URLError, TimeoutError, OSError) as exc:
         # Keep only status category, never session tokens or full URLs.
-        category = f"http_{exc.code}" if isinstance(exc, HTTPError) else type(exc).__name__
+        reason=getattr(exc,'reason',exc)
+        category = (f"http_{exc.code}" if isinstance(exc, HTTPError) else
+                    'tls_certificate' if isinstance(reason,ssl.SSLCertVerificationError) else
+                    'tls_connection' if isinstance(reason,ssl.SSLError) else
+                    'dns' if isinstance(reason,socket.gaierror) else
+                    'timeout' if isinstance(reason,TimeoutError) else
+                    'connection' if isinstance(reason,ConnectionError) else type(exc).__name__)
         raise CivilDefenseError(f"Public bulletin unavailable: {category}") from exc
     if len(content) > limit:
         raise CivilDefenseError("Public bulletin exceeded size limit")

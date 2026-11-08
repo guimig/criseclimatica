@@ -36,7 +36,7 @@ O build recupera esse arquivo opcionalmente do próprio Pages, com limite de 1 M
 - Validade máxima da síntese de 3 h, limitada também pelo vencimento das referências usadas nas sugestões. O navegador reavalia a cada minuto e ao recuperar visibilidade.
 - Após vencimento, as sugestões são retiradas e as evidências permanecem identificadas como referências da publicação anterior.
 - As leituras individuais próximas têm vencimento próprio explícito.
-- Atualização programada a cada 3 h, sujeita a atraso do GitHub Actions e das fontes; não é monitoramento contínuo.
+- Verificação agendada a cada 20 min e coleta alvo de cerca de 40 min, sujeitas a atraso do GitHub Actions e das fontes; não é monitoramento contínuo.
 - Ausência de leitura, leitura zero, fonte indisponível e referência vencida têm significados distintos.
 
 ## Protocolo e parâmetros pendentes

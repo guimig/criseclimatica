@@ -140,7 +140,7 @@ def validate(output: Path, *, fixture: bool = False) -> None:
     for record in observed_history["records"]:
         if record.get("source") not in ("cemaden-rain", "metar", "cemaden-temperature") or not record.get("observed_at"):
             raise ValueError("Observation history cannot contain model snapshots")
-    for required in ("index.html", "dashboard.js", "dashboard.css", "essential.css", "chart-interaction.js", "icons.svg", "dados.html", "references/pn-13-2026.pdf", "references/pn-14-2026.pdf"):
+    for required in ("index.html", "dashboard.js", "publication-refresh.js", "dashboard.css", "essential.css", "chart-interaction.js", "icons.svg", "dados.html", "references/pn-13-2026.pdf", "references/pn-14-2026.pdf"):
         if not (output / required).is_file():
             raise ValueError(f"Missing dashboard asset: {required}")
 
