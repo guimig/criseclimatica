@@ -97,6 +97,30 @@ assert.equal(signalCurrent({...recentWind,end_at:'invalid'},capture,captureNow),
 assert.equal(require('../web/dashboard.js').riskPresentation(capture,Date.parse(capture.valid_until)).color,'neutral');
 console.log('Independent validity passed: actual screenshot timing, retained 24h rain/forecast, expired coincidence removed, primary priority, no false normality, publication expiry and immutable repeated reads.');
 
+// An official notice can end before the publication/model window does.
+const noticeEnd='2026-11-07T23:00:00Z';
+const expiredNotice={status:'eligible',supports_level:'vermelho',valid_until:noticeEnd};
+const afterNotice=Date.parse('2026-11-07T23:10:00Z');
+const evening={generated_at:'2026-11-07T22:18:54Z',valid_until:'2026-11-08T01:18:54Z',
+ source_status:[{source:'Epagri/Ciram · avisos',status:'available',reference_at:'2026-11-07T22:15:46Z'}],
+ assessment:{valid_until:noticeEnd,suggested_level:'vermelho',base_assessment:{valid_until:noticeEnd,suggested_level:'vermelho',evidence:[expiredNotice]},
+ numeric_support:{core_complete:true,signals:[gustSignal],maximum_band:1,coincidences:[]}}};
+assert.equal(dashboardCurrent(evening,afterNotice),true);
+const after=effectiveAssessment(evening,afterNotice);
+assert.equal(after.suggested_level,null);
+assert.equal(after.evidence[0].status,'expired');
+assert.equal(after.numeric_support.signals.length,1);
+assert.equal(require('../web/dashboard.js').riskPresentation(evening,afterNotice).color,'amarelo');
+const laterNotice={...expiredNotice,supports_level:'amarelo',valid_until:'2026-11-08T01:00:00Z'};
+const overlapping={...evening,assessment:{...evening.assessment,base_assessment:{...evening.assessment.base_assessment,evidence:[expiredNotice,laterNotice]}}};
+assert.equal(effectiveAssessment(overlapping,afterNotice).suggested_level,'amarelo');
+const stalePriority={...evening,source_status:[{...evening.source_status[0],reference_at:'2026-11-07T16:00:00Z'}]};
+assert.equal(effectiveAssessment(stalePriority,afterNotice).numeric_support.core_complete,false);
+assert.equal(effectiveAssessment(stalePriority,afterNotice).suggested_level,null);
+assert.equal(require('../web/dashboard.js').riskPresentation(evening,Date.parse('2026-11-08T01:20:00Z')).title,'Atualização necessária');
+assert.equal(evening.assessment.base_assessment.evidence[0].status,'eligible');
+console.log('Official notice expiry passed: expired level withdrawn, remaining notices/data preserved, stale priority cannot establish normality, publication still expires at three hours.');
+
 // Hourly accumulations remain intervals, including the partially elapsed model hour.
 const {comparableReadings,pointDescription}=require('../web/dashboard.js');
 const irregular={...data,generated_at:'2026-11-06T20:29:00Z'};

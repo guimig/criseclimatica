@@ -141,7 +141,9 @@ class TestStationCatalogs(unittest.TestCase):
         self.assertEqual(result["conventional_catalog_status"], "unavailable")
 
     def test_offline_fixture_full_build_includes_new_datasets(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        # The CPTEC fixture is dated 05/11/2026. This contract must not depend
+        # on the wall clock crossing midnight and expiring its forecast days.
+        with tempfile.TemporaryDirectory() as tmp, patch('build_site.now_utc', return_value=STAMP):
             output = Path(tmp) / "dist"
             build(output, fixture=ROOT / "tests/fixtures/open_meteo.json")
             validate(output, fixture=True)
