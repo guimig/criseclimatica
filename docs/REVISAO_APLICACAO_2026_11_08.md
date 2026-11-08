@@ -47,6 +47,8 @@ O comparador passa a limitar seu prazo pelas oito horas de validade de coleta/re
 
 Regressões complementares cobrem reparo da mesma versão, preservação do Cemaden durante falha de leitura seguida de recuperação em navegador real, tentativa municipal pendente, data excessivamente futura e comparação com referência antiga/indisponível.
 
+Um arquivo municipal sem os blocos `current`, `hourly` ou `daily` também é recusado antes de substituir a leitura. Se a renderização falhar sem cache compatível, o objeto inválido é retirado do estado, evitando que o temporizador tente renderizá-lo novamente e interrompa a atualização dos demais blocos.
+
 ## Limitações e operação
 
 GitHub Actions continua sujeito a atraso/omissão de eventos. A indisponibilidade do coletor da Defesa Civil e o acesso opcional ao INMET observado não são resolvidos por mudanças de frontend. Esta revisão não demonstra precisão meteorológica local nem substitui avaliação institucional.

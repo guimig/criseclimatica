@@ -996,7 +996,7 @@ async function selectLocation(slug) {
       detail=null;
     }
     if (requestId !== state.requestId) return;
-    if (!detail||detail.fixture_mode||detail.location?.id !== slug || detail.source?.id !== 'open-meteo') throw new Error('Inconsistent location data or publication');
+    if (!detail||detail.fixture_mode||detail.location?.id !== slug || detail.source?.id !== 'open-meteo'||!detail.current||!Array.isArray(detail.hourly)||!Array.isArray(detail.daily)) throw new Error('Inconsistent location data or publication');
     state.detail = detail;
     state.detailRetry=false;
     renderDetail();
@@ -1007,7 +1007,7 @@ async function selectLocation(slug) {
     console.error('Failed to load municipality data:', err);
     if(previousDetail&&(!place.collected_at||previousDetail.collected_at===place.collected_at)){
       state.detail=previousDetail;renderDetail();
-    }else clearDetails();
+    }else{state.detail=null;clearDetails();}
   }
 }
 async function boot() {

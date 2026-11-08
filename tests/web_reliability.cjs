@@ -162,12 +162,15 @@ console.log('Advisory scenarios passed: Araquari priority, regional complement, 
   requests=0;context.fetch=async()=>({ok:true,json:async()=>{requests++;return municipal;}});
   await run("selectLocation('araquari')");
   assert.equal(requests,2);assert.equal(run('state.detail'),null);assert.equal(text('temp'),'--');
+  context.fetch=async()=>({ok:true,json:async()=>({...municipal,collected_at:'2026-11-06T13:00:00Z',current:null})});
+  await run("selectLocation('araquari')");
+  assert.equal(run('state.detail'),null);assert.equal(run('state.detailRetry'),true);
   context.fetch=async()=>({ok:true,json:async()=>({schema_version:1,generated_at:'2026-11-06T11:00:00Z',locations:[]})});
   await run('boot()');
   assert.equal(run('state.overview.generated_at'),'2026-11-06T12:00:00Z');
   context.fetch=async()=>({ok:true,json:async()=>({schema_version:1,generated_at:'2030-01-01T00:00:00Z',locations:[]})});
   await run('boot()');
   assert.equal(run('state.overview.generated_at'),'2026-11-06T12:00:00Z');
-  assert.equal(expectedErrors.length,4);
+  assert.equal(expectedErrors.length,5);
   console.log('Publication consistency passed: municipal version mismatch retry, same-version offline preservation, no mixing of old detail/new summary and no publication rollback.');
 })().catch(err => { console.error(err); process.exitCode = 1; });
