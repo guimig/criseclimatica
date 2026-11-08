@@ -20,6 +20,27 @@ def detail():
     return {**source('best_match'), 'location':LOCATION,'current':{'time':iso(START)}}
 
 class ComparisonTests(unittest.TestCase):
+    def test_comparison_never_outlives_its_oldest_available_model(self):
+        old=source();old['collected_at']=iso(START-timedelta(hours=7))
+        result=summarize(detail(),[old],{},STAMP)
+        self.assertEqual(result['valid_until'],iso(START+timedelta(hours=1)))
+
+    def test_old_primary_reference_also_limits_comparison(self):
+        d=detail();d['current']['time']=iso(START-timedelta(hours=7))
+        result=summarize(d,[source()],{},STAMP)
+        self.assertEqual(result['valid_until'],iso(START+timedelta(hours=1)))
+
+    def test_unavailable_model_does_not_shorten_remaining_comparison(self):
+        old=source();old['collected_at']=iso(START-timedelta(hours=10))
+        result=summarize(detail(),[old],{},STAMP)
+        self.assertEqual(result['valid_until'],iso(datetime.fromisoformat(STAMP.replace('Z','+00:00'))+timedelta(hours=3)))
+
+    def test_unavailable_primary_collection_does_not_expire_other_models(self):
+        d=detail();d['collected_at']=iso(START-timedelta(hours=10));d['current']['time']=iso(START-timedelta(hours=7))
+        result=summarize(d,[source(),source('ncep_gfs_global')],{},STAMP)
+        self.assertEqual(result['records'][0]['status'],'unavailable')
+        self.assertEqual(result['valid_until'],iso(datetime.fromisoformat(STAMP.replace('Z','+00:00'))+timedelta(hours=3)))
+
     def test_co_timed_ranges_preserve_extremes_no_mean(self):
         r=summarize(detail(),[source(rain=3),source('ncep_gfs_global',5)],{},STAMP)
         rain=r['windows'][0]['metrics'][0]

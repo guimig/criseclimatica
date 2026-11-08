@@ -488,7 +488,7 @@ async function loadDashboard() {
     let loaded;
     for(let attempt=0;attempt<2;attempt++){
       const [latest,data,history]=await Promise.all([readJson('./data/latest.json'),readJson('./data/dashboard.json'),readJson('./data/observation_history.json').catch(()=>null)]);
-      if(latest.schema_version!==1||latest.fixture_mode||data.fixture_mode||data.schema_version!==1||data.kind!=='araquari_weather_dashboard_not_official_decision'||data.location_id!=='araquari'||data.decision_automated!==false)throw new Error('Invalid dashboard source');
+      if(latest.schema_version!==1||latest.fixture_mode||data.fixture_mode||data.schema_version!==1||data.kind!=='araquari_weather_dashboard_not_official_decision'||data.location_id!=='araquari'||data.decision_automated!==false||!Number.isFinite(Date.parse(data.generated_at))||Date.parse(data.generated_at)>Date.now()+600000)throw new Error('Invalid dashboard source');
       if(latest.generated_at===data.generated_at){loaded={data,history:history?.kind==='araquari_point_observation_history_not_climatology'&&history?.location_id==='araquari'&&!history.fixture_mode&&history.generated_at===data.generated_at?history:null};break;}
     }
     if(!loaded)throw new Error('Publication mismatch');if(id!==panel.loadId)return;

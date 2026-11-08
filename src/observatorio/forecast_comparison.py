@@ -128,8 +128,14 @@ def summarize(detail, alternatives, cptec, stamp):
         windows.append({'hours': hours, 'start_at': iso(start), 'end_at': iso(end), 'metrics': metrics})
     cp = local(cptec or {}, 'araquari')
     cp_ready = cp.get('status') == 'available' and fresh((cptec or {}).get('checked_at'), now, 6)
+    expirations=[now+timedelta(hours=3)]
+    for record in records:
+        if record['status']=='available':
+            expirations.append(moment(record['collected_at'])+timedelta(hours=8))
+    if records[0]['status']=='available':
+        expirations.append(moment(detail['current']['time'])+timedelta(hours=8))
     return {'schema_version': 1, 'kind': KIND, 'location_id': 'araquari', 'generated_at': stamp,
-            'valid_until': iso(now+timedelta(hours=3)), 'primary_id': 'best_match',
+            'valid_until': iso(min(expirations)), 'primary_id': 'best_match',
             'priority_reason': 'Operational hourly coverage; no demonstrated local skill ranking', 'records': records, 'windows': windows,
             'cptec': {'status': 'available' if cp_ready else 'unavailable', 'reported_status': cp.get('status', 'unavailable'),
                       'checked_at': (cptec or {}).get('checked_at'), 'updated_day': cp.get('updated_day'),

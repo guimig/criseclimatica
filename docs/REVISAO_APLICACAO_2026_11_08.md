@@ -37,6 +37,18 @@ As regressões acrescentadas exercitam saída protegida, link simbólico, falha 
 
 O workflow continua executando as suítes Python/JavaScript e a validação antes de publicar, além dos testes de navegador na revisão. O validador dentro do build é uma proteção adicional para execução local; a validação do workflow permanece.
 
+## Revisão complementar: falhas parciais e prazos entre camadas
+
+Uma carga parcialmente malsucedida podia já ter aceitado o `generated_at` novo no resumo. O polling passava a considerar a versão carregada e não repetia o arquivo faltante até outra publicação. A carga agora registra pendências e tenta repará-las mesmo na mesma versão, com o limite existente de uma tentativa por minuto e exclusão de concorrência. Uma leitura secundária anteriormente válida só é conservada dentro da mesma publicação; a origem e seus horários não são renovados. Se apenas o arquivo municipal falhou, a repetição é direcionada a ele. Corpo válido de fonte indisponível não representa erro de carregamento.
+
+O resumo só é aceito após o conjunto de consultas secundárias terminar, com o identificador da requisição ainda atual. Publicações com data excessivamente futura são rejeitadas antes de substituir a versão carregada, impedindo que uma data incorreta bloqueie a recuperação posterior pelo controle contra regressão.
+
+O comparador passa a limitar seu prazo pelas oito horas de validade de coleta/referência dos modelos utilizados, além do teto de três horas da publicação. Modelos indisponíveis são excluídos dessa redução. Faixas, prioridade e parâmetros meteorológicos permanecem iguais.
+
+Regressões complementares cobrem reparo da mesma versão, preservação do Cemaden durante falha de leitura seguida de recuperação em navegador real, tentativa municipal pendente, data excessivamente futura e comparação com referência antiga/indisponível.
+
+Um arquivo municipal sem os blocos `current`, `hourly` ou `daily` também é recusado antes de substituir a leitura. Se a renderização falhar sem cache compatível, o objeto inválido é retirado do estado, evitando que o temporizador tente renderizá-lo novamente e interrompa a atualização dos demais blocos.
+
 ## Limitações e operação
 
 GitHub Actions continua sujeito a atraso/omissão de eventos. A indisponibilidade do coletor da Defesa Civil e o acesso opcional ao INMET observado não são resolvidos por mudanças de frontend. Esta revisão não demonstra precisão meteorológica local nem substitui avaliação institucional.

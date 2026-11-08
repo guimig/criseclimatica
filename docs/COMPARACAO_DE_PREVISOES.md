@@ -24,7 +24,7 @@ As coordenadas solicitadas são iguais. As grades devolvidas podem ser distintas
 
 A inicial resume as faixas de 24 h e leva a `dados.html#model-comparison`. A seção detalhada permanece explicitamente em Araquari, mesmo ao consultar outro município. Há gráfico por variável e período, valores por modelo, horários, cobertura, CPTEC separado e métodos expansíveis. Chuva usa barras agrupadas por hora/modelo; temperatura e rajadas usam linhas, com lacunas. Toque, ponteiro e teclado permitem consultar valores.
 
-A comparação vence três horas após a publicação. O navegador retira a leitura atual quando vence e não usa o arquivo histórico como previsão vigente. Os avisos Epagri/Ciram e os níveis do protocolo permanecem em sua camada própria.
+A comparação vence no menor prazo entre publicação +3 h, coleta +8 h de cada modelo disponível e referência atual +8 h da seleção automática quando utilizável. Assim, uma referência já antiga não ganha mais três horas artificiais de validade. Modelos excluídos por indisponibilidade não encurtam o prazo dos restantes. O navegador retira a leitura atual quando vence e não usa o arquivo histórico como previsão vigente. Os avisos Epagri/Ciram e os níveis do protocolo permanecem em sua camada própria.
 
 ## Arquivo por coleta
 

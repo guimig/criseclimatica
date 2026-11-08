@@ -1,6 +1,8 @@
 'use strict';
 
 const state = { analysis: null, alignment: null, coverage: null, bootId: 0, overview: null, detail: null, stations: null, history: null, alerts: null, observations: null, rain: null, nasa: null, cemaden: null, cemadenSensors: null, cptec: null, defesa: null, archive: null, noticeArchive: null, epagriGeo: null, epagriNotices: null, epagriBulletins: null, regionalQuality: null, slug: null, metric: 'temperature_c', requestId: 0 };
+const sourceFields=['analysis','alignment','coverage','stations','history','alerts','observations','rain','nasa','cemaden','cemadenSensors','cptec','defesa','archive','noticeArchive','epagriGeo','epagriNotices','epagriBulletins','regionalQuality'];
+state.incompletePublication=false;state.detailRetry=false;
 const $ = (id) => document.getElementById(id);
 const tz = 'America/Sao_Paulo';
 const units = { temperature_c: '\u00b0C', precipitation_mm: 'mm', gust_kmh: 'km/h' };
@@ -31,6 +33,7 @@ function refreshPublicationStatus() {
   const count = state.overview.available_locations;
   const partial = count < state.overview.total_locations;
   setStatus(!current ? 'Publicação desatualizada: confira os horários das fontes' :
+    state.incompletePublication ? 'Parte dos arquivos não carregou. Nova tentativa automática.' :
     !count ? 'Previsão Open-Meteo indisponível; consulte as outras fontes abaixo' :
     partial ? 'Publicação parcial: confira a cobertura por fonte' : 'Dados de modelo disponíveis',
     !current || partial ? 'warning' : 'ok');
@@ -954,6 +957,7 @@ function renderDetail() {
 async function selectLocation(slug) {
   if (!/^[a-z0-9-]+$/.test(slug) || !state.overview.locations.some((item) => item.id === slug)) return;
   const previousDetail=state.slug===slug?state.detail:null;
+  state.detailRetry=false;
   state.slug = slug;
   state.detail = null;
   const requestId = ++state.requestId;
@@ -992,16 +996,18 @@ async function selectLocation(slug) {
       detail=null;
     }
     if (requestId !== state.requestId) return;
-    if (!detail||detail.fixture_mode||detail.location?.id !== slug || detail.source?.id !== 'open-meteo') throw new Error('Inconsistent location data or publication');
+    if (!detail||detail.fixture_mode||detail.location?.id !== slug || detail.source?.id !== 'open-meteo'||!detail.current||!Array.isArray(detail.hourly)||!Array.isArray(detail.daily)) throw new Error('Inconsistent location data or publication');
     state.detail = detail;
+    state.detailRetry=false;
     renderDetail();
     renderCptec();
   } catch (err) {
     if (requestId !== state.requestId) return;
+    state.detailRetry=true;
     console.error('Failed to load municipality data:', err);
     if(previousDetail&&(!place.collected_at||previousDetail.collected_at===place.collected_at)){
       state.detail=previousDetail;renderDetail();
-    }else clearDetails();
+    }else{state.detail=null;clearDetails();}
   }
 }
 async function boot() {
@@ -1010,10 +1016,11 @@ async function boot() {
   setStatus('Consultando dados publicados...', '');
   try {
     const overview = await readJson('./data/latest.json');
-    if (!Array.isArray(overview.locations) || overview.schema_version !== 1 || overview.fixture_mode) throw new Error('Invalid or test dataset');
+    if (!Array.isArray(overview.locations) || overview.schema_version !== 1 || overview.fixture_mode||!Number.isFinite(Date.parse(overview.generated_at))||Date.parse(overview.generated_at)>Date.now()+600000) throw new Error('Invalid or test dataset');
     if (bootId !== state.bootId) return;
     if(state.overview&&Date.parse(overview.generated_at)<Date.parse(state.overview.generated_at))throw new Error('Older publication received');
-    state.overview = overview;
+    const sameVersion=state.overview?.generated_at===overview.generated_at;
+    const previousSources=Object.fromEntries(sourceFields.map(key=>[key,state[key]]));
     const [stations, history, alerts, observations, rain, noticeArchive, nasa, cemaden, cemadenSensors, cptec, defesa, archive, epagriGeo, epagriNotices, epagriBulletins, regionalQuality, coverage, alignment, analysis] = await Promise.all([
       readJson('./data/stations.json').catch(() => null),
       readJson('./data/history.json').catch(() => null),
@@ -1036,6 +1043,7 @@ async function boot() {
       readJson('./data/analysis.json').catch(() => null),
     ]);
     if (bootId !== state.bootId) return;
+    state.overview = overview;
     state.analysis = analysis?.schema_version === 1 && analysis?.kind === 'meteorological_evidence_and_advisory_not_institutional_decision' && analysis?.primary_location_id === 'araquari' && analysis?.generated_at === overview.generated_at && !analysis?.fixture_mode && analysis?.institutional_decisions_automated === false ? analysis : null;
     renderSynthesis();
     state.alignment = alignment?.kind === 'territorial_source_alignment_not_model_validation' && alignment?.schema_version === 1 ? alignment : null;
@@ -1056,6 +1064,8 @@ async function boot() {
     state.epagriNotices = epagriNotices?.schema_version === 1 && epagriNotices?.kind === 'epagri_ciram_official_advisories_not_civil_defense_alerts' ? epagriNotices : null;
     state.epagriBulletins = epagriBulletins?.schema_version === 1 && epagriBulletins?.kind === 'epagri_ciram_editorial_forecast_bulletins_not_emergency_alerts' ? epagriBulletins : null;
     state.regionalQuality = regionalQuality?.schema_version === 1 && regionalQuality?.kind === 'regional_gauge_coverage_and_spatial_model_context_not_live_alert' ? regionalQuality : null;
+    state.incompletePublication=sourceFields.some(key=>state[key]===null);
+    if(sameVersion)for(const key of sourceFields)if(state[key]===null&&previousSources[key])state[key]=previousSources[key];
     const select = $('location-select');
     clear(select);
     for (const loc of overview.locations) {
@@ -1071,6 +1081,7 @@ async function boot() {
   } catch (err) {
     if (bootId !== state.bootId) return;
     console.error('Failed to initialize observatory:', err);
+    state.incompletePublication=true;
     // A transient network failure cannot erase a previously loaded publication
     // or renew its timestamps. Individual freshness checks still apply.
     renderSynthesis();
@@ -1108,7 +1119,9 @@ function refreshAges() {
   renderCptec();
 }
 const publicationRefresh=typeof PublicationRefresh!=='undefined'?PublicationRefresh.create({
-  getVersion:()=>state.overview?.generated_at,readLatest:()=>readJson('./data/latest.json'),reload:boot,
+  getVersion:()=>state.overview?.generated_at,readLatest:()=>readJson('./data/latest.json'),
+  needsReload:()=>state.incompletePublication||state.detailRetry,
+  reload:latest=>latest.generated_at===state.overview?.generated_at&&!state.incompletePublication&&state.detailRetry?selectLocation(state.slug):boot(),
   isVisible:()=>!document.hidden,onError:()=>setStatus('Falha ao consultar novas publicações; nova tentativa automática.', 'warning')}):null;
 setInterval(()=>{refreshAges();publicationRefresh?.check();}, 60000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden){refreshAges();publicationRefresh?.check();} });
