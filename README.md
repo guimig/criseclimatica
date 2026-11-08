@@ -50,7 +50,7 @@ Cemaden distingue falha de consulta municipal de consulta sem leitura válida. A
 
 Se todas as previsões Open-Meteo falharem, outras fontes operacionais ainda podem ser publicadas com estado parcial e os cartões do modelo vazios. Se nenhuma fonte operacional puder ser atualizada, o build aborta e preserva a publicação anterior. Catálogos e arquivo anual, isoladamente, não justificam publicar um painel aparentemente atualizado.
 
-O agendamento é de três horas, sujeito a atrasos do Actions. Não é monitoramento de emergência em tempo real. Consulte diretamente as autoridades em situações de risco.
+O Actions verifica a publicação a cada 20 min (minutos 7, 27 e 47), com coleta alvo de cerca de 40 min: só dispensa uma coleta agendada quando a publicação válida tem menos de 35 min. Push/manual forçam coleta. O navegador verifica novas publicações a cada minuto com a aba visível e preserva a última leitura durante falhas transitórias. O serviço pode atrasar/omitir eventos; não é monitoramento de emergência em tempo real. Veja a [auditoria de confiabilidade e correções](docs/AUDITORIA_CONFIABILIDADE.md).
 
 ## Estrutura e execução
 

@@ -27,7 +27,7 @@ function effectiveStatus(status, stamp, maxHours = 6) {
 }
 function refreshPublicationStatus() {
   if (!state.overview) return;
-  const current = freshAt(state.overview.generated_at, 8);
+  const current = freshAt(state.overview.generated_at, 3);
   const count = state.overview.available_locations;
   const partial = count < state.overview.total_locations;
   setStatus(!current ? 'Publicação desatualizada: confira os horários das fontes' :
@@ -1062,10 +1062,11 @@ async function boot() {
   } catch (err) {
     if (bootId !== state.bootId) return;
     console.error('Failed to initialize observatory:', err);
-    state.analysis = null;
+    // A transient network failure cannot erase a previously loaded publication
+    // or renew its timestamps. Individual freshness checks still apply.
     renderSynthesis();
-    setStatus('N\u00e3o foi poss\u00edvel carregar os dados do observat\u00f3rio', 'warning');
-    $('updated-at').textContent = 'Confira a publica\u00e7\u00e3o do site';
+    setStatus('Falha ao consultar a publicação; última leitura preservada. Nova tentativa automática.', 'warning');
+    if(!state.overview)$('updated-at').textContent = 'Confira a publicação do site';
   }
 }
 $('location-select').addEventListener('change', (event) => selectLocation(event.target.value));
@@ -1097,8 +1098,12 @@ function refreshAges() {
   renderTerritorialAlignment();
   renderCptec();
 }
-setInterval(refreshAges, 60000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshAges(); });
+const publicationRefresh=typeof PublicationRefresh!=='undefined'?PublicationRefresh.create({
+  getVersion:()=>state.overview?.generated_at,readLatest:()=>readJson('./data/latest.json'),reload:boot,
+  isVisible:()=>!document.hidden,onError:()=>setStatus('Falha ao consultar novas publicações; nova tentativa automática.', 'warning')}):null;
+setInterval(()=>{refreshAges();publicationRefresh?.check();}, 60000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden){refreshAges();publicationRefresh?.check();} });
+if(typeof window!=='undefined')window.addEventListener('online',()=>publicationRefresh?.check());
 boot();
 
 

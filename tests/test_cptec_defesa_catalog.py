@@ -8,6 +8,7 @@ import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
+from urllib.error import URLError
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -16,6 +17,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from observatorio.config import load_locations
 from observatorio.cptec import CptecError, parse_forecast, collect as collect_cptec
 from observatorio.defesa_civil_sc import CivilDefenseError, parse_rss, parse_wp_json, collect as collect_defesa
+from observatorio.defesa_civil_sc import _download
 from observatorio.inmet import normalize_catalog, nearby_catalog, CatalogError
 from build_site import build, station_catalog_for_build
 from validate_site import validate
@@ -123,6 +125,12 @@ class TestDefesaCivil(unittest.TestCase):
 
 
 class TestStationCatalogs(unittest.TestCase):
+    def test_network_diagnostic_is_specific_without_leaking_exception_text(self):
+        with patch('observatorio.defesa_civil_sc.urlopen',side_effect=URLError(TimeoutError('private-network-address'))):
+            with self.assertRaisesRegex(CivilDefenseError,'timeout') as caught:
+                _download('https://www.defesacivil.sc.gov.br/boletins-do-tempo/')
+        self.assertNotIn('private-network-address',str(caught.exception))
+
     def test_conventional_catalog_numeric_codes_and_nearest(self):
         conventional = normalize_catalog(json.loads(CONVENTIONAL.read_text()), network_type="convencional")
         automatic = normalize_catalog(json.loads(AUTOMATIC.read_text()))

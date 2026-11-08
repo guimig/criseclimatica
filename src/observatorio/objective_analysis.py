@@ -85,9 +85,17 @@ def summarize(primary, detail, epagri, stamp, sensors=None):
     notices=primary.get('official_notices',{})
     pending_notices=[n for n in notices.get('notices',[]) if n.get('lifecycle')!='expired'] if notices.get('status')=='available' else []
     epagri_ok=epagri.get('status') in ('available','cached','no_recent_notices') and fresh(epagri.get('retrieved_at'),now,6)
-    core_complete=(forecast.get('status')=='available' and forecast_rain_valid
-        and all(forecast.get('wind',{}).get(k,{}).get('status')=='complete' for k in ('wind_kmh','gust_kmh'))
-        and primary.get('observed_rain',{}).get('status')=='available' and epagri_ok and notices.get('status')=='available')
+    coverage_checks=[
+        (forecast.get('status')=='available','Previsão Open-Meteo atual'),
+        (forecast_rain_valid,'Chuva prevista: 24 horas completas'),
+        (all(forecast.get('wind',{}).get(k,{}).get('status')=='complete' for k in ('wind_kmh','gust_kmh')),'Vento e rajadas previstos: 24 horas completas'),
+        (any(s['source']=='cemaden' and s['variable']=='rain_1h_mm' for s in signals),'Chuva Cemaden local em 1 hora'),
+        (any(s['source']=='cemaden' and s['variable']=='rain_24h_mm' for s in signals),'Chuva Cemaden local em 24 horas'),
+        (epagri_ok,'Consulta Epagri/Ciram atual'),
+        (notices.get('status')=='available','Consulta de avisos INMET atual'),
+    ]
+    coverage_gaps=[label for valid,label in coverage_checks if not valid]
+    core_complete=not coverage_gaps
     expiry=[now+timedelta(hours=3)]
     for signal in numeric:
         if signal['kind']=='observation':
@@ -95,7 +103,7 @@ def summarize(primary, detail, epagri, stamp, sensors=None):
             expiry.append(moment(signal['end_at'])+timedelta(hours=lifetime))
     return {'valid_until':iso(min(expiry)), 'method_version':'numeric-support-v1','reference_source':'INMET · referência auxiliar, não emissão de aviso',
         'reference_urls':REFERENCE_URLS,'signals':signals,'coincidences':coincidences,'proposed_level':proposed,
-        'maximum_band':max((s['band'] for s in signals),default=None),'core_complete':core_complete,
+        'maximum_band':max((s['band'] for s in signals),default=None),'core_complete':core_complete,'coverage_gaps':coverage_gaps,
         'has_complementary_notices':bool(pending_notices),
         'period_note':'Acumulados móveis de 24h são aproximação comparativa da referência diária; não têm necessariamente os mesmos limites do dia.',
         'boundary_note':'Chuva horária: 20–<30 / 30–60 / >60 mm; vento: 40–<60 / 60–100 / >100 km/h. Limites compartilhados usam a faixa superior. Chuva 24h: ≥50–100 / >100 mm; valores abaixo de 50 não recebem faixa diária.',

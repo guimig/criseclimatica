@@ -40,7 +40,7 @@ def fixture():
             'regional_rain_context': {'radius_km': 40, 'stations': [{'source': 'cemaden-rain', 'station': 'N', 'name': 'Pirabeiraba', 'municipality': 'Joinville'}],
                                      'records': [{'source': 'cemaden-rain', 'station': 'N', 'observed_at': stamp, 'rain_1h_mm': 3}]},
             'gauge_distribution': {'status': 'available', 'median_mm': 7.6, 'maximum_mm': 22.8, 'station_count': 3},
-            'forecast': {'start_at': iso(start), 'rain': {'status': 'complete', 'total_mm': 18, 'start_at': iso(start), 'end_at': iso(start+timedelta(hours=24))},
+            'forecast': {'status':'available','collected_at':stamp,'reference_at':stamp,'start_at': iso(start), 'rain': {'status': 'complete', 'total_mm': 18, 'start_at': iso(start), 'end_at': iso(start+timedelta(hours=24))},
                          'wind': {'gust_kmh': {'maximum': 51.5, 'at': wind['start_at']}},
                          'heat': {'maximum_c': 29.3, 'maximum_at': iso(start+timedelta(hours=15))}},
             'forecast_series': [{'time': iso(start+timedelta(hours=i)), 'precipitation_mm': [0.1, 0.2, 1, 5, 9, 3][max(0, min(5, i-13))] if 13 <= i <= 18 else 0.1,
