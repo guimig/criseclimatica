@@ -1,23 +1,30 @@
-# Arquitetura e decisao de armazenamento
+# Arquitetura e armazenamento — estado atual em 08/11/2026
 
 ## Decisoes consolidadas
 
 - Python processa fontes em GitHub Actions. GitHub Pages publica exclusivamente artefatos estaticos.
-- Nenhum banco de dados pago, Google Sheets ou backend web dedicado e necessario na fase 0.
+- Não há banco de dados pago, Google Sheets ou backend web dedicado na arquitetura atual.
 - Os dados carregados no navegador sao o ultimo conjunto **publicado**, nao necessariamente a leitura mais atual da API.
 - Os campos `measurement_status`, `source.kind`, `current.time` e `collected_at` separam estimativa, horario da referencia e horario da coleta.
 - Cada fonte futura devera possuir um adaptador que nao dependa do codigo do frontend.
 
 ## Fluxo
 
-```text
-Open-Meteo (modelo) --HTTPS--> Python adapter
-       --> normalize + verify timestamp/units
-       --> site/data/latest.json + site/data/places/{id}.json
-       --> Pages artifact --> static browser
-```
+Os adaptadores Python consultam modelos, estações, avisos e produtos históricos separadamente. Normalização, validação de unidades/horários e síntese geram um diretório temporário com JSON e os arquivos de `web/`. O validador confere os contratos e as dependências HTML antes da troca da saída local. O Actions valida novamente o resultado, envia o artefato e o publica no Pages.
 
-O build utiliza um diretorio temporario e apenas substitui a pasta de destino se houver ao menos um municipio valido. Se todas as consultas Open-Meteo falharem, o build segue para as fontes independentes e pode publicar parcialmente. Se todas as fontes operacionais falharem, o workflow para antes da publicação. Se somente parte falhar, o manifesto informa indisponibilidade por localidade.
+Se todas as consultas Open-Meteo falharem, fontes operacionais independentes ainda podem sustentar publicação parcial. Se todas as fontes operacionais falharem, o build preserva a saída anterior. Catálogos isolados não justificam uma publicação aparentemente atualizada. Contratos, dados sintéticos em produção ou dependências HTML inválidos impedem a substituição da saída.
+
+O diretório de saída não pode ser o código-fonte, uma pasta protegida do projeto, um ancestral do repositório ou um link simbólico. A troca usa renomeações no mesmo sistema de arquivos e restaura a pasta anterior se a instalação da nova pasta falhar. A publicação remota permanece a cargo do Pages; essa troca local não é um banco ou backup independente.
+
+## Atualização e consistência no navegador
+
+Home, dados detalhados e comparação de modelos consultam versões publicadas com `cache: no-store`. O módulo `publication-refresh.js` limita frequência/concorrência e verifica versões novas quando a aba está visível. Nenhuma credencial de provedor chega ao navegador. O botão de atualizar recarrega o Pages; não dispara o coletor.
+
+`latest.json` e `dashboard.json` devem ter o mesmo `generated_at`. O arquivo municipal deve corresponder ao `collected_at` indicado no resumo: uma divergência durante a propagação CDN gera uma nova tentativa limitada, sem misturar temperaturas de um arquivo anterior com chuva de outro resumo. Uma falha transitória pode preservar uma leitura anterior da mesma publicação e município, sempre sujeita à validade original. Respostas anteriores não regridem a versão carregada.
+
+A comparação detalhada tem seu próprio conjunto versionado e acompanha as atualizações mantendo variável e período escolhidos. Um conjunto malformado ou uma divergência de versão não apaga uma comparação anterior ainda válida nem interrompe o restante da página.
+
+O cron faz verificações aos minutos 7, 27 e 47 e coleta aproximadamente a cada 40 min quando os eventos chegam regularmente. Ele não oferece garantia de pontualidade. Consulte [a auditoria de confiabilidade](AUDITORIA_CONFIABILIDADE.md) e [o algoritmo completo](ALGORITMO_CLASSIFICACAO_NIVEIS.md) para prazos e limitações.
 
 ## Camadas independentes adicionadas
 
@@ -33,11 +40,13 @@ Ver [Avisos e METAR](AVISOS_E_METAR.md) para segurança, limites, unidades e tem
 
 As coordenadas dos pontos de referencia sao aproximadas. O catalogo nao e um inventario de estacoes.
 
-## Arquivo historico (proximo ciclo)
+## Históricos atuais e armazenamento externo adiado
+
+O Pages recupera e mantém históricos compactos da publicação anterior: snapshots diários de modelo e avisos por até 366 dias; observações por estação e previsões por coleta por sete dias; episódios de estados amostrados com limites próprios de tamanho. Snapshot de modelo não é observação, e duração entre coletas não prova duração contínua de desastre. Os contratos rejeitam desaparecimento ou corrupção de um histórico já marcado como publicado.
 
 O modulo `storage.py` suporta escrita atomica de JSON, substituicao atomica de particionamentos JSONL.GZ e leitura limitada. Esses utilitarios sao testados, mas **nenhum workflow ainda envia ou acumula historicos em Drive**.
 
-Politica proposta para validar em benchmark:
+Política anterior para eventual armazenamento externo, **ainda em estudo**, sem substituir as retenções já implementadas:
 
 | Camada | Retencao inicial em estudo | Armazenamento |
 |---|---|---|

@@ -54,6 +54,8 @@ O Actions verifica a publicação a cada 20 min (minutos 7, 27 e 47), com coleta
 
 ## Estrutura e execução
 
+A [revisão geral da aplicação de 08/11/2026](docs/REVISAO_APLICACAO_2026_11_08.md) registra as correções de backend, frontend, publicação e documentação, com testes e limitações. A [arquitetura](docs/ARQUITETURA.md) descreve o fluxo atual e as garantias de consistência.
+
 - `src/observatorio/`: adaptadores, normalização, qualidade, cobertura e arquivos compactos.
 - `scripts/build_site.py`: coleta, recuperação do estado anterior e geração atômica do site.
 - `scripts/validate_site.py`: valida os contratos antes da publicação.

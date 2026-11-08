@@ -45,6 +45,34 @@ from observatorio.regional_quality import summarize as summarize_regional_qualit
 from observatorio.open_meteo import OpenMeteoClient, normalize  # noqa: E402
 from observatorio.pipeline import collect  # noqa: E402
 from observatorio.storage import write_json_atomic  # noqa: E402
+from validate_site import validate as validate_staged_site  # noqa: E402
+
+
+def checked_output(output: Path) -> Path:
+    """Refuse destinations that could overwrite source or a parent of it."""
+    if output.is_symlink():
+        raise ValueError('Build output must not be a symbolic link')
+    target=output.resolve()
+    protected=[ROOT/name for name in ('src','web','scripts','tests','docs','config','.github','.git')]
+    if target==ROOT or target in ROOT.parents or any(target==p or target.is_relative_to(p) for p in protected):
+        raise ValueError('Build output would overwrite project source or a parent directory')
+    if target.exists() and not target.is_dir():
+        raise ValueError('Build output must be a directory')
+    return target
+
+
+def replace_output(staged: Path, output: Path) -> None:
+    """Rename on the same filesystem and restore the previous site on failure."""
+    backup=staged.parent/'previous-site'
+    had_previous=output.exists()
+    if had_previous:
+        output.replace(backup)
+    try:
+        staged.replace(output)
+    except OSError:
+        if had_previous:
+            backup.replace(output)
+        raise
 
 
 class FixtureClient:
@@ -149,6 +177,7 @@ def build(
     station_fixture: Path | None = None, alerts_fixture: Path | None = None, metar_fixture: Path | None = None,
     conventional_fixture: Path | None = None,
 ) -> tuple[int, int]:
+    output=checked_output(output)
     if fixture is None and any(value is not None for value in (station_fixture, alerts_fixture, metar_fixture, conventional_fixture)):
         raise ValueError("Provider fixtures can only be used in a synthetic offline build")
     locations = load_locations(ROOT / "config" / "locations.json")
@@ -371,7 +400,6 @@ def build(
     print(f"Araquari dashboard: level={dashboard['assessment']['suggested_level'] or 'not_determined'} "
           f"epagri_evidence={len(dashboard['assessment']['evidence'])} "
           f"gauges={dashboard['gauge_distribution']['station_count']} observations_history={len(observation_history['records'])}")
-    output = output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="observatorio-build-", dir=output.parent) as temp:
         staged = Path(temp) / "site"
@@ -406,9 +434,8 @@ def build(
         for slug, record in details.items():
             write_json_atomic(data / "places" / (slug + ".json"), record)
         (staged / ".nojekyll").write_text("", encoding="utf-8")
-        if output.exists():
-            shutil.rmtree(output)
-        shutil.move(str(staged), str(output))
+        validate_staged_site(staged,fixture=fixture is not None)
+        replace_output(staged,output)
     return len(details), len(locations)
 
 

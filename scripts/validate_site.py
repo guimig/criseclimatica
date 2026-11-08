@@ -5,11 +5,32 @@ from __future__ import annotations
 import argparse
 import json
 import math
+from html.parser import HTMLParser
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
+
+
+def validate_frontend_assets(output: Path) -> None:
+    """Check actual HTML dependencies, not only a hand-maintained file list."""
+    root=output.resolve()
+    class Assets(HTMLParser):
+        def handle_starttag(self,tag,attrs):
+            attributes=dict(attrs)
+            address=attributes.get('src') if tag=='script' else attributes.get('href') if tag=='link' else None
+            if not address:return
+            url=urlparse(address)
+            if url.scheme or url.netloc:return
+            target=(root/unquote(url.path)).resolve()
+            if not target.is_relative_to(root) or not target.is_file():
+                raise ValueError(f'Missing or invalid frontend asset: {address}')
+    for page in ('index.html','dados.html'):
+        if not (output/page).is_file():
+            raise ValueError(f'Missing frontend page: {page}')
+        Assets().feed((output/page).read_text(encoding='utf-8'))
 
 
 def validate(output: Path, *, fixture: bool = False) -> None:
+    validate_frontend_assets(output)
     data = output / "data"
     overview = json.loads((data / "latest.json").read_text(encoding="utf-8"))
     history = json.loads((data / "history.json").read_text(encoding="utf-8"))

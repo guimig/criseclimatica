@@ -35,6 +35,7 @@ jobs:
           node tests/web_reliability.cjs
           node tests/dashboard_behavior.cjs
           node tests/publication_refresh.cjs
+          node tests/forecast_contract.cjs
       - name: Build offline synthetic fixture for smoke test
         run: python scripts/build_site.py --fixture tests/fixtures/open_meteo.json --stations-fixture tests/fixtures/inmet_catalog.json --output dist
       - name: Validate generated datasets

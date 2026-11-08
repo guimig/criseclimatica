@@ -35,13 +35,17 @@ class ProviderError(RuntimeError):
 
 def timestamp(value: str) -> str:
     """The request sets timezone=UTC; provider times have no trailing offset."""
-    if not isinstance(value, str):
+    if not isinstance(value, str) or len(value)<16 or value[10]!='T':
         raise ProviderError("Missing provider timestamp")
     try:
-        datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as exc:
         raise ProviderError(f"Invalid provider timestamp: {value!r}") from exc
-    return value if value.endswith("Z") else value + "Z"
+    if parsed.tzinfo is not None:
+        if value.endswith('Z'):
+            return value
+        return parsed.astimezone(timezone.utc).isoformat().replace('+00:00','Z')
+    return value + "Z"
 
 
 def number(value: Any) -> float | int | None:
@@ -174,7 +178,7 @@ class OpenMeteoClient:
                 obj = json.loads(raw.decode("utf-8"))
                 collected = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
                 return normalize(location, obj, collected)
-            except (HTTPError, URLError, TimeoutError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+            except (HTTPError, URLError, OSError, TimeoutError, json.JSONDecodeError, UnicodeDecodeError) as exc:
                 last_error = exc
                 if isinstance(exc, HTTPError) and exc.code not in (429, 500, 502, 503, 504):
                     break

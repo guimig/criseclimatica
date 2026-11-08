@@ -1,4 +1,14 @@
-# Roadmap consolidado — 06/11/2026
+# Roadmap consolidado — atualização de 08/11/2026
+
+## Estado atual verificado
+
+- Cobertura configurada: vinte municípios de SC/PR, com Araquari como referência principal.
+- Painel essencial, dados detalhados, comparação de modelos, seis referências normativas, temas e gráficos interativos em produção.
+- Históricos compactos em Pages, sem banco ou armazenamento externo independente.
+- Verificação agendada de idade e atualização automática no navegador implementadas; atrasos do Actions e fontes externas permanecem limitações explícitas.
+- CI e navegação em desktop/celular confirmados para os pacotes anteriores. Esta revisão acrescenta regressões de troca de saída, contratos frontend, versões municipais e atualização da comparação.
+
+As seções de integração abaixo registram a evolução de cada etapa; contagens e verificações ainda pendentes ali se referem àquela etapa. Consulte a [revisão geral](REVISAO_APLICACAO_2026_11_08.md) para as correções atuais.
 
 ## Direção vigente
 

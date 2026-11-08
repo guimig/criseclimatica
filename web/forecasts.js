@@ -7,7 +7,15 @@
   const n=(v)=>Number.isFinite(v)?v.toLocaleString('pt-BR',{maximumFractionDigits:1}):'—';
   const dt=v=>Number.isFinite(Date.parse(v))?new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).format(new Date(v)):'não informado';
   function dom(tag,cls,text){const x=document.createElement(tag);if(cls)x.className=cls;if(text!==undefined)x.textContent=text;return x;}
-  function current(data){return data?.schema_version===1&&data?.kind==='araquari_comparable_forecasts_not_probability'&&data.location_id==='araquari'&&!data.fixture_mode&&Date.now()<Date.parse(data.valid_until)&&Date.now()-Date.parse(data.generated_at)>=-600000;}
+  function validComparison(data){
+    return Boolean(data?.schema_version===1&&data.kind==='araquari_comparable_forecasts_not_probability'&&data.location_id==='araquari'&&!data.fixture_mode&&
+      Number.isFinite(Date.parse(data.generated_at))&&Number.isFinite(Date.parse(data.valid_until))&&
+      Array.isArray(data.records)&&data.records.every(r=>r&&Array.isArray(r.hourly)&&r.hourly.every(p=>p&&Number.isFinite(Date.parse(p.time))))&&
+      Array.isArray(data.windows)&&[24,72].every(hours=>data.windows.filter(w=>w?.hours===hours).length===1&&data.windows.some(w=>w?.hours===hours&&Date.parse(w.end_at)>Date.parse(w.start_at)&&
+        Array.isArray(w.metrics)&&Object.keys(labels).every(field=>w.metrics.some(m=>m?.variable===field&&Array.isArray(m.members)&&m.members.every(r=>r&&typeof r.id==='string')&&Array.isArray(m.highest_sources)))))&&
+      data.cptec&&Array.isArray(data.cptec.days)&&data.cptec.days.every(d=>d&&typeof d.day==='string')&&Array.isArray(data.limitations));
+  }
+  function current(data){const age=Date.now()-Date.parse(data?.generated_at);return validComparison(data)&&Date.now()<Date.parse(data.valid_until)&&age>=-600000&&age<=10800000;}
   function rangeText(m){return m?.status==='comparable'?`${n(m.minimum)} a ${n(m.maximum)} ${m.unit}`:'Comparação indisponível';}
   function renderCompact(target,data){
     if(!target)return;target.replaceChildren();
@@ -80,9 +88,12 @@
     variable.setAttribute('aria-label','Variável da comparação');horizon.setAttribute('aria-label','Período da comparação');
     for(const [key,text]of Object.entries(short)){const op=dom('option','',text);op.value=key;variable.append(op);}
     for(const h of [24,72]){const op=dom('option','',h+' horas');op.value=h;horizon.append(op);}vlabel.append(variable);hlabel.append(horizon);controls.append(vlabel,hlabel);
+    const selected=target._comparisonSelection;
+    if(selected&&Object.hasOwn(short,selected.variable))variable.value=selected.variable;
+    if(selected&&[24,72].includes(selected.hours))horizon.value=String(selected.hours);
     const period=dom('p','comparison-note'),plot=dom('div','model-comparison-plot'),tooltip=dom('p','comparison-tooltip'),legend=dom('div','comparison-legend'),tables=dom('div');tooltip.hidden=true;tooltip.setAttribute('aria-live','polite');
     target.append(controls,period,plot,legend,tooltip,tables);
-    function update(){if(!current(data)){renderDetailed(target,data);return;}const hours=Number(horizon.value),w=data.windows.find(w=>w.hours===hours);period.textContent=`${dt(w.start_at)} a ${dt(w.end_at)} · Brasília. Chuva: barras por hora e modelo; demais variáveis: linhas. Lacunas não são zero.`;chart(plot,data,variable.value,hours,tooltip,legend);tables.replaceChildren();table(tables,w);}
+    function update(){if(!current(data)){renderDetailed(target,data);return;}const hours=Number(horizon.value),w=data.windows.find(w=>w.hours===hours);target._comparisonSelection={variable:variable.value,hours};period.textContent=`${dt(w.start_at)} a ${dt(w.end_at)} · Brasília. Chuva: barras por hora e modelo; demais variáveis: linhas. Lacunas não são zero.`;chart(plot,data,variable.value,hours,tooltip,legend);tables.replaceChildren();table(tables,w);}
     variable.addEventListener('change',update);horizon.addEventListener('change',update);target._comparisonTheme=update;document.addEventListener('observatorythemechange',update);update();if(typeof ResizeObserver!=='undefined'){let lastWidth=0;target._comparisonResize=new ResizeObserver(entries=>{const width=Math.round(entries[0].contentRect.width);if(width>0&&width!==lastWidth){lastWidth=width;requestAnimationFrame(update);}});target._comparisonResize.observe(plot);}
     target.append(dom('h4','','CPTEC/INPE · contexto diário separado'));
     const cp=data.cptec;target.append(dom('p','comparison-note',`Localidade: ${cp.locality||'não identificada'} · atualização informada: ${cp.updated_day||'não informada'} · consulta: ${dt(cp.checked_at)}. Períodos diários e localização ainda não conciliados; fora das faixas numéricas.`));
@@ -94,7 +105,39 @@
     methods.append(dom('p','','Arquivo por coleta: sete dias, até 64 publicações, alvos horários futuros de até 72 h. Ainda sem cálculo de erro, pesos ou probabilidades.'));
     const archive=dom('a','','Abrir arquivo de previsões por coleta (JSON) ↗');archive.href='./data/model_forecast_history.json';methods.append(archive);target.append(methods);
   }
+  if(typeof module!=='undefined')module.exports={validComparison,current};
+  if(typeof window==='undefined'||typeof document==='undefined')return;
   window.ForecastComparison={renderCompact,renderDetailed};
   const detailed=document.getElementById('model-comparison');
-  if(detailed){let feed=null;async function load(){try{const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);let responses;try{responses=await Promise.all(['forecast_comparison','latest'].map(id=>fetch('./data/'+id+'.json',{cache:'no-store',signal:controller.signal}).then(r=>{if(!r.ok)throw Error('HTTP '+r.status);return r.json();})));}finally{clearTimeout(timer);}const [data,latest]=responses;if(latest.fixture_mode||latest.generated_at!==data.generated_at)throw Error('Publication mismatch');feed=data;renderDetailed(detailed,feed);}catch{renderDetailed(detailed,null);}}load();setInterval(()=>{if(feed&&!current(feed)){feed=null;renderDetailed(detailed,null);}},60000);}
+  if(detailed){
+    let feed=null,loading=false;
+    async function read(id){
+      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
+      try{const r=await fetch('./data/'+id+'.json',{cache:'no-store',signal:controller.signal});if(!r.ok)throw Error('HTTP '+r.status);return await r.json();}
+      finally{clearTimeout(timer);}
+    }
+    async function load(){
+      if(loading)return;loading=true;
+      try{
+        let loaded=null;
+        for(let attempt=0;attempt<2;attempt++){
+          const [data,latest]=await Promise.all([read('forecast_comparison'),read('latest')]);
+          if(latest.fixture_mode||latest.schema_version!==1||!validComparison(data))throw Error('Invalid publication');
+          if(latest.generated_at===data.generated_at){loaded=data;break;}
+        }
+        if(!loaded)throw Error('Publication mismatch');
+        if(feed&&Date.parse(loaded.generated_at)<Date.parse(feed.generated_at))return;
+        feed=loaded;renderDetailed(detailed,feed);
+      }catch{
+        renderDetailed(detailed,feed);
+        if(current(feed))detailed.append(dom('p','comparison-note','Falha ao buscar nova comparação; última leitura preservada com seus horários.'));
+      }finally{loading=false;}
+    }
+    const refresh=typeof PublicationRefresh!=='undefined'?PublicationRefresh.create({
+      getVersion:()=>feed?.generated_at,readLatest:()=>read('latest'),reload:load,isVisible:()=>!document.hidden}):null;
+    load();
+    setInterval(()=>{if(feed&&!current(feed))renderDetailed(detailed,null);refresh?.check();},60000);
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh?.check();});
+    window.addEventListener('online',()=>refresh?.check());
+  }
 })();
