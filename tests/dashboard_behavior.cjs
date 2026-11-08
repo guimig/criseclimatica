@@ -270,3 +270,13 @@ assert.match(chartReadingText([],'mm',tooltipAnchor),/não significa zero/);
 const tooltipBefore=tooltipPoints.map(p=>p.value);chartReadingsAt(tooltipPoints,tooltipInstant,true);
 assert.deepEqual(tooltipPoints.map(p=>p.value),tooltipBefore); // compact display cannot alter measurements
 console.log('Dense accumulated rain tooltip passed: one nearest ending window per station, bounded text, empty/missing cases and unchanged values.');
+
+// INMET evidence expires independently and never changes the assessment.
+const {inmetNotices}=require('../web/dashboard.js');
+const contextData={...data,inmet_context:{status:'available',retrieved_at:data.generated_at,notices:[
+  {id:'live',start_at:'2026-11-06T19:00:00Z',end_at:'2026-11-06T22:00:00Z'},
+  {id:'old',end_at:'2026-11-06T20:00:00Z'}, {id:'unverified',lifecycle:'unverified'},
+  {id:'expired',lifecycle:'expired'}]}};
+assert.deepEqual(inmetNotices(contextData,now).map(n=>n.id),['live','unverified']);
+assert.equal(inmetNotices(contextData,now+7*3600000).length,0);
+assert.equal(inmetNotices({...contextData,inmet_context:{status:'unavailable'}},now).length,0);

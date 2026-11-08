@@ -124,7 +124,8 @@ function renderSynthesis() {
     const gust = primary.forecast?.wind?.gust_kmh;
     if (Number.isFinite(gust?.maximum)) forecast.append(child('p', '', `Maior rajada prevista: ${value(gust.maximum, 1)} km/h · ${datetime(gust.at)}.`));
     const notices = child('article', 'synthesis-card official-evidence');
-    notices.append(child('span', 'section-kicker', 'AVISO OFICIAL · INMET'), child('h3', '', 'Referência municipal'));
+    notices.append(child('p', 'analysis-foot', 'Avisos INMET são contexto; não alteram o nível ou a completude da classificação.'));
+    notices.append(child('span', 'section-kicker', 'AVISO OFICIAL · INMET'), child('h3', '', 'Referência municipal complementar'));
     const official = primary.official_notices;
     if (official?.status === 'available') {
       notices.append(child('p', '', official.notices?.length ? `${official.notices.length} aviso(s) retornado(s) para Araquari.` : 'Nenhum aviso retornado na consulta; isso não comprova ausência de condições adversas.'));
@@ -590,12 +591,13 @@ function renderOfficialAlerts() {
     $('alert-updated').textContent = 'Cobertura municipal não confirmada.';
     return;
   }
-  $('alert-updated').textContent = `Consulta INMET: ${datetime(feed.retrieved_at)} · vigência e fuso: conforme a fonte original.`;
+  $('alert-updated').textContent = `Consulta INMET: ${datetime(feed.retrieved_at)} · avisos complementares, sem efeito na classificação do painel. Vigência e fuso: conforme a fonte original.`;
   if (!place.alerts.length) {
     target.append(child('p', 'alert-empty', 'Nenhum aviso municipal retornado pelo INMET nesta consulta. Isso não exclui outros alertas ou riscos locais.'));
     return;
   }
   for (const alert of place.alerts) {
+    if (alert.end_at && Date.now() >= Date.parse(alert.end_at)) continue;
     const card = child('section', 'alert-entry');
     const head = child('div', 'alert-entry-heading');
     head.append(child('strong', '', alert.type || 'Aviso meteorológico'), child('span', 'alert-severity', alert.severity || 'Não informada'));
@@ -604,6 +606,10 @@ function renderOfficialAlerts() {
     const recommendations = Array.isArray(alert.instructions) ? alert.instructions.filter((text) => typeof text === 'string').slice(0, 2) : [];
     if (risk.length) card.append(child('p', 'alert-description', risk.join(' · ')));
     if (recommendations.length) card.append(child('p', 'alert-instructions', `Orientação INMET: ${recommendations.join(' · ')}`));
+    if (!alert.start_at || !alert.end_at) card.append(child('p', 'alert-window', 'Fuso ou validade não conciliados; vigência não confirmada.'));
+    const link = child('a', '', 'Consultar INMET ↗');
+    link.href = 'https://alertas2.inmet.gov.br/'; link.target = '_blank'; link.rel = 'noopener noreferrer';
+    card.append(link);
     target.append(card);
   }
 }

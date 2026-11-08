@@ -31,7 +31,7 @@ O apoio numérico pode sugerir amarelo/laranja ou elevar uma sugestão menor; ve
 
 Expressões negadas não geram correspondência positiva. Quando vários avisos prioritários elegíveis sustentam categorias distintas, apresenta-se a de maior atenção sustentada, com todas as evidências; não se calcula a média de níveis. Não se combinam cores de órgãos diferentes em um escore.
 
-Avisos complementares INMET permanecem visíveis nas evidências e são destacados na leitura principal quando retornados, mas não são convertidos diretamente nos seis níveis. A impossibilidade de conciliar seu fuso continua explícita.
+Avisos complementares INMET têm bloco próprio na home, com abrangência municipal explícita, período, severidade original, riscos, orientações e acesso à fonte. A seleção inclui Araquari e municípios monitorados a até 40 km; um aviso do entorno não é atribuído a Araquari. Presença, severidade e indisponibilidade destes avisos não alteram a classificação ou sua completude. A impossibilidade de conciliar seu fuso continua explícita. Epagri/Ciram permanece prioritária.
 
 ### Cuidados normativos
 

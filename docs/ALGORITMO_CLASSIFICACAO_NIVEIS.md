@@ -64,7 +64,7 @@ O filtro de chuva do entorno reutiliza, para visualização, até 24 estações 
 | Open-Meteo — seleção automática `best_match` | Chuva horária, total de 24 h, máximos de vento e rajada; referências horárias para coincidências | Somente resposta de Araquari; coleta e referência atual com até 8 h | Apoio quantitativo previsto |
 | Cemaden PED — acumulados municipais | Chuva medida em 1 h e 24 h, por código de estação | IBGE exatamente 4201307; regras temporais abaixo | Apoio quantitativo observado |
 | NOAA/Aviation Weather Center — METAR | Vento e rajada medidos; não substitui um pelo outro | Aeródromo associado a Araquari, distância de 0 a 25 km e leitura com até 2 h | Apoio quantitativo observado |
-| INMET — avisos municipais | Presença de avisos ainda não classificados como expirados e disponibilidade da consulta | Código IBGE municipal; consulta com até 6 h | Contexto e completude; a cor/severidade INMET não é convertida em nível IFC |
+| INMET — avisos municipais e do entorno | Evidências complementares apresentadas em bloco próprio, sem entrada no classificador | Código IBGE exato; municípios monitorados a até 40 km do ponto de Araquari; consulta até 6 h | Presença, severidade, ausência e indisponibilidade não alteram nível, cor, estado ou completude |
 
 ### 4.1 Cemaden: não há lista fixa de três estações no classificador
 
@@ -226,8 +226,9 @@ A prioridade Epagri **não é um veto absoluto ao apoio numérico**: a implement
 2. verificação completa e coerente da chuva prevista de 24 h;
 3. máximos de vento **e** rajada com séries de 24 referências completas;
 4. ao menos um sinal Cemaden local utilizável de chuva em 1 h **e** um de 24 h, após validar valores e horários;
-5. Epagri com status `available/cached/no_recent_notices` e consulta até 6 h;
-6. consulta de avisos INMET municipais `available`.
+5. Epagri com status `available/cached/no_recent_notices` e consulta até 6 h.
+
+A consulta de avisos INMET não é requisito de `core_complete` e não produz `coverage_gaps`.
 
 `coverage_gaps` enumera os componentes ausentes e é exibido em “Por que esta leitura?”. Um status de fonte disponível sem acumulados utilizáveis não permite normalidade. A flag não exige todas as variáveis em todos os pluviômetros nem vento observado recente: vento/rajada previstos são componentes de rotina, e observações METAR são apoio quando presentes. Tetos do normalizador e de `band()` continuam distintos; sinais rejeitados não viram zero. Não há garantia de cobertura instrumental completa.
 
@@ -237,12 +238,12 @@ O primeiro caso atendido determina `monitoring_state`:
 | --- | --- | --- |
 | 1 | Há `suggested_level` | `heightened` — acompanhamento reforçado |
 | 2 | Não há sugestão e `maximum_band > 0` | `technical_attention` — referências de atenção |
-| 3 | Sem as anteriores: existe aviso INMET não expirado ou evidência Epagri elegível | `official_context` — acompanhamento reforçado |
+| 3 | Sem as anteriores: existe evidência Epagri elegível | `official_context` — acompanhamento reforçado |
 | 4 | Há evidência Epagri pendente de checagem territorial/temporal, com escopo reconhecido ou sem texto de regiões | `partial` — monitoramento parcial |
 | 5 | Sem as anteriores e `core_complete = true` | `routine` — monitoramento de rotina |
 | 6 | Demais casos | `partial` — monitoramento parcial |
 
-No caso INMET, um aviso com janela não conciliada pode ter `lifecycle = unverified` e, portanto, não ser `expired`: ele serve como contexto, sem provar vigência, impacto ou nível. O aplicativo não converte diretamente sua severidade.
+No caso INMET, um aviso com janela não conciliada pode ter `lifecycle = unverified` e, portanto, não ser `expired`: ele serve como contexto, sem provar vigência, impacto ou nível. Nem sua presença nem sua severidade alimentam `integrate()` ou a reavaliação JavaScript. `has_complementary_notices` permanece apenas como metadado compatível, sem decisão associada.
 
 ## 10. Cor e título realmente apresentados na home
 
@@ -383,3 +384,14 @@ node tests/web_reliability.cjs
 ```
 
 Qualquer alteração em limiares, fontes, idades, distâncias, reconhecimento textual, integração ou apresentação deve atualizar este documento e os testes correspondentes. Mudanças da regra de classificação também exigem revisar as versões metodológicas e a continuidade do histórico. A documentação não deve anunciar um caminho que o código ainda não executa, sobretudo normalidade institucional ou calamidade automática.
+
+
+## 14. Evidências INMET na página inicial (08/11/2026)
+
+A home apresenta blocos com o mesmo estilo para Epagri/Ciram e INMET. O bloco INMET aparece quando existe ao menos uma evidência regional retornada por consulta bem-sucedida e recente (até 6 h), não encerrada. Avisos com janela sem fuso explícito permanecem visíveis com **vigência não confirmada**, sem presumir UTC. Um término explícito vencido retira a evidência também no navegador, sem esperar nova coleta.
+
+`analysis.notice_analysis()` conserva tipo, severidade original, período, ciclo de vida, riscos, instruções, código IBGE e acesso ao portal oficial. `dashboard.regional_notice_context()` publica `dashboard.inmet_context`: reúne correspondências municipais exatas já verificadas pelo adaptador INMET em Araquari e nos pontos municipais monitorados a até **40 km**, calculados por Haversine. Exige coordenadas válidas para municípios do entorno; falta de coordenadas não amplia a seleção. A distância representa pontos de referência municipais, não limites territoriais ou distância ao campus. Não inclui arbitrariamente todos os municípios de Santa Catarina.
+
+Avisos de mesmo ID são agrupados, preservando a lista de municípios cobertos. A home explicita quando Araquari não consta dessa lista. Um aviso para Joinville, por exemplo, não é tratado como aviso municipal para Araquari. O contexto não comprova fenômeno ocorrido. Fonte indisponível ou consulta vazia não comprova ausência de risco; o estado da fonte continua acessível nas evidências e em Dados e fontes.
+
+A regra de integração passa a `pn13-14-2026-multisource-v3`: os avisos INMET **não** determinam sugestão, cor, estado interno ou completude, inclusive quando indicam “Grande perigo”. Epagri/Ciram continua prioritária. As referências quantitativas auxiliares de chuva/vento já documentadas nas seções anteriores permanecem preservadas: consultar uma tabela de referência numérica é diferente de usar um aviso INMET como critério de classificação. Nenhuma mudança nos limiares, estações, janelas instrumentais ou competências institucionais.

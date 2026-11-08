@@ -92,7 +92,6 @@ def summarize(primary, detail, epagri, stamp, sensors=None):
         (any(s['source']=='cemaden' and s['variable']=='rain_1h_mm' for s in signals),'Chuva Cemaden local em 1 hora'),
         (any(s['source']=='cemaden' and s['variable']=='rain_24h_mm' for s in signals),'Chuva Cemaden local em 24 horas'),
         (epagri_ok,'Consulta Epagri/Ciram atual'),
-        (notices.get('status')=='available','Consulta de avisos INMET atual'),
     ]
     coverage_gaps=[label for valid,label in coverage_checks if not valid]
     core_complete=not coverage_gaps
@@ -111,7 +110,7 @@ def summarize(primary, detail, epagri, stamp, sensors=None):
 
 
 def integrate(policy, objective):
-    result={**policy,'numeric_support':objective,'rule_version':'pn13-14-2026-multisource-v2'}
+    result={**policy,'numeric_support':objective,'rule_version':'pn13-14-2026-multisource-v3'}
     result['valid_until']=iso(min(moment(policy['valid_until']),moment(objective['valid_until'])))
     levels={'amarelo':2,'laranja':3,'vermelho':4,'azul':1,'verde':0}
     proposal=objective['proposed_level'];current=policy.get('suggested_level')
@@ -125,7 +124,7 @@ def integrate(policy, objective):
         state,label='heightened','Acompanhamento reforçado'
     elif objective['maximum_band'] and objective['maximum_band']>0:
         state,label='technical_attention','Referências de atenção'
-    elif objective['has_complementary_notices'] or any(e.get('status')=='eligible' for e in policy.get('evidence',[])):
+    elif any(e.get('status')=='eligible' for e in policy.get('evidence',[])):
         state,label='official_context','Acompanhamento reforçado'
     elif any(e.get('status')=='needs_territorial_or_temporal_check' and (e.get('scope')!='not_verified' or not e.get('regions_text')) for e in policy.get('evidence',[])):
         state,label='partial','Monitoramento parcial'

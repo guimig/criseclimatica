@@ -167,14 +167,16 @@ def notice_analysis(feed, slug, forecast, now):
         lifecycle = "unverified"
         if start and end and start < end:
             lifecycle = "expired" if end <= now else "future" if start > now else "ongoing"
-            relation = ("overlaps_forecast" if start < moment(forecast["end_at"]) and end > moment(forecast["start_at"])
+            relation = ("overlaps_forecast" if forecast.get("status") == "available" and start < moment(forecast["end_at"]) and end > moment(forecast["start_at"])
                         else "outside_forecast_window")
             if forecast.get("status") != "available":
                 relation = "forecast_unavailable"
         result["notices"].append({"id": notice.get("id"), "type": notice.get("type"),
             "severity": notice.get("severity"), "window_as_reported": notice.get("window_as_reported"),
             "start_at": iso(start) if start else None, "end_at": iso(end) if end else None,
-            "temporal_relation": relation, "lifecycle": lifecycle, "kind": "official_notice_not_confirmed_event"})
+            "temporal_relation": relation, "lifecycle": lifecycle, "kind": "official_notice_not_confirmed_event",
+            "url": "https://alertas2.inmet.gov.br/", "risks": notice.get("risks", []),
+            "instructions": notice.get("instructions", []), "ibge_code": local(feed, slug).get("ibge_code")})
     return result
 
 

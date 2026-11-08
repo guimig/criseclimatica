@@ -29,7 +29,7 @@ A inicial mostra faixas de 24 h; a área detalhada compara seleção automática
 ## O que está implementado
 
 - Open-Meteo: estimativas atuais e previsão horária/diária, com identificação explícita de modelo.
-- Avisos INMET por código municipal IBGE e arquivo progressivo de avisos; não são registros de desastres confirmados.
+- Avisos INMET por código municipal IBGE, detalhados na home para Araquari e entorno monitorado até 40 km, com arquivo progressivo. São contexto complementar: não alteram nível, cor ou completude da classificação e não comprovam desastres ocorridos. Epagri/Ciram permanece prioritária.
 - METAR/NOAA: consulta conjunta de Joinville (SBJV), Navegantes (SBNF), Blumenau (SSBL), Florianópolis (SBFL), Afonso Pena (SBCT) e Bacacheri (SBBI). Exibe todos os boletins válidos até 180 km, distinguindo contexto regional acima de 100 km e mantendo a observação principal dentro de 100 km.
 - Cemaden PED: acumulados de 1–120h por estação e consulta regional SC/PR de sensores recentes, com SGAA e limite compartilhado de requisições. Sensores: até 24 estações por localidade em um raio de 130 km; acumulados municipais: todas as estações retornadas, sem o antigo corte de seis na interface.
 - INMET: catálogos automático/convencional, arquivo anual observado com atraso e adaptador de precipitação recente condicionado a acesso autorizado.

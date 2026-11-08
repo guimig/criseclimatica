@@ -86,7 +86,8 @@ class NumericSupportTests(unittest.TestCase):
         r=summarize(primary(),detail(),epagri(),STAMP);p=assess(epagri(),{},STAMP)
         self.assertEqual(integrate(p,r)['monitoring_state'],'routine')
         self.assertEqual(integrate(p,{**r,'core_complete':False})['monitoring_state'],'partial')
-        self.assertEqual(integrate(p,{**r,'has_complementary_notices':True})['monitoring_state'],'official_context')
+        self.assertEqual(integrate(p,{**r,'has_complementary_notices':True})['monitoring_state'],'routine')
+        self.assertEqual(integrate({**p,'evidence':[{'status':'eligible'}]},r)['monitoring_state'],'official_context')
         self.assertIsNone(integrate(p,r)['official_level'])
         pending={**p,'evidence':[{'status':'needs_territorial_or_temporal_check','scope':'regional_reference_not_municipal_confirmation'}]}
         self.assertEqual(integrate(pending,r)['monitoring_state'],'partial')

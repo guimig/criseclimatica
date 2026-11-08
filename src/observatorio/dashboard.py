@@ -188,6 +188,38 @@ def regional_rain_context(analysis, details, sensors, stamp, radius_km=40):
     result['status'] = 'available' if result['records'] else 'no_verified_recent_stations'
     return result
 
+def regional_notice_context(analysis, details, stamp):
+    """Exact municipal matches within 40 km; context never enters classification."""
+    now = moment(stamp)
+    origin = details.get('araquari', {}).get('location', {})
+    notices = {}
+    checked = []
+    for place in analysis.get('locations', []):
+        slug = place.get('location_id')
+        point = details.get(slug, {}).get('location', {})
+        distance = 0 if slug == 'araquari' else None
+        coordinates = [origin.get('latitude'), origin.get('longitude'), point.get('latitude'), point.get('longitude')]
+        if distance is None and all(valid_number(v, -90 if i % 2 == 0 else -180, 90 if i % 2 == 0 else 180) for i, v in enumerate(coordinates)):
+            distance = haversine_km(*coordinates)
+        if distance is None or distance > 40:
+            continue
+        feed = place.get('official_notices', {})
+        if feed.get('status') != 'available' or not fresh(feed.get('retrieved_at'), now, 6):
+            continue
+        checked.append(feed['retrieved_at'])
+        for notice in feed.get('notices', []):
+            end = moment(notice.get('end_at'))
+            if not notice.get('id') or notice.get('lifecycle') == 'expired' or (end and end <= now):
+                continue
+            entry = notices.setdefault(notice['id'], {**notice, 'municipalities': []})
+            entry['municipalities'].append({'location_id': slug, 'name': place.get('name') or point.get('name') or slug,
+                'ibge_code': notice.get('ibge_code'), 'distance_km': round(distance, 1)})
+    return {'status': 'available' if checked else 'unavailable', 'retrieved_at': min(checked) if checked else None,
+        'role': 'context_only_not_classification', 'radius_km': 40,
+        'selection': 'exact_ibge_matches_for_monitored_municipal_points_within_40km',
+        'notices': sorted(notices.values(), key=lambda n: (not any(m['location_id'] == 'araquari' for m in n['municipalities']), n['id']))}
+
+
 def summarize(analysis, details, epagri, bulletins, defesa, stamp, previous_history=None, sensors=None):
     primary=local(analysis,'araquari')
     if not primary:
@@ -222,7 +254,7 @@ def summarize(analysis, details, epagri, bulletins, defesa, stamp, previous_hist
             'local_status':primary.get('observed_rain',{}).get('status','unavailable'),
             'note':'All valid recent stations returned for Araquari; no three-station cap; not a complete network registry.'},
         'suggestions':primary.get('suggestions',[]),'limitations':primary.get('limitations',[]),
-        'complementary_notices':alerts,'source_status':source_status,
+        'complementary_notices':alerts,'inmet_context':regional_notice_context(analysis,details,stamp),'source_status':source_status,
         'editorial_context':{'status':bulletins.get('status','unavailable'),'bulletins':bulletins.get('bulletins',[])[:4]},
         'decision_automated':False}
     return dashboard,history
