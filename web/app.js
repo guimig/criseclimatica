@@ -592,12 +592,12 @@ function renderOfficialAlerts() {
     return;
   }
   $('alert-updated').textContent = `Consulta INMET: ${datetime(feed.retrieved_at)} · avisos complementares, sem efeito na classificação do painel. Vigência e fuso: conforme a fonte original.`;
-  if (!place.alerts.length) {
+  const currentAlerts = place.alerts.filter(alert => !alert.end_at || !(Date.now() >= Date.parse(alert.end_at)));
+  if (!currentAlerts.length) {
     target.append(child('p', 'alert-empty', 'Nenhum aviso municipal retornado pelo INMET nesta consulta. Isso não exclui outros alertas ou riscos locais.'));
     return;
   }
-  for (const alert of place.alerts) {
-    if (alert.end_at && Date.now() >= Date.parse(alert.end_at)) continue;
+  for (const alert of currentAlerts) {
     const card = child('section', 'alert-entry');
     const head = child('div', 'alert-entry-heading');
     head.append(child('strong', '', alert.type || 'Aviso meteorológico'), child('span', 'alert-severity', alert.severity || 'Não informada'));

@@ -287,4 +287,12 @@ assert.match(inmetContextStatus({...data,inmet_context:{status:'unavailable'}},n
 assert.match(inmetContextStatus({...data,inmet_context:{status:'available',retrieved_at:data.generated_at,notices:[]}},now).title,/Nenhum aviso/);
 assert.match(inmetContextStatus(contextData,now).title,/Avisos para Araquari/);
 assert.match(inmetContextStatus(contextData,now+7*3600000).title,/desatualizada/);
-assert.doesNotMatch(html, /id="inmet-context"[^>]*\bhidden\b/);
+assert.match(html, /id="inmet-context"[^>]*\bhidden\b/);
+assert.match(html, /id="epagri-context"[^>]*\bhidden\b/);
+
+const {primaryNotice}=require('../web/dashboard.js');
+assert.equal(primaryNotice(data,now),null);
+const positiveData={...data,assessment:{...data.assessment,evidence:[{status:'eligible',title:'Aviso confirmado',valid_until:'2026-11-06T22:00:00Z'}]}};
+assert.equal(primaryNotice(positiveData,now).title,'Aviso confirmado');
+assert.equal(primaryNotice(positiveData,Date.parse('2026-11-06T22:30:00Z')),null);
+assert.equal(primaryNotice({...positiveData,assessment:{...positiveData.assessment,evidence:[{status:'needs_territorial_or_temporal_check'}]}},now),null);
