@@ -6,6 +6,7 @@ on:
       - 'web/**'
       - 'tests/ui_dashboard.py'
       - 'tests/ui_details.py'
+      - 'tests/ui_campus_station.py'
       - 'tests/ui_forecasts.py'
       - 'tests/ui_essential.py'
       - 'tests/ui_style_system.py'
@@ -34,6 +35,7 @@ jobs:
         run: |
           /tmp/weather-browser/bin/python tests/ui_dashboard.py
           /tmp/weather-browser/bin/python tests/ui_details.py
+          /tmp/weather-browser/bin/python tests/ui_campus_station.py
           /tmp/weather-browser/bin/python tests/ui_forecasts.py
           /tmp/weather-browser/bin/python tests/ui_essential.py
           /tmp/weather-browser/bin/python tests/ui_publication_refresh.py

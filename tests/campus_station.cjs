@@ -1,0 +1,13 @@
+const assert=require('node:assert/strict');
+const {pointValid,validate}=require('../web/campus-station.js');
+const now=Date.now(),stamp=new Date(now-60000).toISOString();
+assert.equal(pointValid({time:stamp,value:0},'wind_gust',now-86400000,now),true);
+assert.equal(pointValid({time:stamp,value:null},'humidity',now-86400000,now),false);
+assert.equal(pointValid({time:stamp,value:-250},'humidity',now-86400000,now),false);
+assert.equal(pointValid({time:'2096-09-09T18:13:34Z',value:0},'rain_daily',now-86400000,now),false);
+assert.equal(pointValid({time:stamp,value:NaN},'temperature',now-86400000,now),false);
+const feed={schema_version:1,kind:'ifc_araquari_campus_observations_not_risk_criteria',risk_criteria:false,location_id:'araquari',status:'available',checked_at:stamp,publication_at:stamp,metrics:{}};
+assert.equal(validate(feed,stamp),feed);
+assert.throws(()=>validate({...feed,risk_criteria:true},stamp));
+assert.throws(()=>validate(feed,'2000-01-01T00:00:00Z'));
+console.log('Campus data contract: zero, missing, invalid, future, publication mismatch and risk isolation passed.');

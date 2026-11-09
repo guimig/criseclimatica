@@ -32,6 +32,7 @@ from observatorio.inmet_archive import collect_archive, unavailable_archive  # n
 from observatorio.cemaden import collect as collect_cemaden  # noqa: E402
 from observatorio.cemaden_auth import SgaaSession  # noqa: E402
 from observatorio.cemaden_rate import PedRateLimiter  # noqa: E402
+from observatorio.campus_station import collect as collect_campus, empty as campus_empty  # noqa: E402
 from observatorio.cemaden_sensors import collect as collect_cemaden_sensors, unavailable as sensors_unavailable  # noqa: E402
 from observatorio.nasa_power import collect as collect_nasa, unavailable as nasa_unavailable  # noqa: E402
 from observatorio.notice_archive import merge_notice_archive  # noqa: E402
@@ -318,6 +319,8 @@ def build(
                                   on_request=ped_limiter.acquire)
         cemaden_sensors = collect_cemaden_sensors(locations, stamp, session=ped_session,
                                                  on_request=ped_limiter.acquire)
+    campus = campus_empty(stamp, "fixture_mode") if fixture is not None else collect_campus(stamp)
+    print("Campus IFC station:", campus["status"])
     # Both sources publish forecasts/publications, not fresh station observations.
     cptec_fixture = (ROOT / "tests" / "fixtures" / "cptec.xml").read_bytes() if fixture is not None else None
     cptec = collect_cptec(locations, stamp, fixture=cptec_fixture)
@@ -427,6 +430,7 @@ def build(
         publish_json(data / "nasa_power.json", nasa)
         publish_json(data / "cemaden.json", cemaden)
         publish_json(data / "cemaden_sensors.json", cemaden_sensors)
+        publish_json(data / "campus_station.json", campus)
         publish_json(data / "cptec.json", cptec)
         publish_json(data / "defesa_civil_sc.json", defesa_sc)
         publish_json(data / "inmet_archive.json", archive)

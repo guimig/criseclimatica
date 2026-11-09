@@ -43,6 +43,7 @@ jobs:
           node tests/web_reliability.cjs
           node tests/dashboard_behavior.cjs
           node tests/dashboard_loading.cjs
+          node tests/campus_station.cjs
           node tests/publication_refresh.cjs
           node tests/forecast_contract.cjs
       - name: Fetch live forecast and build static site
