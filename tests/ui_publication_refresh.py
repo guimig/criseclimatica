@@ -20,6 +20,33 @@ def main():
         request.fulfill(content_type='application/json',body=json.dumps(data[name]))
     with server() as url,sync_playwright() as p:
         browser=p.chromium.launch()
+        # A new visitor may arrive while CDN edges serve different artifacts.
+        # Reproduce a transient mismatch/network failure and a persistent first
+        # load failure; none may be mislabeled as an expired measurement.
+        for scenario in ('identity', 'network', 'persistent'):
+            cold_data=fixture();cold_counts={};recover=False
+            version=cold_data['latest.json']['generated_at']
+            for payload in cold_data.values():payload['publication_at']=version
+            cold_context=browser.new_context(viewport={'width':390,'height':844})
+            def cold_route(request):
+                name=request.request.url.split('/')[-1].split('?')[0]
+                cold_counts[name]=cold_counts.get(name,0)+1
+                if name=='dashboard.json' and not recover and (scenario=='persistent' or cold_counts[name]==1):
+                    if scenario!='identity':
+                        request.abort('internetdisconnected');return
+                    request.fulfill(content_type='application/json',body=json.dumps({**cold_data[name],'publication_at':'2000-01-01T00:00:00Z'}));return
+                request.fulfill(content_type='application/json',body=json.dumps(cold_data[name]))
+            cold_context.route('**/data/*.json*',cold_route)
+            cold=cold_context.new_page();cold.clock.install(time=datetime.now(timezone.utc));cold.goto(url)
+            if scenario=='persistent':
+                cold.wait_for_function("document.getElementById('level-title').textContent==='Dados indisponíveis'")
+                assert 'preservada' not in cold.locator('#publication-status').inner_text()
+                assert 'perdeu validade' not in cold.locator('#level-reason').inner_text()
+                recover=True;cold.clock.fast_forward(61000)
+            cold.wait_for_function("document.getElementById('forecast-value').textContent.includes('18,0')")
+            assert cold_counts['dashboard.json']>=2
+            assert cold.locator('#publication-status').is_hidden()
+            cold_context.close()
         page=browser.new_page(viewport={'width':390,'height':844})
         page.clock.install(time=datetime.now(timezone.utc))
         page.route('**/data/*.json*',route)
