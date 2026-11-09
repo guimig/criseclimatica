@@ -62,5 +62,11 @@ class RefreshScheduleTests(unittest.TestCase):
                 main()
             self.assertRegex(fetch.call_args.args[0].full_url,r'dashboard\.json\?check_at=\d+$')
 
+    def test_repeated_build_and_deploy_use_the_same_attempt_artifact(self):
+        workflow=(ROOT/'.github/workflows/pages.yml').read_text()
+        self.assertIn('artifact_name: github-pages-${{ github.run_attempt }}',workflow)
+        self.assertIn('name: github-pages-${{ github.run_attempt }}',workflow)
+        self.assertIn('artifact_name: ${{ needs.build.outputs.artifact_name }}',workflow)
+
 
 if __name__=='__main__':unittest.main()

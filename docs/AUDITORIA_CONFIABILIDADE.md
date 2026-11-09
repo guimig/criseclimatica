@@ -49,3 +49,10 @@ A última execução agendada criada às 22h47 UTC (`42531978882`) terminou com 
 Foi acionada uma nova execução do build para recuperação imediata. A verificação programada passou de 20 para **5 minutos**, fora da virada da hora, mantendo o filtro de 35 minutos: o maior número de verificações não significa coletar todas as fontes a cada 5 minutos. A consulta de idade usa um parâmetro de horário para evitar reuso de uma resposta antiga no caminho de cache. Classificação continua limitada pelos prazos originais; nada foi estendido para esconder o atraso.
 
 O serviço GitHub documenta que eventos `schedule` podem atrasar e ser descartados em períodos de carga elevada: [documentação oficial](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule). O histórico comprova ausência de execuções, mas não identifica a causa interna da omissão no GitHub. A maior frequência é uma mitigação, não garantia de disponibilidade. Garantia independente de recuperação exigiria um agendador externo ao Actions, com acesso autenticado para disparar o workflow; isso não foi introduzido nesta correção.
+
+
+### Segunda falha comprovada ao recuperar a execução
+
+O build repetido da execução `42531978882` terminou com sucesso, mas o deploy da tentativa 2 falhou com `Multiple artifacts named "github-pages"`, pois havia dois artefatos com esse nome na mesma execução. O erro original de agendamento e a falha de recuperação são distintos.
+
+Upload passou a usar `github-pages-${{ github.run_attempt }}`. O build publica esse nome como saída, e o deploy consulta `needs.build.outputs.artifact_name`. Assim, repetir o build produz um artefato distinguível, e repetir apenas o deploy continua usando o artefato do build correspondente, sem depender do número da nova tentativa do deploy. Não se apagam os artefatos anteriores para contornar o problema.
