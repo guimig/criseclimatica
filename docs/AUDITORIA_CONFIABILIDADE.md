@@ -63,3 +63,12 @@ Upload passou a usar `github-pages-${{ github.run_attempt }}`. O build publica e
 Por solicitação do usuário, o workflow passou a `7,37 * * * *`, com coleta a cada 30 minutos durante as 24 horas do dia, incluindo fins de semana. Usa `--force true` em todos os eventos, eliminando o filtro de 35 minutos do caminho programado. O histórico acima registra as configurações anteriores; a política atual está em [Atualizações de 30 minutos](ATUALIZACOES_30_MINUTOS.md). A idade científica dos dados e a validade da classificação não foram estendidas.
 
 Um disparo externo independente está especificado e o utilitário de chamada da API está pronto, mas sua ativação exige um serviço externo e credencial própria armazenada de forma privada. Nenhum serviço externo foi ativado automaticamente e não se afirma garantia de atualização pontual só com cron no Actions.
+
+
+## Ativação do agendador independente — 09/11/2026
+
+O usuário concluiu a autenticação e a criação do cron-job.org com credencial privada, após autorizar explicitamente seu armazenamento no serviço. Foi observado o job habilitado com `*/30 * * * *`, sem expiração do agendamento. O teste retornou HTTP 204 e criou a execução GitHub `42638342239`, com evento `workflow_dispatch`, às 14h48 UTC (11h48 de Brasília).
+
+O disparo externo passa a ser primário nos minutos 00 e 30. O cron do GitHub (7 e 37) fica como reserva e só coleta se a publicação tiver ao menos 25 minutos, estiver vencida, inválida ou não verificável. Eventos externos/manuais/push continuam forçando coleta. O filtro antigo de 35 minutos não foi reintroduzido. Nenhum token foi copiado para o repositório ou para a página.
+
+A comprovação inicial é de job ativo e disparo aceito. Estabilidade ao longo de vários ciclos e disponibilidade permanente dos serviços não são inferidas de um único teste. Ver [operação do agendamento de 30 minutos](ATUALIZACOES_30_MINUTOS.md).

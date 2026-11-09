@@ -14,7 +14,7 @@ from urllib.request import Request, urlopen
 KIND = 'araquari_weather_dashboard_not_official_decision'
 
 
-def refresh_needed(data: dict, now: datetime, *, min_age_minutes: int = 35) -> bool:
+def refresh_needed(data: dict, now: datetime, *, min_age_minutes: int = 25) -> bool:
     if not isinstance(data, dict) or data.get('kind') != KIND or data.get('fixture_mode') or data.get('schema_version') != 1:
         return True
     try:
@@ -45,7 +45,7 @@ def main() -> None:
             if len(raw) > 2_000_000:
                 raise ValueError('Oversized dashboard')
             refresh = refresh_needed(json.loads(raw), datetime.now(timezone.utc))
-            reason = 'publication requires collection' if refresh else 'publication is less than 35 minutes old'
+            reason = 'publication requires collection' if refresh else 'publication is less than 25 minutes old'
         except (OSError, ValueError, TypeError):
             reason = 'publication could not be verified; collect rather than skip'
     with args.github_output.open('a', encoding='utf-8') as output:

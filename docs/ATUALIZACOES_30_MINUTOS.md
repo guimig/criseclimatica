@@ -1,16 +1,18 @@
 # Coleta e publicação a cada 30 minutos
 
-## Configuração ativa no repositório
+## Configuração ativa
 
-O workflow `.github/workflows/pages.yml` usa `7,37 * * * *`: duas execuções por hora, 24 horas por dia, sete dias por semana, sem restrição de dia útil. São 48 oportunidades diárias de coleta. No horário de Brasília, por ter deslocamento inteiro de horas em relação ao UTC, os minutos continuam 07 e 37: 00h07, 00h37, …, 23h07 e 23h37. Os minutos fora da virada da hora evitam a concentração dos agendamentos no minuto zero.
+O usuário configurou o cron-job.org para chamar a API GitHub com `*/30 * * * *`, habilitado e sem expiração de agendamento: minutos **00 e 30**, todas as horas, todos os dias, incluindo noites e fins de semana. São 48 oportunidades diárias de coleta. A credencial foi inserida pelo usuário diretamente no serviço, fora do chat e do repositório.
 
-Cada evento entregue inicia coleta, validação e publicação (`--force true`). A regra anterior que dispensava coleta antes de 35 minutos não é aplicada pelo workflow. O botão do site continua relendo os arquivos públicos, e a aba visível verifica versões novas a cada minuto. Não é necessário deixar a página aberta para a coleta server-side.
+O teste do serviço retornou **HTTP 204** e criou a execução `42638342239`, evento `workflow_dispatch`, em 09/11/2026 às 14h48 UTC (11h48 de Brasília). Isso comprova aceitação do disparo, não substitui conferir a coleta e o deploy. Confira a execução no Actions e `data/dashboard.json.generated_at` após o término.
 
-O instante da publicação depende de concluir a coleta e o deploy: o cron é horário programado de início, não promessa de aparecer na tela naquele segundo. Falhas de fontes, validações e omissões do agendador podem interromper o ciclo; dados ausentes não são substituídos por zero e prazos científicos não são artificialmente renovados.
+Disparos `workflow_dispatch`, manuais e pushes sempre iniciam coleta, validação e publicação. O cron nativo GitHub usa `7,37 * * * *` como **reserva**. Apenas nesses eventos `schedule` há verificação de idade: publica se a última versão tiver pelo menos **25 minutos**, estiver vencida, inválida ou não puder ser verificada. Quando o serviço externo publica normalmente, a reserva encontra dados recentes e não repete as chamadas às fontes. Não há filtro de 35 minutos sobre o disparo primário.
 
-## Disparo externo independente — preparado, ainda não ativado
+A página verifica versões novas a cada minuto com a aba visível. Não precisa ficar aberta para a coleta. Cron é horário programado de início: aparecer na página depende de concluir a coleta e o deploy. O disparo externo reduz a dependência do agendamento GitHub, mas o pipeline continua dependendo de runners, provedores e Pages. Dados ausentes não viram zero; prazos científicos e regras de classificação não foram estendidos.
 
-O cron do GitHub já apresentou hiatos. Para reduzir essa dependência, configure um serviço externo para chamar `workflow_dispatch` da API GitHub, ou para executar `scripts/dispatch_update.py`, também com cadência de 30 minutos durante todo o dia. O serviço precisa de uma conta/host disponível e uma credencial própria. Nenhum agendador externo foi criado nem recebeu credenciais nesta alteração.
+## Configuração e manutenção da requisição externa
+
+A API e o utilitário abaixo permitem reconstruir a configuração quando necessário. Não crie outro job incondicional sem desativar o anterior, para evitar duplicação.
 
 Em um serviço com requisições HTTP programadas, use:
 
@@ -30,14 +32,13 @@ python scripts/dispatch_update.py
 
 Nesse host, configure previamente `GITHUB_UPDATE_TOKEN` no mecanismo privado de variáveis do serviço. O utilitário chama apenas o workflow e branch especificados, não segue redirecionamentos e não registra o token ou o corpo de erros.
 
-Para configurar a redundância sem duas coletas sistemáticas por ciclo, escolha um mecanismo primário: após confirmar o disparo externo funcionando, remova o `schedule` do GitHub e preserve `workflow_dispatch`/`push`, ou faça o serviço externo disparar apenas quando o `generated_at` estiver atrasado. A segunda opção é supervisão de atraso, não garantia de intervalo exato. Não deixe dois disparos incondicionais por meia hora sem avaliar a carga sobre as fontes.
+## Validação e continuidade
 
-## Ativação e validação
-
-1. Mantenha o agendamento GitHub enquanto o externo não estiver ativo.
-2. Configure o serviço externo e a credencial privada; rode um disparo de teste.
-3. Confira um novo workflow `workflow_dispatch`, deploy concluído e horários efetivamente atualizados no site.
-4. Confirme dois ciclos consecutivos sem intervenção e durante o período noturno antes de declarar estabilidade da cadência.
-5. Só então retire o cron redundante ou mantenha supervisão por idade, conforme a opção escolhida.
+1. Confira job habilitado, expressão `*/30 * * * *` e ausência de restrição de dia/horário.
+2. Faça teste e confirme HTTP 204. Não abra nem exporte o cabeçalho de autorização em registros públicos.
+3. Confira workflow `workflow_dispatch`, build/deploy concluídos e publicação mais recente no site.
+4. Observe os ciclos automáticos seguintes antes de declarar estabilidade contínua. O primeiro teste é manual, não comprova meses de disponibilidade.
+5. Mantenha apenas um job primário e o cron GitHub como reserva por idade. Falhas de consulta ou validade sempre solicitam recuperação.
+6. Renove o token privado antes do vencimento definido no GitHub. Não se publica a credencial nem seu valor em arquivos ou logs.
 
 O GitHub continua executando o pipeline mesmo com disparo externo. Esse mecanismo reduz a dependência do evento `schedule`, mas não elimina indisponibilidade de runners, provedores ou Pages. Referência: [API oficial de workflows](https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event).
