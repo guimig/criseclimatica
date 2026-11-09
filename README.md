@@ -50,7 +50,7 @@ Cemaden distingue falha de consulta municipal de consulta sem leitura válida. A
 
 Se todas as previsões Open-Meteo falharem, outras fontes operacionais ainda podem ser publicadas com estado parcial e os cartões do modelo vazios. Se nenhuma fonte operacional puder ser atualizada, o build aborta e preserva a publicação anterior. Catálogos e arquivo anual, isoladamente, não justificam publicar um painel aparentemente atualizado.
 
-O Actions verifica a publicação a cada 5 min (minutos 2, 7, 12, …, 57), com coleta alvo de cerca de 40 min: só dispensa uma coleta agendada quando a publicação válida tem menos de 35 min. Push/manual forçam coleta. O navegador verifica novas publicações a cada minuto com a aba visível e preserva a última leitura durante falhas transitórias. O serviço pode atrasar/omitir eventos; não é monitoramento de emergência em tempo real. Veja a [auditoria de confiabilidade e correções](docs/AUDITORIA_CONFIABILIDADE.md).
+O Actions programa coleta e publicação **a cada 30 minutos, 24 horas por dia**, aos minutos 7 e 37 de todas as horas. Todo disparo inicia uma coleta; o filtro anterior de 35 minutos não dispensa mais execuções programadas. O navegador verifica novas publicações a cada minuto com a aba visível. A publicação ocorre após concluir coleta, validação e deploy, e o GitHub pode atrasar/omitir eventos. Veja [configuração, horários e disparo externo independente](docs/ATUALIZACOES_30_MINUTOS.md).
 
 ## Estrutura e execução
 

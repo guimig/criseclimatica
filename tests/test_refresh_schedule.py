@@ -49,9 +49,11 @@ class RefreshScheduleTests(unittest.TestCase):
                 main()
             self.assertEqual(path.read_text(),'refresh=false\n')
 
-    def test_workflow_offers_five_minute_checks_without_extending_validity(self):
+    def test_workflow_collects_every_half_hour_all_day_without_skip(self):
         workflow=(ROOT/'.github/workflows/pages.yml').read_text()
-        self.assertIn("cron: '2,7,12,17,22,27,32,37,42,47,52,57 * * * *'", workflow)
+        self.assertIn("cron: '7,37 * * * *'", workflow)
+        self.assertIn('--force true --github-output', workflow)
+        self.assertNotIn("github.event_name != 'schedule'",workflow)
         self.assertTrue(refresh_needed(self.sample(200),NOW))
         self.assertTrue(refresh_needed({**self.sample(), 'valid_until':NOW.isoformat()},NOW))
 

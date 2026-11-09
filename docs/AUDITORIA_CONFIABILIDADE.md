@@ -56,3 +56,10 @@ O serviço GitHub documenta que eventos `schedule` podem atrasar e ser descartad
 O build repetido da execução `42531978882` terminou com sucesso, mas o deploy da tentativa 2 falhou com `Multiple artifacts named "github-pages"`, pois havia dois artefatos com esse nome na mesma execução. O erro original de agendamento e a falha de recuperação são distintos.
 
 Upload passou a usar `github-pages-${{ github.run_attempt }}`. O build publica esse nome como saída, e o deploy consulta `needs.build.outputs.artifact_name`. Assim, repetir o build produz um artefato distinguível, e repetir apenas o deploy continua usando o artefato do build correspondente, sem depender do número da nova tentativa do deploy. Não se apagam os artefatos anteriores para contornar o problema.
+
+
+## Política vigente de atualização — 09/11/2026
+
+Por solicitação do usuário, o workflow passou a `7,37 * * * *`, com coleta a cada 30 minutos durante as 24 horas do dia, incluindo fins de semana. Usa `--force true` em todos os eventos, eliminando o filtro de 35 minutos do caminho programado. O histórico acima registra as configurações anteriores; a política atual está em [Atualizações de 30 minutos](ATUALIZACOES_30_MINUTOS.md). A idade científica dos dados e a validade da classificação não foram estendidas.
+
+Um disparo externo independente está especificado e o utilitário de chamada da API está pronto, mas sua ativação exige um serviço externo e credencial própria armazenada de forma privada. Nenhum serviço externo foi ativado automaticamente e não se afirma garantia de atualização pontual só com cron no Actions.

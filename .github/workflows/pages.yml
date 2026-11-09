@@ -5,9 +5,9 @@ on:
   push:
     branches: [main]
   schedule:
-    # Reconcile age every five minutes; a real collection is still gated at 35 min.
-    # GitHub schedules can be delayed/dropped, so every check reconciles age.
-    - cron: '2,7,12,17,22,27,32,37,42,47,52,57 * * * *'
+    # Two collections per hour, every day, away from the hour boundary.
+    # Each delivered event collects; GitHub may still delay/drop scheduled events.
+    - cron: '7,37 * * * *'
 
 permissions:
   contents: read
@@ -31,9 +31,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Check publication age
+      - name: Collect on every trigger
         id: freshness
-        run: python scripts/check_refresh.py --force "${{ github.event_name != 'schedule' }}" --github-output "$GITHUB_OUTPUT"
+        run: python scripts/check_refresh.py --force true --github-output "$GITHUB_OUTPUT"
       - name: Validate code before collecting
         if: steps.freshness.outputs.refresh == 'true'
         run: python -m unittest discover -s tests -v
