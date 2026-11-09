@@ -27,11 +27,28 @@ O endpoint responde com `codestacao`, `datahora`, `id_sensor`, `valor`, coordena
 
 - Horário da observação em **UTC**, mostrado em horário local na interface; dados com mais de 3h20 não são classificados como recentes.
 - Medição pontual com código da estação, nome, município informado pela fonte e distância em linha reta até o ponto escolhido. A seleção admite estações num raio de até 85 km e ordena por distância, sem atribuir a observação a toda a cidade.
-- Um identificador de sensor é rotulado pelo catálogo, nunca por inferência de nomes não documentados. Unidades são apresentadas apenas quando confirmadas na especificação (ex.: temperatura do ar em °C, vazão em m³/s); outras aparecem sem unidade confirmada.
+- Um identificador de sensor é rotulado pelo catálogo, nunca por inferência de nomes não documentados. Unidades são apresentadas quando confirmadas pelas referências oficiais descritas abaixo; outras aparecem sem unidade confirmada.
 - Nulos, sentinelas numéricas e conflitos no mesmo sensor/instante são descartados; o código bruto de qualificação é preservado sem interpretação arbitrária.
 - A lista traz no máximo seis estações próximas por localidade (cinco na primeira visualização). O conjunto do Estado retornado pela PED **não é publicado integralmente**.
 - Um erro HTTP, ausência de estação, indisponibilidade de credencial ou excesso de dados nunca vira “0 mm”.
 - Os JSONs publicados contêm somente informações meteorológicas públicas, sem JWT, e-mail ou senha.
+
+### Unidades dos sensores — verificação de 09/11/2026
+
+O retorno de dados recentes contém `id_sensor` e `valor`, mas não informa a unidade em cada leitura. O coletor associa somente unidades verificadas por identificador em `DOCUMENTED_UNITS`:
+
+| Sensor PED | Variável | Unidade publicada | Referência / limite da verificação |
+| --- | --- | --- | --- |
+| 10 | Chuva | mm | Catálogo PED identifica Chuva em estação pluviométrica; os gráficos oficiais do Cemaden apresentam precipitação em mm. |
+| 30 | Vazão | m³/s | Exemplos de índice de sensores da especificação PED. |
+| 60 | Temperatura do ar | °C | Exemplos de índice de sensores da especificação PED. |
+| 240 | Intensidade da Precipitação | Não confirmada | Não se atribui mm nem mm/h apenas pelo nome; falta confirmação da unidade/escala do valor entregue por este sensor. |
+| 20, 260, 270 | Nível, Nível Mínimo, Nível Máximo | Não confirmada | Não se presume cm ou m. |
+| 330, 340, 350, 360, 610, 620 | Umidade do Solo, níveis 1–6 | Não confirmada | Não se presume percentual ou fração volumétrica. |
+
+Referências consultadas: [especificação PED 2.0.2](https://sws.cemaden.gov.br/PED/api/ui/swagger.json), [gráfico oficial da estação Centro/Joinville — precipitação em mm](https://resources.cemaden.gov.br/graficos/interativo/grafico_pcds.php?idpcd=6262) e [explicação do Cemaden sobre quantidade de chuva em milímetros](https://educacao.cemaden.gov.br/qr-code-do-aplicativo/). O manual PED fornecido (`PED_Manual_Uso_Acesso_Dados_v1_4.pdf`) explica os serviços, mas não traz uma tabela de unidades que resolva os demais identificadores.
+
+A correção do sensor 10 acrescenta a unidade ao dado publicado, exibida automaticamente em **Sensores / Cemaden PED**. Preserva o valor bruto e o horário da observação: **não converte intensidade, não calcula acumulado de 24 h e não altera a classificação de risco**. Os acumulados do produto de chuva continuam separados em `cemaden.json`. Identificadores novos permanecem sem unidade até verificação específica.
 
 ## 3. Limite de requisições e atualização
 
