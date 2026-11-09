@@ -28,5 +28,14 @@ const {create}=require('../web/publication-refresh.js');
   const future=create({getVersion:()=>version,now:()=>clock,readLatest:async()=>({schema_version:1,generated_at:'2030-01-01T00:00:00Z'}),
     reload:async()=>{throw Error('Future publication cannot be loaded');},onError:()=>errors++});
   assert.equal(await future.check(),false);assert.equal(errors,4);
+  let successful=0,failed=0,pendingRepair=true,repairResult=false;
+  const failedReload=create({getVersion:()=>version,now:()=>clock,intervalMs:0,needsReload:()=>pendingRepair,
+    readLatest:async()=>({schema_version:1,generated_at:version}),reload:async()=>repairResult,
+    onSuccess:()=>successful++,onError:()=>failed++});
+  assert.equal(await failedReload.check(),false);assert.equal(successful,0);assert.equal(failed,1);
+  repairResult=true;assert.equal(await failedReload.check(),true);assert.equal(successful,1);
+  const olderEdge=create({getVersion:()=>version,intervalMs:0,needsReload:()=>true,
+    readLatest:async()=>({schema_version:1,generated_at:'2026-11-08T12:00:00Z'}),reload:async()=>{throw Error('no rollback');},onSuccess:()=>successful++});
+  assert.equal(await olderEdge.check(),false);assert.equal(successful,1);
   console.log('Publication refresh passed: active tab, new versions, throttling, locking, invalid/test data, CDN rollback and offline recovery.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

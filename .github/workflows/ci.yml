@@ -34,6 +34,7 @@ jobs:
         run: |
           node tests/web_reliability.cjs
           node tests/dashboard_behavior.cjs
+          node tests/dashboard_loading.cjs
           node tests/publication_refresh.cjs
           node tests/forecast_contract.cjs
       - name: Build offline synthetic fixture for smoke test

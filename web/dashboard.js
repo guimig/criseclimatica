@@ -99,6 +99,7 @@ function signalBrief(signal,data) {
   return `${subject[0].toUpperCase()+subject.slice(1)} ${verb}${observed?' em '+stationName(ref,'estação próxima'):''}: ${num(signal.value)} ${signal.unit}.`;
 }
 function riskPresentation(data,now=Date.now()) {
+  if(!data)return {color:'neutral',active:null,title:panel.fetchError?'Dados indisponíveis':'Consultando dados',kind:'Carregamento da publicação',reason:'Ainda não foi possível carregar uma publicação verificável. O painel tenta novamente automaticamente; consulte as fontes oficiais enquanto aguarda.'};
   if(!dashboardCurrent(data,now))return {color:'neutral',active:null,title:'Atualização necessária',kind:'Dados desatualizados',reason:'A última atualização perdeu validade. Consulte as fontes oficiais enquanto aguarda novos dados.'};
   const policy=effectiveAssessment(data,now),objective=policy?.numeric_support;
   if(!policy||!(now<Date.parse(policy.valid_until)))return {color:'neutral',active:null,title:'Dados insuficientes para classificar',kind:'Leitura parcial',reason:'Não há referências válidas suficientes para distinguir normalidade de uma situação de atenção.'};
@@ -116,7 +117,7 @@ function renderSummary() {
   const data=panel.data, current=dashboardCurrent(data), policy=effectiveAssessment(data), validPolicy=current&&Date.now()<Date.parse(policy?.valid_until);
   el('publication-time').textContent=data?'Painel atualizado em '+date(data.generated_at):'Atualização indisponível';
   el('publication-status').hidden=current&&!panel.fetchError&&!panel.incompleteHistory;
-  el('publication-status').textContent=panel.fetchError?'Falha ao consultar a publicação. A última leitura foi preservada com seus horários originais; o painel tentará novamente automaticamente.':current&&panel.incompleteHistory?'O histórico observado não pôde ser verificado por completo. As demais referências foram preservadas; nova tentativa automática.':data?'A coleta publicada está atrasada. A classificação foi suspensa; confira os horários das referências. O painel busca novas publicações automaticamente.':'Não foi possível carregar uma publicação verificável de Araquari. O painel tentará novamente automaticamente.';
+  el('publication-status').textContent=panel.fetchError?(data?'Falha ao consultar a publicação. A última leitura foi preservada com seus horários originais; o painel tentará novamente automaticamente.':'Falha ao carregar os dados publicados. O painel tentará novamente automaticamente; consulte as fontes oficiais enquanto aguarda.'):current&&panel.incompleteHistory?'O histórico observado não pôde ser verificado por completo. As demais referências foram preservadas; nova tentativa automática.':data?'A coleta publicada está atrasada. A classificação foi suspensa; confira os horários das referências. O painel busca novas publicações automaticamente.':'Não foi possível carregar uma publicação verificável de Araquari. O painel tentará novamente automaticamente.';
   const presentation=riskPresentation(data);
   el('level-dot').className='level-dot '+presentation.color;
   el('level-card').dataset.risk=presentation.color;
@@ -512,7 +513,7 @@ function showMethods() {
     for(const limit of panel.data?.limitations||[])paragraph(body,limit);
   });
 }
-async function readJson(path) {const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),15000);try{const response=await fetch(path,{cache:'no-store',signal:controller.signal});if(!response.ok)throw new Error('HTTP '+response.status);return await response.json();}finally{clearTimeout(timer);}}
+async function readJson(path,retry='') {const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),15000);try{const response=await fetch(retry?path+'?refresh='+encodeURIComponent(retry):path,{cache:'no-store',signal:controller.signal});if(!response.ok)throw new Error('HTTP '+response.status);return await response.json();}finally{clearTimeout(timer);}}
 async function loadDashboard() {
   if(panel.loading)return;
   panel.loading=true;
@@ -520,17 +521,24 @@ async function loadDashboard() {
   try{
     let loaded;
     for(let attempt=0;attempt<2;attempt++){
-      const [latest,data,history]=await Promise.all([readJson('./data/latest.json'),readJson('./data/dashboard.json'),readJson('./data/observation_history.json').catch(()=>null)]);
-      if(latest.schema_version!==1||latest.fixture_mode||data.fixture_mode||data.schema_version!==1||data.kind!=='araquari_weather_dashboard_not_official_decision'||data.location_id!=='araquari'||data.decision_automated!==false||!Number.isFinite(Date.parse(data.generated_at))||Date.parse(data.generated_at)>Date.now()+600000)throw new Error('Invalid dashboard source');
-      if(latest.publication_at!==undefined&&(latest.publication_at!==latest.generated_at||data.publication_at!==latest.generated_at))throw new Error('Dashboard publication mismatch');
-      if(latest.generated_at===data.generated_at){loaded={data,history:history?.kind==='araquari_point_observation_history_not_climatology'&&Array.isArray(history.records)&&history?.location_id==='araquari'&&!history.fixture_mode&&history.generated_at===data.generated_at&&(latest.publication_at===undefined||history.publication_at===latest.generated_at)?history:null};break;}
+      // CDN edges can briefly serve different artifacts during a deployment.
+      // Retry the whole read with a fresh cache key, keeping all identity checks.
+      const retry=attempt?Date.now()+'-'+id:'';
+      try{
+        const [latest,data,history]=await Promise.all([readJson('./data/latest.json',retry),readJson('./data/dashboard.json',retry),readJson('./data/observation_history.json',retry).catch(()=>null)]);
+        if(latest.schema_version!==1||latest.fixture_mode||data.fixture_mode||data.schema_version!==1||data.kind!=='araquari_weather_dashboard_not_official_decision'||data.location_id!=='araquari'||data.decision_automated!==false||!Number.isFinite(Date.parse(data.generated_at))||Date.parse(data.generated_at)>Date.now()+600000)throw new Error('Invalid dashboard source');
+        if(latest.publication_at!==undefined&&(latest.publication_at!==latest.generated_at||data.publication_at!==latest.generated_at))throw new Error('Dashboard publication mismatch');
+        if(latest.generated_at!==data.generated_at)throw new Error('Publication mismatch');
+        loaded={data,history:history?.kind==='araquari_point_observation_history_not_climatology'&&Array.isArray(history.records)&&history?.location_id==='araquari'&&!history.fixture_mode&&history.generated_at===data.generated_at&&(latest.publication_at===undefined||history.publication_at===latest.generated_at)?history:null};break;
+      }catch(error){if(attempt===1)throw error;}
     }
     if(!loaded)throw new Error('Publication mismatch');if(id!==panel.loadId)return;
     if(panel.data&&Date.parse(loaded.data.generated_at)<Date.parse(panel.data.generated_at))throw new Error('Older publication received');
     panel.incompleteHistory=!loaded.history;
     if(!loaded.history&&panel.data?.generated_at===loaded.data.generated_at)loaded.history=panel.history;
     panel.data=loaded.data;panel.history=loaded.history;panel.fetchError=false;
-  }catch(err){if(id!==panel.loadId)return;console.error('Dashboard unavailable:',err.message);panel.fetchError=true;}
+    return true;
+  }catch(err){if(id!==panel.loadId)return;console.error('Dashboard unavailable:',err.message);panel.fetchError=true;return false;}
   finally{if(id===panel.loadId){panel.loading=false;el('refresh').disabled=false;renderSummary();renderRecent();renderMemory();renderChart();}}
 }
 function selectVariable(variable) {panel.variable=variable;if(el('forecast-variable'))el('forecast-variable').value=variable;for(const button of document.querySelectorAll('[data-variable]')){const selected=button.dataset.variable===variable;button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));}renderChart();}
@@ -558,7 +566,7 @@ if(typeof document!=='undefined'){
   el('history-open').addEventListener('click',showHistory);document.addEventListener('observatorythemechange',renderChart);
   el('evidence-open').addEventListener('click',showEvidence);el('level-explain').addEventListener('click',showAssessment);el('protocol-open').addEventListener('click',showProtocol);el('methods-open').addEventListener('click',showMethods);el('dialog-close').addEventListener('click',()=>el('detail-dialog').close());
   const publicationRefresh=typeof PublicationRefresh!=='undefined'?PublicationRefresh.create({
-    getVersion:()=>panel.data?.generated_at,needsReload:()=>panel.incompleteHistory,readLatest:()=>readJson('./data/latest.json'),
+    getVersion:()=>panel.data?.generated_at,needsReload:()=>panel.incompleteHistory||panel.fetchError,readLatest:()=>readJson('./data/latest.json'),
     reload:loadDashboard,isVisible:()=>!document.hidden,
     onSuccess:()=>{panel.fetchError=false;renderSummary();},
     onError:()=>{panel.fetchError=true;renderSummary();}}):null;
