@@ -37,7 +37,8 @@ def main() -> None:
     reason = 'forced collection'
     if args.force != 'true':
         try:
-            request = Request('https://guimig.github.io/criseclimatica/data/dashboard.json',
+            checked_at = datetime.now(timezone.utc)
+            request = Request('https://guimig.github.io/criseclimatica/data/dashboard.json?check_at='+str(int(checked_at.timestamp())),
                               headers={'Cache-Control': 'no-cache', 'User-Agent': 'criseclimatica-refresh-check'})
             with urlopen(request, timeout=15) as response:
                 raw = response.read(2_000_001)

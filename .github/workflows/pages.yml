@@ -5,9 +5,9 @@ on:
   push:
     branches: [main]
   schedule:
-    # Check more often, away from the hour boundary; collect at about 40 min.
+    # Reconcile age every five minutes; a real collection is still gated at 35 min.
     # GitHub schedules can be delayed/dropped, so every check reconciles age.
-    - cron: '7,27,47 * * * *'
+    - cron: '2,7,12,17,22,27,32,37,42,47,52,57 * * * *'
 
 permissions:
   contents: read
