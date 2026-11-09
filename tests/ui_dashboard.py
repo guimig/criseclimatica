@@ -47,7 +47,7 @@ def fixture():
                                  'wind_kmh': 15, 'gust_kmh': 51.5 if i == 16 else 20, 'temperature_c': 24}
                                 for i in range(25)]}
     history = {'kind': 'araquari_point_observation_history_not_climatology', 'location_id': 'araquari', 'generated_at': stamp, 'records': records}
-    return {'latest.json': {'schema_version': 1, 'generated_at': stamp}, 'dashboard.json': data, 'observation_history.json': history}
+    return {'campus_station.json': {'schema_version':1,'kind':'ifc_araquari_campus_observations_not_risk_criteria','location_id':'araquari','risk_criteria':False,'publication_at':stamp,'checked_at':stamp,'status':'unavailable','metrics':{}}, 'latest.json': {'schema_version': 1, 'generated_at': stamp}, 'dashboard.json': data, 'observation_history.json': history}
 
 
 @contextmanager

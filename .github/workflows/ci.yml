@@ -30,11 +30,13 @@ jobs:
           node --check web/chart-interaction.js
           node --check web/forecasts.js
           node --check web/publication-refresh.js
+          node --check web/campus-station.js
       - name: Test browser reliability without network
         run: |
           node tests/web_reliability.cjs
           node tests/dashboard_behavior.cjs
           node tests/dashboard_loading.cjs
+          node tests/campus_station.cjs
           node tests/publication_refresh.cjs
           node tests/forecast_contract.cjs
       - name: Build offline synthetic fixture for smoke test
@@ -45,4 +47,3 @@ jobs:
         continue-on-error: true
         timeout-minutes: 3
         run: python scripts/probe_sources.py
-

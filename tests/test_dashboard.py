@@ -281,7 +281,7 @@ class DeploymentTests(unittest.TestCase):
             self.assertIn('./dashboard.js',home)
             self.assertNotIn('id="territory-grid"',home)
             self.assertIn('id="territory-grid"',detail)
-            self.assertLess(len(home),14000)  # Includes explicit shared-control labels and accessible grouping.
+            self.assertLess(len(home),16000)  # Includes shared controls and the bounded campus station section.
             self.assertTrue((target/'references/pn-13-2026.pdf').is_file())
             with self.assertRaises(ValueError):validate(target,fixture=False)
 

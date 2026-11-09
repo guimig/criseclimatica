@@ -94,3 +94,7 @@ O build publica `data/coverage.json`, preserva os contratos existentes e adicion
 Cada JSON publica `publication_at`, igual ao `generated_at` de `latest.json`, independentemente de seus horários de coleta/medição. A validação do build rejeita combinações divergentes. A página detalhada exige essa identidade nas fontes secundárias e arquivos municipais quando o manifesto contém o campo; respostas incompatíveis acionam a recuperação automática. O formato anterior sem o campo continua legível para compatibilidade.
 
 A home tenta novamente o histórico observado incompleto da mesma publicação, preservando apenas cache de versão correspondente. A expiração da publicação atualiza a indicação dos gráficos sem exigir interação. Ver [auditoria geral](AUDITORIA_GERAL_2026_11_08.md).
+
+## Estação IFC Araquari (09/11/2026)
+
+`campus_station.py` consulta o dispositivo público do campus em janelas delimitadas e publica `campus_station.json` com a identidade do artefato. `campus-station.js`/`.css` exibem a mesma seção nas duas páginas, com atualização e validade independentes. O produto não é passado ao motor de classificação, à síntese normativa ou à mediana das estações. Detalhes em [ESTACAO_IFC_ARAQUARI.md](ESTACAO_IFC_ARAQUARI.md).

@@ -7,6 +7,7 @@
   <title>Tempo em Araquari</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <script src="./theme.js?v=period-20261107"></script><link rel="stylesheet" href="./dashboard.css?v=period-20261107"><link rel="stylesheet" href="./forecasts.css?v=period-20261107"><script defer src="./chart-interaction.js?v=period-20261107"></script><script defer src="./forecasts.js?v=inmet-context-20261108"></script><script defer src="./publication-refresh.js?v=publication-recovery-20261109"></script><script defer src="./dashboard.js?v=publication-recovery-20261109"></script><link rel="stylesheet" href="./essential.css?v=period-20261107">
+<link rel="stylesheet" href="./campus-station.css?v=campus-20261109"><script defer src="./campus-station.js?v=campus-20261109"></script>
 </head>
 <body class="essential-page home-page">
   <a class="skip" href="#main">Ir para o conteúdo</a>
@@ -46,6 +47,13 @@
       <p id="chart-caption" class="chart-caption">Observações e previsão são apresentadas separadamente.</p>
       <p id="station-coverage" class="coverage-copy"></p><details id="station-details" class="station-details"><summary>Entender as diferenças entre estações</summary><p id="station-comparison" class="small"></p><div id="station-readings" class="detail-table-wrap"></div><p class="chart-caption">A chuva pode variar entre locais. Diferenças de valor ou horário, isoladamente, não identificam a causa nem comprovam erro de medição. Distâncias referem-se ao ponto municipal usado pelo modelo, não ao campus.</p></details>
     </section>
+<section id="campus-station" class="campus-station" aria-labelledby="campus-title">
+<div class="campus-heading"><h2 id="campus-title">Observações no campus</h2><a href="https://mytb.fabricadesoftware.ifc.edu.br/dashboard/6c46c4f0-5613-11f0-ac33-dfcfe81f8a64?publicId=f2146870-34a4-11f0-ac33-dfcfe81f8a64" target="_blank" rel="noopener noreferrer">Estação IFC Araquari ↗</a></div>
+<p id="campus-status" role="status">Consultando a estação do campus…</p><div id="campus-values" class="campus-values"></div>
+<div class="campus-controls"><label for="campus-variable">Histórico da estação · últimas 24 h</label><select id="campus-variable"></select></div>
+<div id="campus-plot" class="campus-plot"></div><output id="campus-readout" class="campus-readout" aria-live="off"></output>
+<p id="campus-chart-note"></p><p id="campus-extra"></p><p id="campus-reference">Medições locais complementares; não alteram a classificação do painel.</p>
+</section>
     <details class="forecast-comparison-card"><summary id="comparison-title">Comparar previsões e fontes</summary><div id="forecast-comparison"><p class="comparison-note">Verificando previsões comparáveis para Araquari…</p></div></details>
     <details id="memory" class="card memory-card"><summary>Histórico de estados e avisos</summary><div class="memory-content"><div class="chart-top"><div><p class="eyebrow">MEMÓRIA DO ACOMPANHAMENTO</p><h2 id="memory-title">Estados e avisos ao longo do tempo</h2></div><button id="history-open" aria-haspopup="dialog" type="button" class="text-button">Consultar períodos e durações</button></div><div id="history-strip" class="history-strip"></div><p class="chart-caption">Períodos registrados entre coletas; não representam a duração de um desastre. As janelas de validade dos avisos são apresentadas separadamente.</p></div></details>
     <section class="bottom-grid" aria-label="Leitura complementar">

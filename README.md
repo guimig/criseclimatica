@@ -108,3 +108,7 @@ Consulte [roadmap atual](docs/ROADMAP.md), [decisões](docs/DECISOES.md), [arqui
 A ampliação das redes está descrita em [Estações Cemaden e METAR](docs/AMPLIACAO_ESTACOES.md). Seleção geográfica não garante disponibilidade de boletim ou representatividade local.
 
 A página de dados organiza as consultas por assunto, preservando os links diretos e os acumulados completos. Veja [controles, cores e exploração detalhada](docs/EXPLORACAO_DADOS_E_CONTROLES.md).
+
+### Estação no IFC Araquari
+
+A inicial e Dados e fontes → Medições incluem observações da estação do campus, coletadas na API pública do ThingsBoard no ciclo de 30 minutos. Os dados permanecem separados das previsões e da classificação de risco. [Método, unidades, validade e limitações](docs/ESTACAO_IFC_ARAQUARI.md).
