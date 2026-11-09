@@ -20,7 +20,8 @@ class RefreshScheduleTests(unittest.TestCase):
 
     def test_fresh_publication_skips_but_missed_triggers_are_reconciled(self):
         self.assertFalse(refresh_needed(self.sample(),NOW))
-        self.assertTrue(refresh_needed(self.sample(35),NOW))
+        self.assertFalse(refresh_needed(self.sample(24),NOW))
+        self.assertTrue(refresh_needed(self.sample(25),NOW))
         self.assertTrue(refresh_needed(self.sample(300),NOW))
 
     def test_missing_invalid_synthetic_or_expired_never_skip(self):
@@ -49,11 +50,10 @@ class RefreshScheduleTests(unittest.TestCase):
                 main()
             self.assertEqual(path.read_text(),'refresh=false\n')
 
-    def test_workflow_collects_every_half_hour_all_day_without_skip(self):
+    def test_external_dispatch_always_collects_and_schedule_is_backup(self):
         workflow=(ROOT/'.github/workflows/pages.yml').read_text()
         self.assertIn("cron: '7,37 * * * *'", workflow)
-        self.assertIn('--force true --github-output', workflow)
-        self.assertNotIn("github.event_name != 'schedule'",workflow)
+        self.assertIn("--force \"${{ github.event_name != 'schedule' }}\"",workflow)
         self.assertTrue(refresh_needed(self.sample(200),NOW))
         self.assertTrue(refresh_needed({**self.sample(), 'valid_until':NOW.isoformat()},NOW))
 

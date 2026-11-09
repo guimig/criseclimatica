@@ -50,7 +50,7 @@ Cemaden distingue falha de consulta municipal de consulta sem leitura válida. A
 
 Se todas as previsões Open-Meteo falharem, outras fontes operacionais ainda podem ser publicadas com estado parcial e os cartões do modelo vazios. Se nenhuma fonte operacional puder ser atualizada, o build aborta e preserva a publicação anterior. Catálogos e arquivo anual, isoladamente, não justificam publicar um painel aparentemente atualizado.
 
-O Actions programa coleta e publicação **a cada 30 minutos, 24 horas por dia**, aos minutos 7 e 37 de todas as horas. Todo disparo inicia uma coleta; o filtro anterior de 35 minutos não dispensa mais execuções programadas. O navegador verifica novas publicações a cada minuto com a aba visível. A publicação ocorre após concluir coleta, validação e deploy, e o GitHub pode atrasar/omitir eventos. Veja [configuração, horários e disparo externo independente](docs/ATUALIZACOES_30_MINUTOS.md).
+O **cron-job.org** aciona o workflow a cada 30 minutos, 24 horas por dia, nos minutos **00 e 30**, por requisição autenticada `workflow_dispatch`. Esses disparos sempre iniciam coleta. O agendamento GitHub aos minutos 7 e 37 fica como **reserva**: só coleta se a publicação estiver vencida, inválida, inacessível ou com pelo menos 25 minutos. Isso evita coletas duplicadas quando o disparo externo funciona. O navegador verifica versões novas a cada minuto com a aba visível. A publicação depende de concluir coleta, validação e deploy. Veja [configuração e validação do agendamento externo](docs/ATUALIZACOES_30_MINUTOS.md).
 
 ## Estrutura e execução
 

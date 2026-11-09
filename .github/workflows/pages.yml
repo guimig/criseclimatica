@@ -5,8 +5,8 @@ on:
   push:
     branches: [main]
   schedule:
-    # Two collections per hour, every day, away from the hour boundary.
-    # Each delivered event collects; GitHub may still delay/drop scheduled events.
+    # Backup checks after the external scheduler at minutes 0 and 30.
+    # workflow_dispatch always collects; schedule skips a verified fresh publication.
     - cron: '7,37 * * * *'
 
 permissions:
@@ -31,9 +31,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Collect on every trigger
+      - name: Collect externally or reconcile backup age
         id: freshness
-        run: python scripts/check_refresh.py --force true --github-output "$GITHUB_OUTPUT"
+        run: python scripts/check_refresh.py --force "${{ github.event_name != 'schedule' }}" --github-output "$GITHUB_OUTPUT"
       - name: Validate code before collecting
         if: steps.freshness.outputs.refresh == 'true'
         run: python -m unittest discover -s tests -v
