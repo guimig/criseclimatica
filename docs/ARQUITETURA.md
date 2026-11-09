@@ -28,7 +28,7 @@ Arquivos secundários que falhem ao carregar ou não correspondam ao contrato de
 
 Se apenas o arquivo municipal ficou pendente, a tentativa automática consulta esse arquivo, sem repetir todos os arquivos secundários. O resumo e os conjuntos secundários são aceitos juntos após a carga, reduzindo a janela de mistura durante consultas concorrentes. Datas de publicação mais de dez minutos à frente do relógio do cliente são recusadas antes de substituir a versão aceita.
 
-O cron faz verificações aos minutos 7, 27 e 47 e coleta aproximadamente a cada 40 min quando os eventos chegam regularmente. Ele não oferece garantia de pontualidade. Consulte [a auditoria de confiabilidade](AUDITORIA_CONFIABILIDADE.md) e [o algoritmo completo](ALGORITMO_CLASSIFICACAO_NIVEIS.md) para prazos e limitações.
+O cron programa coleta aos minutos 7 e 37, em todas as horas e dias, sem dispensa por idade da publicação. A execução do pipeline e o serviço de agendamento não oferecem garantia de pontualidade. Consulte [a auditoria de confiabilidade](AUDITORIA_CONFIABILIDADE.md) e [o algoritmo completo](ALGORITMO_CLASSIFICACAO_NIVEIS.md) para prazos e limitações.
 
 ## Camadas independentes adicionadas
 
