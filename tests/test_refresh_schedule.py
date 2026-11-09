@@ -49,5 +49,18 @@ class RefreshScheduleTests(unittest.TestCase):
                 main()
             self.assertEqual(path.read_text(),'refresh=false\n')
 
+    def test_workflow_offers_five_minute_checks_without_extending_validity(self):
+        workflow=(ROOT/'.github/workflows/pages.yml').read_text()
+        self.assertIn("cron: '2,7,12,17,22,27,32,37,42,47,52,57 * * * *'", workflow)
+        self.assertTrue(refresh_needed(self.sample(200),NOW))
+        self.assertTrue(refresh_needed({**self.sample(), 'valid_until':NOW.isoformat()},NOW))
+
+    def test_probe_url_has_a_new_clock_key(self):
+        with tempfile.TemporaryDirectory() as directory:
+            response=MagicMock();response.__enter__.return_value.read.return_value=json.dumps(self.sample()).encode()
+            with patch('sys.argv',['check_refresh','--github-output',str(Path(directory)/'out')]),patch('check_refresh.urlopen',return_value=response) as fetch:
+                main()
+            self.assertRegex(fetch.call_args.args[0].full_url,r'dashboard\.json\?check_at=\d+$')
+
 
 if __name__=='__main__':unittest.main()

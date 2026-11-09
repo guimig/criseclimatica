@@ -305,7 +305,7 @@ def summarize(locations, details, cemaden, metars, alerts, cptec, generated_at, 
         pair = temperature_context(detail, place, metars, now)
         revision = revision_analysis(previous, detail, slug, forecast, now)
         limits = ["Estações medem pontos; as coordenadas do modelo são uma referência municipal, sem medição específica do campus.",
-                  "Verificações de atualização programadas a cada 20 minutos, com coleta alvo de cerca de 40 minutos, sujeitas a atrasos; eventos rápidos exigem consulta aos canais oficiais."]
+                  "Verificações de atualização programadas a cada 5 minutos, com coleta alvo de cerca de 40 minutos, sujeitas a atrasos; eventos rápidos exigem consulta aos canais oficiais."]
         suggestions = []
         expirations = [now + timedelta(hours=3)]
         notice_expirations = []
