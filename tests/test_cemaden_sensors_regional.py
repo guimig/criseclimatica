@@ -106,6 +106,20 @@ class SensorFeedTests(unittest.TestCase):
         self.assertGreater(by_city["araquari"][0]["distance_km"], 50)
         self.assertLess(by_city["araquari"][0]["distance_km"], 85)
 
+    def test_rain_unit_is_mm_without_changing_measurement_or_guessing_other_units(self):
+        raw = [make_row(10, 0.2), make_row(240, 12.8), make_row(20, 123),
+               make_row(330, 0.42), make_row(2222, 8.4)]
+        data = normalize_recent(raw, normalize_types(TYPES), LOCATIONS, STAMP, now=NOW)
+        readings = {row["sensor_id"]: row for row in data["stations"][0]["readings"]}
+        self.assertEqual(readings[10]["unit"], "mm")
+        self.assertEqual(readings[10]["value"], 0.2)
+        self.assertEqual(readings[10]["observed_at"], readings[240]["observed_at"])
+        for sensor in (240, 20, 330, 2222):
+            self.assertIsNone(readings[sensor]["unit"])
+        zero = normalize_recent([make_row(10, 0)], normalize_types(TYPES), LOCATIONS, STAMP, now=NOW)
+        self.assertEqual(zero["stations"][0]["readings"][0]["unit"], "mm")
+        self.assertEqual(zero["stations"][0]["readings"][0]["value"], 0)
+
     def test_stale_future_foreign_and_invalid_values_never_published(self):
         raw = [make_row(hours_ago=4), make_row(hours_ago=-1),
                make_row(val=-999), make_row(val=9999), make_row(val=float("nan")),

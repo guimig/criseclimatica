@@ -32,9 +32,10 @@ MAX_NEARBY_KM = 130.0
 MAX_STATIONS_PER_PLACE = 24
 MAX_READINGS_PER_STATION = 12
 MAX_AGE = timedelta(hours=3, minutes=20)
-# Confirmed by the official PED Swagger sensor-index examples; unknown sensors
-# have no unit rather than a guessed unit.
-DOCUMENTED_UNITS = {30: "m³/s", 60: "°C"}
+# PED Swagger identifies 10 as Chuva (pluviometric); Cemaden station graphs
+# express precipitation in mm. References and unresolved sensor units are in
+# docs/CEMADEN_SENSORES_E_EXPANSAO_REGIONAL.md. No conversion or time-window sum.
+DOCUMENTED_UNITS = {10: "mm", 30: "m³/s", 60: "°C"}
 
 
 class SensorSourceError(RuntimeError):
