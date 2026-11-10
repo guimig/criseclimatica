@@ -405,11 +405,12 @@ function primaryNotice(data,now=Date.now()) {
 }
 function inmetNotices(data,now=Date.now()) {
   const feed=data?.inmet_context||data?.complementary_notices;
-  if(feed?.status!=='available'||!fresh(feed.retrieved_at,6,now))return [];
-  return (feed.notices||[]).filter(n=>n.lifecycle!=='expired'&&(!n.end_at||now<Date.parse(n.end_at)));
+  if((feed?.status!=='available'&&!feed?.retained_previous)||!fresh(feed.retrieved_at,6,now))return [];
+  return (feed.notices||[]).filter(n=>n.lifecycle!=='expired'&&(!n.end_at||now<Date.parse(n.end_at))&&(!feed.retained_previous||(Number.isFinite(Date.parse(n.start_at))&&Number.isFinite(Date.parse(n.end_at))&&Date.parse(n.start_at)<Date.parse(n.end_at))));
 }
 function appendInmetNotice(body,n) {
   const card=node('article','evidence-block');
+  if(n.retained_previous)paragraph(card,'Aviso preservado da consulta anterior. A consulta atual falhou; revisão ou cancelamento não confirmados.');
   card.append(officialLink(n.url||'https://alertas2.inmet.gov.br/',n.type||'Aviso meteorológico'));
   paragraph(card,`Severidade INMET: ${n.severity||'não informada'}.`);
   const municipalities=n.municipalities||[{location_id:'araquari',name:'Araquari'}];
@@ -423,6 +424,7 @@ function appendInmetNotice(body,n) {
 }
 function inmetContextStatus(data,now=Date.now()) {
   const feed=data?.inmet_context||data?.complementary_notices;
+  if(feed?.retained_previous&&inmetNotices(data,now).length)return {title:'Avisos INMET · consulta anterior',description:'A consulta atual falhou. Os avisos abaixo foram preservados com seus horários originais e prazo informado ainda não encerrado; revisão ou cancelamento não confirmados.'};
   if(!data)return {title:'Consultando avisos INMET',description:'Aguardando a consulta de Araquari e entorno.'};
   if(feed?.retrieved_at&&!fresh(feed.retrieved_at,6,now))return {title:'Consulta INMET desatualizada',description:'Não foi possível confirmar a situação atual dos avisos. Consulte o portal oficial.'};
   if(feed?.status!=='available'||!fresh(feed.retrieved_at,6,now))return {title:'Consulta INMET indisponível',description:'Não foi possível verificar os avisos de Araquari e entorno nesta publicação. Indisponibilidade não significa ausência de avisos.'};

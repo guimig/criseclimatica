@@ -11,6 +11,8 @@ from pathlib import Path
 from urllib.parse import urlparse, unquote
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from observatorio.inmet_forecast import validate_product as validate_inmet_forecast
+from observatorio.alerts import retain_valid_notices
 from observatorio.campus_station import validate_product as validate_campus
 
 
@@ -37,6 +39,8 @@ def validate(output: Path, *, fixture: bool = False) -> None:
     validate_frontend_assets(output)
     data = output / "data"
     overview = json.loads((data / "latest.json").read_text(encoding="utf-8"))
+    inmet_forecast = json.loads((data / "inmet_forecast.json").read_text(encoding="utf-8"))
+    validate_inmet_forecast(inmet_forecast, fixture=fixture)
     history = json.loads((data / "history.json").read_text(encoding="utf-8"))
     analysis = json.loads((data / "analysis.json").read_text(encoding="utf-8"))
     snapshot = json.loads((data / "forecast_snapshot.json").read_text(encoding="utf-8"))
@@ -83,6 +87,8 @@ def validate(output: Path, *, fixture: bool = False) -> None:
         raise ValueError("Invalid bounded forecast snapshot")
 
     comparison = json.loads((data / 'forecast_comparison.json').read_text(encoding='utf-8'))
+    if comparison.get('inmet') != inmet_forecast:
+        raise ValueError('INMET comparison must match isolated forecast product')
     model_archive = json.loads((data / 'model_forecast_history.json').read_text(encoding='utf-8'))
     if (comparison.get('kind') != 'araquari_comparable_forecasts_not_probability'
             or comparison.get('generated_at') != overview.get('generated_at')
@@ -378,6 +384,10 @@ def validate(output: Path, *, fixture: bool = False) -> None:
             raise ValueError("Incomplete or invalid regional provider coverage")
     if alerts["status"] == "unavailable" and any(x.get("alerts") for x in alerts["locations"]):
         raise ValueError("Cannot show official warnings from an unavailable source")
+    if alerts.get("retained_previous"):
+        retained = retain_valid_notices(alerts, alerts["locations"], alerts.get("checked_at"))
+        if alerts["status"] != "unavailable" or not retained.get("retained_previous") or retained["retained_locations"] != alerts.get("retained_locations"):
+            raise ValueError("Invalid retained INMET notices")
     if observations["status"] == "unavailable" and any(x.get("observation") for x in observations["locations"]):
         raise ValueError("Cannot show observations from an unavailable source")
     if overview.get("official_alerts_integrated") is not (alerts["status"] == "available"):

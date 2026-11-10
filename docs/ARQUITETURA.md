@@ -98,3 +98,7 @@ A home tenta novamente o histórico observado incompleto da mesma publicação, 
 ## Estação IFC Araquari (09/11/2026)
 
 `campus_station.py` consulta o dispositivo público do campus em janelas delimitadas e publica `campus_station.json` com a identidade do artefato. `campus-station.js`/`.css` exibem a mesma seção nas duas páginas, com atualização e validade independentes. O produto não é passado ao motor de classificação, à síntese normativa ou à mediana das estações. Detalhes em [ESTACAO_IFC_ARAQUARI.md](ESTACAO_IFC_ARAQUARI.md).
+
+## INMET municipal e avisos (10/11/2026)
+
+`inmet_forecast.py` coleta a previsão municipal JSON de Araquari, isolada em `inmet_forecast.json` e na comparação de fontes. `forecasts.js` apresenta dias/turnos e extremos das 24 amostras horárias do Open-Meteo do mesmo dia de Brasília. O produto não participa da classificação. A recuperação de avisos mantém status de falha e preserva separadamente apenas avisos anteriores com validade explícita ainda não encerrada. [Detalhes](INMET_PREVISAO_E_RECUPERACAO.md).

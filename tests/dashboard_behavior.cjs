@@ -296,3 +296,9 @@ const positiveData={...data,assessment:{...data.assessment,evidence:[{status:'el
 assert.equal(primaryNotice(positiveData,now).title,'Aviso confirmado');
 assert.equal(primaryNotice(positiveData,Date.parse('2026-11-06T22:30:00Z')),null);
 assert.equal(primaryNotice({...positiveData,assessment:{...positiveData.assessment,evidence:[{status:'needs_territorial_or_temporal_check'}]}},now),null);
+
+const retainedContext={...contextData,inmet_context:{...contextData.inmet_context,status:'unavailable',retained_previous:true,notices:contextData.inmet_context.notices.map(n=>({...n,start_at:'2026-11-06T00:00:00Z'}))}};
+assert.equal(inmetNotices(retainedContext,now).some(n=>n.id==='unverified'),false);
+assert.match(inmetContextStatus(retainedContext,now).title,/consulta anterior/);
+assert.equal(inmetNotices(retainedContext,now+7*3600000).length,0);
+console.log('Retained INMET notices: failed query remains explicit; unverified or expired windows excluded.');

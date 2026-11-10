@@ -589,21 +589,24 @@ function renderOfficialAlerts() {
   const target = $('official-alerts');
   clear(target);
   const feed = state.alerts;
-  const validTime = feed?.retrieved_at && Number.isFinite(Date.parse(feed.retrieved_at));
-  const fresh = validTime && Date.now() - Date.parse(feed.retrieved_at) >= -10 * 60000 && Date.now() - Date.parse(feed.retrieved_at) <= 6 * 3600000;
-  if (!feed || feed.status !== 'available' || !fresh) {
+  const retained = feed?.status === 'unavailable' && feed.retained_previous === true;
+  const retrieved = retained ? feed.last_success_at : feed?.retrieved_at;
+  const validTime = Number.isFinite(Date.parse(retrieved));
+  const fresh = validTime && Date.now() - Date.parse(retrieved) >= -10 * 60000 && Date.now() - Date.parse(retrieved) <= 6 * 3600000;
+  if (!feed || (feed.status !== 'available' && !retained) || !fresh) {
     target.append(child('p', 'alert-unknown', 'Não foi possível confirmar a situação atual dos avisos do INMET. Verifique o portal oficial e a Defesa Civil.'));
     $('alert-updated').textContent = 'Situação de avisos não confirmada nesta publicação.';
     return;
   }
-  const place = feed.locations?.find((item) => item.location_id === state.slug);
+  const place = (retained ? feed.retained_locations : feed.locations)?.find((item) => item.location_id === state.slug);
   if (!place || !Array.isArray(place.alerts)) {
     target.append(child('p', 'alert-unknown', 'Não foi possível verificar os avisos deste município.'));
     $('alert-updated').textContent = 'Cobertura municipal não confirmada.';
     return;
   }
-  $('alert-updated').textContent = `Consulta INMET: ${datetime(feed.retrieved_at)} · avisos complementares, sem efeito na classificação do painel. Vigência e fuso: conforme a fonte original.`;
-  const currentAlerts = place.alerts.filter(alert => !alert.end_at || !(Date.now() >= Date.parse(alert.end_at)));
+  if(retained)target.append(child('p','alert-unknown','A consulta atual falhou. Avisos preservados da consulta anterior, com horários originais e prazo informado ainda não encerrado. Revisão ou cancelamento não confirmados.'));
+  $('alert-updated').textContent = `Consulta INMET: ${datetime(retrieved)} · avisos complementares, sem efeito na classificação do painel. Vigência e fuso: conforme a fonte original.`;
+  const currentAlerts = place.alerts.filter(alert => retained ? Number.isFinite(Date.parse(alert.start_at)) && Number.isFinite(Date.parse(alert.end_at)) && Date.parse(alert.start_at)<Date.parse(alert.end_at) && Date.now()<Date.parse(alert.end_at) : !alert.end_at || !(Date.now() >= Date.parse(alert.end_at)));
   if (!currentAlerts.length) {
     target.append(child('p', 'alert-empty', 'Nenhum aviso municipal retornado pelo INMET nesta consulta. Isso não exclui outros alertas ou riscos locais.'));
     return;

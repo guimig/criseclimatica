@@ -18,6 +18,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from observatorio.alerts import AlertSourceError, normalize_alerts, unavailable_alerts, fetch_alerts
 from observatorio.metar import MetarSourceError, normalize_metars, unavailable_metars, fetch_metars
 from observatorio.config import load_locations
+from observatorio.inmet_forecast import unavailable as forecast_unavailable
 from observatorio.inmet_archive import unavailable_archive
 from observatorio.nasa_power import unavailable as unavailable_nasa
 from observatorio.epagri_geo import unavailable as unavailable_epagri_geo
@@ -138,7 +139,8 @@ class TestStaticBuild(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             out = Path(folder) / "dist"
             catalog = {"schema_version": 1, "kind": "station_catalog_metadata_not_measurements", "locations": []}
-            with patch("build_site.collect_campus", side_effect=lambda stamp: __import__("observatorio.campus_station", fromlist=["empty"]).empty(stamp)), \
+            with patch("build_site.collect_inmet_forecast", side_effect=lambda stamp, **kwargs: forecast_unavailable(stamp)), \
+                 patch("build_site.collect_campus", side_effect=lambda stamp: __import__("observatorio.campus_station", fromlist=["empty"]).empty(stamp)), \
                  patch("build_site.OpenMeteoClient", return_value=ForecastStub()), \
                  patch("build_site.fetch_alerts", side_effect=AlertSourceError("service offline")), \
                  patch("build_site.fetch_metars", side_effect=MetarSourceError("service offline")), \

@@ -131,7 +131,7 @@ class IndependentPublicationTests(unittest.TestCase):
         stack.enter_context(patch("build_site.station_catalog_for_build", return_value=feeds["stations"]))
         stack.enter_context(patch("build_site.fetch_alerts", return_value=json.loads((ROOT/"tests/fixtures/inmet_alerts.json").read_text())))
         stack.enter_context(patch("build_site.fetch_metars", return_value=[]))
-        mapping = {"collect_campus":"campus_station", "collect_rain":"rain_gauges", "collect_archive":"inmet_archive", "collect_nasa":"nasa_power",
+        mapping = {"collect_inmet_forecast":"inmet_forecast", "collect_campus":"campus_station", "collect_rain":"rain_gauges", "collect_archive":"inmet_archive", "collect_nasa":"nasa_power",
                    "collect_cemaden":"cemaden", "collect_cemaden_sensors":"cemaden_sensors",
                    "collect_cptec":"cptec", "collect_defesa":"defesa_civil_sc", "collect_epagri_geo":"epagri_geo",
                    "collect_epagri_notices":"epagri_notices", "collect_epagri_bulletins":"epagri_bulletins"}

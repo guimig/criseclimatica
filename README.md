@@ -112,3 +112,7 @@ A página de dados organiza as consultas por assunto, preservando os links diret
 ### Estação no IFC Araquari
 
 A inicial e Dados e fontes → Medições incluem observações da estação do campus, coletadas na API pública do ThingsBoard no ciclo de 30 minutos. Os dados permanecem separados das previsões e da classificação de risco. [Método, unidades, validade e limitações](docs/ESTACAO_IFC_ARAQUARI.md).
+
+### Previsão municipal do INMET
+
+A comparação de fontes inclui o produto municipal do INMET para Araquari, com dias/turnos, temperaturas e textos originais. A comparação usa o mesmo dia civil de Brasília, sem média ou mudança na classificação. Avisos JSON têm uma nova tentativa limitada e preservação identificada de avisos anteriores ainda válidos. [Método e recuperação](docs/INMET_PREVISAO_E_RECUPERACAO.md).

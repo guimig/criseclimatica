@@ -17,9 +17,44 @@
   }
   function current(data){const age=Date.now()-Date.parse(data?.generated_at);return validComparison(data)&&Date.now()<Date.parse(data.valid_until)&&age>=-600000&&age<=10800000;}
   function rangeText(m){return m?.status==='comparable'?`${n(m.minimum)} a ${n(m.maximum)} ${m.unit}`:'Comparação indisponível';}
+  function validInmet(data){
+    const finite=v=>v===null||(typeof v==='number'&&Number.isFinite(v)&&v>=-50&&v<=65);
+    return Boolean(data?.schema_version===1&&data.kind==='inmet_araquari_municipal_forecast_not_observations_or_risk_criteria'&&
+      data.location_id==='araquari'&&data.ibge_code==='4201307'&&data.issued_at===null&&data.risk_criteria===false&&data.numeric_rain_or_gust_inferred===false&&
+      ['available','cached','stale','unavailable','fixture_mode'].includes(data.status)&&(['unavailable','fixture_mode'].includes(data.status)||(Number.isFinite(Date.parse(data.retrieved_at))&&Number.isFinite(Date.parse(data.valid_until))))&&Array.isArray(data.days)&&data.days.length<=7&&
+      data.days.every(d=>d&&/^\d{4}-\d{2}-\d{2}$/.test(d.day)&&finite(d.minimum_c)&&finite(d.maximum_c)&&Array.isArray(d.periods)&&d.periods.length<=3&&
+        d.periods.every(p=>p&&['manha','tarde','noite','dia'].includes(p.period)&&typeof p.summary==='string'&&typeof p.wind_intensity_text==='string'&&typeof p.wind_direction==='string'))&&
+      Array.isArray(data.daily_comparison)&&data.daily_comparison.length<=7&&data.daily_comparison.every(r=>r&&typeof r.day==='string'&&finite(r.model_minimum_c)&&finite(r.model_maximum_c)));
+  }
+  function renderInmet(target,data,compact=false){
+    const box=dom('section','inmet-municipal-forecast');box.append(dom(compact?'h3':'h4','','INMET · previsão municipal de Araquari'));
+    if(!validInmet(data)||!['available','cached'].includes(data.status)||!Number.isFinite(Date.parse(data.retrieved_at))||
+       Date.now()-Date.parse(data.retrieved_at)<-600000||Date.now()-Date.parse(data.retrieved_at)>21600000||Date.now()>=Date.parse(data.valid_until)){
+      box.append(dom('p','comparison-note','Previsão municipal INMET indisponível ou sem referência atual válida. As demais previsões permanecem independentes.'));target.append(box);return;
+    }
+    box.append(dom('p','comparison-note',`${data.status==='cached'?'Consulta atual falhou; previsão preservada. ':''}Consulta: ${dt(data.retrieved_at)} · dias civis de Brasília. Emissão completa não informada pela API.`));
+    const today=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+    const days=data.days.filter(d=>d.day>=today),grid=dom('div','inmet-forecast-days');
+    for(const day of days.slice(0,compact?3:7)){
+      const card=dom(compact?'article':'details','inmet-forecast-day'),title=`${day.day.split('-').reverse().join('/')} · mín. ${n(day.minimum_c)} °C · máx. ${n(day.maximum_c)} °C`;
+      card.append(dom(compact?'strong':'summary','',title));
+      const pair=data.daily_comparison.find(r=>r.day===day.day);
+      card.append(dom('p','comparison-note',pair?.status==='comparable_context'&&pair.model_hours===24?`Open-Meteo · 24 amostras horárias do mesmo dia: mín. ${n(pair.model_minimum_c)} °C · máx. ${n(pair.model_maximum_c)} °C.`:`Open-Meteo: dia sem 24 amostras horárias válidas (${pair?.model_hours||0}/24 h); sem comparação numérica.`));
+      if(compact)card.append(dom('p','',Array.from(new Set(day.periods.map(p=>p.summary).filter(Boolean))).join(' / ')));
+      else for(const period of day.periods){
+        const label={manha:'Manhã',tarde:'Tarde',noite:'Noite',dia:'Dia'}[period.period];
+        card.append(dom('p','',`${label}: ${period.summary||'Condição não informada'}. Vento: ${period.wind_intensity_text||'não informado'}${period.wind_direction?' · '+period.wind_direction:''}.`));
+        if(Number.isFinite(period.humidity_min_pct)&&Number.isFinite(period.humidity_max_pct))card.append(dom('p','comparison-note',`Umidade prevista: ${n(period.humidity_min_pct)}% a ${n(period.humidity_max_pct)}%.`));
+      }
+      grid.append(card);
+    }
+    if(!days.length)box.append(dom('p','comparison-note','Nenhuma data de previsão atual disponível.'));
+    box.append(grid,dom('p','comparison-note','Comparação contextual, sem média nem votação entre fontes. Extremos de amostras horárias podem diferir dos extremos diários previstos. Textos de chuva e vento não são convertidos em mm, probabilidade ou km/h; este produto não altera a classificação.'));
+    const link=dom('a','comparison-link','Consultar previsão INMET ↗');link.href='https://previsao.inmet.gov.br/4201307';link.target='_blank';link.rel='noopener noreferrer';box.append(link);target.append(box);
+  }
   function renderCompact(target,data){
     if(!target)return;target.replaceChildren();
-    if(!current(data)){target.append(dom('p','comparison-note','Comparação entre modelos indisponível ou vencida. Os indicadores principais mantêm sua própria referência.'));return;}
+    if(!current(data)){target.append(dom('p','comparison-note','Comparação entre modelos indisponível ou vencida. Os indicadores principais mantêm sua própria referência.'));renderInmet(target,data?.inmet,true);return;}
     const grid=dom('div','comparison-ranges'),w=data.windows.find(w=>w.hours===24);
     for(const field of ['precipitation_mm','gust_kmh','temperature_c']){
       const m=w?.metrics.find(m=>m.variable===field),box=dom('div','comparison-range');
@@ -29,6 +64,7 @@
     }
     target.append(grid,dom('p','comparison-note','Faixa entre previsões para os mesmos horários, sem média. Não é probabilidade. A seleção automática pode utilizar ECMWF e GFS.'));
     const link=dom('a','comparison-link','Comparar modelos, horários e CPTEC →');link.href='./dados.html#model-comparison';target.append(link);
+    renderInmet(target,data.inmet,true);
   }
   function table(target,window){
     const scroll=dom('div','comparison-table-wrap'),t=dom('table','comparison-table'),head=dom('tr');
@@ -82,7 +118,7 @@
   }
   function renderDetailed(target,data){
     if(!target)return;if(target._comparisonResize)target._comparisonResize.disconnect();if(target._comparisonTheme)document.removeEventListener('observatorythemechange',target._comparisonTheme);target.replaceChildren();target.append(dom('h3','','Previsões em comparação · Araquari'));
-    if(!current(data)){target.append(dom('p','comparison-note','Comparação indisponível ou vencida. Não se infere concordância ou normalidade.'));return;}
+    if(!current(data)){target.append(dom('p','comparison-note','Comparação indisponível ou vencida. Não se infere concordância ou normalidade.'));renderInmet(target,data?.inmet);return;}
     target.append(dom('p','','Open-Meteo é o serviço de acesso; ECMWF e NOAA produzem os modelos identificados. A seleção automática permanece principal pela cobertura horária, sem superioridade local demonstrada.'));
     const controls=dom('div','model-chart-controls'),vlabel=dom('label','','Variável'),variable=dom('select'),hlabel=dom('label','','Período'),horizon=dom('select');
     variable.setAttribute('aria-label','Variável da comparação');horizon.setAttribute('aria-label','Período da comparação');
@@ -95,6 +131,7 @@
     target.append(controls,period,plot,legend,tooltip,tables);
     function update(){if(!current(data)){renderDetailed(target,data);return;}const hours=Number(horizon.value),w=data.windows.find(w=>w.hours===hours);target._comparisonSelection={variable:variable.value,hours};period.textContent=`${dt(w.start_at)} a ${dt(w.end_at)} · Brasília. Chuva: barras por hora e modelo; demais variáveis: linhas. Lacunas não são zero.`;chart(plot,data,variable.value,hours,tooltip,legend);tables.replaceChildren();table(tables,w);}
     variable.addEventListener('change',update);horizon.addEventListener('change',update);target._comparisonTheme=update;document.addEventListener('observatorythemechange',update);update();if(typeof ResizeObserver!=='undefined'){let lastWidth=0;target._comparisonResize=new ResizeObserver(entries=>{const width=Math.round(entries[0].contentRect.width);if(width>0&&width!==lastWidth){lastWidth=width;requestAnimationFrame(update);}});target._comparisonResize.observe(plot);}
+    renderInmet(target,data.inmet);
     target.append(dom('h4','','CPTEC/INPE · contexto diário separado'));
     const cp=data.cptec;target.append(dom('p','comparison-note',`Localidade: ${cp.locality||'não identificada'} · atualização informada: ${cp.updated_day||'não informada'} · consulta: ${dt(cp.checked_at)}. Períodos diários e localização ainda não conciliados; fora das faixas numéricas.`));
     if(cp.status==='available'){const list=dom('div','cptec-comparison-days');for(const day of cp.days){list.append(dom('p','',`${day.day}: mínima ${n(day.minimum_c)} °C · máxima ${n(day.maximum_c)} °C`));}target.append(list);}else target.append(dom('p','','Previsão CPTEC sem referência atual válida.'));
@@ -105,7 +142,7 @@
     methods.append(dom('p','','Arquivo por coleta: sete dias, até 64 publicações, alvos horários futuros de até 72 h. Ainda sem cálculo de erro, pesos ou probabilidades.'));
     const archive=dom('a','','Abrir arquivo de previsões por coleta (JSON) ↗');archive.href='./data/model_forecast_history.json';methods.append(archive);target.append(methods);
   }
-  if(typeof module!=='undefined')module.exports={validComparison,current};
+  if(typeof module!=='undefined')module.exports={validComparison,current,validInmet};
   if(typeof window==='undefined'||typeof document==='undefined')return;
   window.ForecastComparison={renderCompact,renderDetailed};
   const detailed=document.getElementById('model-comparison');
