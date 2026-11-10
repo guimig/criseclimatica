@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timezone
+import time
+from copy import deepcopy
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -184,7 +186,7 @@ def unavailable_alerts(locations: list[dict[str, Any]], checked_at: str) -> dict
     }
 
 
-def fetch_alerts(*, timeout: int = 20) -> dict[str, Any]:
+def _fetch_alerts_once(*, timeout: int = 20) -> dict[str, Any]:
     request = Request(URL, headers={"Accept": "application/json", "User-Agent": "ObservatorioTempoClima/0.3 (+https://github.com/guimig/criseclimatica)"})
     try:
         with urlopen(request, timeout=timeout) as response:
@@ -199,3 +201,49 @@ def fetch_alerts(*, timeout: int = 20) -> dict[str, Any]:
         return data
     except (HTTPError, URLError, OSError, TimeoutError, ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise AlertSourceError(f"INMET notice request failed: {type(exc).__name__}") from exc
+
+
+def fetch_alerts(*, timeout: int = 20, attempts: int = 2) -> dict[str, Any]:
+    if attempts not in (1, 2):
+        raise ValueError("INMET notice attempts must be one or two")
+    for attempt in range(attempts):
+        try:
+            return _fetch_alerts_once(timeout=timeout)
+        except AlertSourceError:
+            if attempt+1 == attempts:
+                raise
+            time.sleep(1)
+    raise AlertSourceError("INMET notices unavailable")
+
+
+def retain_valid_notices(previous, locations, stamp):
+    """Keep dated positive evidence separately; never turn a failed query into success."""
+    result = unavailable_alerts(locations, stamp)
+    result.update(retained_locations=[], retained_previous=False)
+    if not isinstance(previous, dict) or previous.get("kind") != KIND:
+        return result
+    last = previous.get("retrieved_at") or previous.get("last_success_at")
+    now, collected = _explicit_time(stamp), _explicit_time(last)
+    if not now or not collected:
+        return result
+    now, collected = datetime.fromisoformat(now.replace("Z", "+00:00")), datetime.fromisoformat(collected.replace("Z", "+00:00"))
+    if not timedelta(0) <= now-collected <= timedelta(hours=6):
+        return result
+    old = previous.get("locations", []) if previous.get("status") == "available" else previous.get("retained_locations", [])
+    if not isinstance(old, list) or len(old) > 30:
+        return result
+    for place in locations:
+        local = next((r for r in old if isinstance(r, dict) and r.get("location_id") == place["id"] and str(r.get("ibge_code")) == str(place["ibge_code"])), {})
+        retained = []
+        for row in local.get("alerts", [])[:100]:
+            if not isinstance(row, dict):
+                continue
+            start, end = _explicit_time(row.get("start_at")), _explicit_time(row.get("end_at"))
+            if start and end and start < end and datetime.fromisoformat(end.replace("Z", "+00:00")) > now:
+                retained.append(deepcopy(row))
+        if retained:
+            result["retained_locations"].append({"location_id": place["id"], "ibge_code": str(place["ibge_code"]), "alerts": retained})
+    if result["retained_locations"]:
+        result.update(retained_previous=True, last_success_at=last,
+                      time_notice="Consulta atual falhou. Avisos da consulta anterior com validade explícita ainda não encerrada; sem confirmação de revisão ou cancelamento.")
+    return result

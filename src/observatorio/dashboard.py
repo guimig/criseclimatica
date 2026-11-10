@@ -194,6 +194,7 @@ def regional_notice_context(analysis, details, stamp):
     origin = details.get('araquari', {}).get('location', {})
     notices = {}
     checked = []
+    retained_previous = False
     for place in analysis.get('locations', []):
         slug = place.get('location_id')
         point = details.get(slug, {}).get('location', {})
@@ -204,9 +205,10 @@ def regional_notice_context(analysis, details, stamp):
         if distance is None or distance > 40:
             continue
         feed = place.get('official_notices', {})
-        if feed.get('status') != 'available' or not fresh(feed.get('retrieved_at'), now, 6):
+        if (feed.get('status') != 'available' and not feed.get('retained_previous')) or not fresh(feed.get('retrieved_at'), now, 6):
             continue
         checked.append(feed['retrieved_at'])
+        retained_previous |= feed.get('retained_previous') is True
         for notice in feed.get('notices', []):
             end = moment(notice.get('end_at'))
             if not notice.get('id') or notice.get('lifecycle') == 'expired' or (end and end <= now):
@@ -214,7 +216,7 @@ def regional_notice_context(analysis, details, stamp):
             entry = notices.setdefault(notice['id'], {**notice, 'municipalities': []})
             entry['municipalities'].append({'location_id': slug, 'name': place.get('name') or point.get('name') or slug,
                 'ibge_code': notice.get('ibge_code'), 'distance_km': round(distance, 1)})
-    return {'status': 'available' if checked else 'unavailable', 'retrieved_at': min(checked) if checked else None,
+    return {'status': 'unavailable' if retained_previous else 'available' if checked else 'unavailable', 'retained_previous': retained_previous, 'retrieved_at': min(checked) if checked else None,
         'role': 'context_only_not_classification', 'radius_km': 40,
         'selection': 'exact_ibge_matches_for_monitored_municipal_points_within_40km',
         'notices': sorted(notices.values(), key=lambda n: (not any(m['location_id'] == 'araquari' for m in n['municipalities']), n['id']))}

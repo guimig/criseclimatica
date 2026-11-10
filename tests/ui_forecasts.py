@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from ui_dashboard import fixture, server, OUTPUT
 from ui_details import datasets
 from observatorio.forecast_comparison import summarize
+from observatorio.inmet_forecast import normalize as normalize_inmet, compare_daily as compare_inmet_daily, TZ
 
 
 def comparison_fixture(stamp):
@@ -17,7 +18,14 @@ def comparison_fixture(stamp):
                   for model,name,multiplier in [('ecmwf_ifs025','ECMWF IFS',.6),('ncep_gfs_global','NOAA GFS',.9)]]
     cp={'checked_at':stamp,'locations':[{'location_id':'araquari','status':'available','nearest_cptec_locality':'Araquari','updated_day':now.date().isoformat(),
                                       'days':[{'day':now.date().isoformat(),'minimum_c':21,'maximum_c':29}]}]}
-    return summarize(detail,alternatives,cp,stamp)
+    result=summarize(detail,alternatives,cp,stamp)
+    raw={}
+    for index in range(2):
+        date=(now.astimezone(TZ)+timedelta(days=index)).strftime('%d/%m/%Y')
+        entry={'uf':'SC','entidade':'Araquari','resumo':'Muitas nuvens com possibilidade de chuva isolada','temp_min':16,'temp_max':25,'dir_vento':'NE','int_vento':'Fracos','umidade_min':50,'umidade_max':100,'hora':'13'}
+        raw[date]={period:dict(entry) for period in ('manha','tarde','noite')} if index==0 else entry
+    result['inmet']=compare_inmet_daily(normalize_inmet({'4201307':raw},stamp),detail)
+    return result
 
 
 def main():
@@ -39,6 +47,8 @@ def main():
             page=context.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
             try:
                 page.goto(url);page.locator('.forecast-comparison-card summary').click();page.locator('.comparison-range').first.wait_for()
+                assert page.locator('#forecast-comparison .inmet-forecast-day').count()==2
+                assert 'vento' in page.locator('#forecast-comparison .inmet-municipal-forecast').inner_text().lower()
                 page.locator('.station-filter summary').click()
                 for theme in ('light','dark'):
                     if theme=='dark':page.locator('#theme-toggle').click()
@@ -58,6 +68,9 @@ def main():
                 page.goto(url+'dados.html#model-comparison');page.locator('#model-comparison svg').wait_for()
                 if page.locator('html').get_attribute('data-theme')=='dark':page.locator('#theme-toggle').click()
                 assert page.get_by_role('tab',name='Previsões',exact=True).get_attribute('aria-selected')=='true'
+                assert page.locator('#model-comparison .inmet-forecast-day').count()==2
+                page.locator('#model-comparison .inmet-forecast-day summary').first.click()
+                assert 'Manhã:' in page.locator('#model-comparison .inmet-municipal-forecast').inner_text()
                 assert 'principal provisória' in page.locator('#model-comparison').inner_text()
                 assert 'fora das faixas numéricas' in page.locator('#model-comparison').inner_text()
                 for field in ['temperature_c','gust_kmh','precipitation_mm']:

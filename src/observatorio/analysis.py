@@ -155,13 +155,16 @@ def observed_rain(feed, slug, now):
 
 def notice_analysis(feed, slug, forecast, now):
     status = feed.get("status", "unavailable")
-    result = {"status": status, "retrieved_at": feed.get("retrieved_at"), "notices": []}
-    if status != "available":
+    retained = status == "unavailable" and feed.get("retained_previous") is True
+    retrieved = feed.get("last_success_at") if retained else feed.get("retrieved_at")
+    result = {"status": status, "retrieved_at": retrieved, "retained_previous": retained, "notices": []}
+    if status != "available" and not retained:
         return result
-    if not fresh(feed.get("retrieved_at"), now, 6):
+    if not fresh(retrieved, now, 6):
         result["status"] = "stale"
         return result
-    for notice in local(feed, slug).get("alerts", []):
+    notice_feed = {"locations": feed.get("retained_locations", [])} if retained else feed
+    for notice in local(notice_feed, slug).get("alerts", []):
         start, end = moment(notice.get("start_at")), moment(notice.get("end_at"))
         relation = "unverified_timezone_or_window"
         lifecycle = "unverified"
@@ -176,7 +179,7 @@ def notice_analysis(feed, slug, forecast, now):
             "start_at": iso(start) if start else None, "end_at": iso(end) if end else None,
             "temporal_relation": relation, "lifecycle": lifecycle, "kind": "official_notice_not_confirmed_event",
             "url": "https://alertas2.inmet.gov.br/", "risks": notice.get("risks", []),
-            "instructions": notice.get("instructions", []), "ibge_code": local(feed, slug).get("ibge_code")})
+            "instructions": notice.get("instructions", []), "ibge_code": local(notice_feed, slug).get("ibge_code"), "retained_previous": retained})
     return result
 
 

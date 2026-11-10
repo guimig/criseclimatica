@@ -18,13 +18,14 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from observatorio.assessment_history import merge as merge_assessment_history
+from observatorio.inmet_forecast import collect as collect_inmet_forecast, compare_daily as compare_inmet_daily, unavailable as inmet_forecast_unavailable
 from observatorio.forecast_comparison import collect as collect_models, summarize as compare_forecasts, merge_archive
 from observatorio.dashboard import summarize as summarize_dashboard
 from observatorio.analysis import summarize as summarize_analysis, forecast_snapshot
 from observatorio.territorial_alignment import summarize as summarize_alignment
 from observatorio.coverage import summarize as summarize_coverage
 from observatorio.config import load_locations  # noqa: E402
-from observatorio.alerts import AlertSourceError, fetch_alerts, normalize_alerts, unavailable_alerts  # noqa: E402
+from observatorio.alerts import AlertSourceError, fetch_alerts, normalize_alerts, unavailable_alerts, retain_valid_notices  # noqa: E402
 from observatorio.metar import MetarSourceError, fetch_metars, normalize_metars, unavailable_metars  # noqa: E402
 from observatorio.history import merge_daily_publications  # noqa: E402
 from observatorio.inmet_rain import collect_rain, unavailable as rain_unavailable  # noqa: E402
@@ -192,6 +193,8 @@ def build(
     previous_history = None
     previous_stations = None
     previous_notices = None
+    previous_alerts = None
+    previous_inmet_forecast = None
     previous_nasa = None
     previous_defesa = None
     previous_inmet_archive = None
@@ -255,6 +258,13 @@ def build(
                     previous_epagri_bulletins = old
             except (RuntimeError, ValueError) as exc:
                 print(f"Previous {label} cache unavailable: {type(exc).__name__}", file=sys.stderr)
+        for path, label in (("data/alerts.json", "notices"), ("data/inmet_forecast.json", "forecast")):
+            try:
+                old = fetch_previous_json(previous_url, path, max_bytes=6_000_000 if label == "notices" else 100_000)
+                if label == "notices": previous_alerts = old
+                else: previous_inmet_forecast = old
+            except (RuntimeError, ValueError) as exc:
+                print(f"Previous INMET {label} cache unavailable: {type(exc).__name__}", file=sys.stderr)
         # A metadata outage should not disable the weather and history updates.
         try:
             previous_stations = fetch_previous_json(previous_url, "data/stations.json", max_bytes=800_000)
@@ -283,7 +293,7 @@ def build(
             alerts = normalize_alerts(fetch_alerts(), locations, stamp)
         except (AlertSourceError, OSError, ValueError, TypeError) as exc:
             print(f"INMET notices unavailable: {type(exc).__name__}", file=sys.stderr)
-            alerts = unavailable_alerts(locations, stamp)
+            alerts = retain_valid_notices(previous_alerts, locations, stamp)
         try:
             observations = normalize_metars(fetch_metars(), locations, stamp)
         except (MetarSourceError, OSError, ValueError, TypeError) as exc:
@@ -368,6 +378,10 @@ def build(
           f"three_sources_nearby={sum(row['coverage_status'] == 'three_sources_nearby' for row in alignment['locations'])} "
           f"potential_temperature_triads={sum(bool(item['potential_common_variables']) for row in alignment['locations'] for item in row['candidate_triads'])}")
     model_records = collect_models(primary, now_utc(), fixture=fixture is not None)
+    inmet_forecast = (inmet_forecast_unavailable(now_utc(), "fixture_mode") if fixture is not None else
+                      collect_inmet_forecast(now_utc(), previous=previous_inmet_forecast))
+    inmet_forecast = compare_inmet_daily(inmet_forecast, details.get("araquari", {}))
+    print("INMET municipal forecast:", inmet_forecast["status"])
     stamp = now_utc()
     manifest["generated_at"] = stamp
     analysis = summarize_analysis(locations, details, cemaden, observations, alerts, cptec,
@@ -376,6 +390,8 @@ def build(
         epagri_bulletins, defesa_sc, stamp, previous_history=previous_dashboard_history, sensors=cemaden_sensors)
     comparison = compare_forecasts(details.get('araquari', {}), model_records, cptec, stamp)
     model_archive = merge_archive(previous_model_archive, comparison)
+    inmet_forecast['publication_at'] = stamp
+    comparison['inmet'] = inmet_forecast
     dashboard['forecast_comparison'] = comparison
     manifest['model_comparison_archive_published'] = True
     assessment_history = merge_assessment_history(previous_assessment_history, dashboard, stamp)
@@ -411,6 +427,7 @@ def build(
         def publish_json(path, payload):
             # Artifact identity is independent from collection/measurement age.
             write_json_atomic(path, {**payload, 'publication_at': stamp})
+        publish_json(data / "inmet_forecast.json", inmet_forecast)
         publish_json(data / "forecast_comparison.json", comparison)
         publish_json(data / "model_forecast_history.json", model_archive)
         publish_json(data / "assessment_history.json", assessment_history)
