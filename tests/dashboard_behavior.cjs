@@ -30,9 +30,9 @@ const html=fs.readFileSync(path.join(__dirname,'../web/index.html'),'utf8');
 const js=fs.readFileSync(path.join(__dirname,'../web/dashboard.js'),'utf8');
 const ids=new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]));
 for(const match of js.matchAll(/\bel\('([a-z][\w-]*)'\)/g))assert.ok(ids.has(match[1]),`Missing DOM id: ${match[1]}`);
-assert.match(html,/Projeto independente/);assert.doesNotMatch(html,/FOCO PRINCIPAL · IFC/);
+assert.match(html,/NÍVEL DE RISCO/);assert.doesNotMatch(html,/FOCO PRINCIPAL · IFC/);
 assert.match(html,/href="\.\/dados.html"/);
-assert.match(js,/ArrowRight/);assert.match(js,/pointermove/);assert.match(js,/showModal/);
+assert.match(js,/ArrowRight/);assert.match(js,/pointermove/);assert.doesNotMatch(html,/id="(?:campus-station|weather-synthesis-home|forecast-comparison|memory)"/);
 console.log('Dashboard behavior passed: expiry, primary source, hourly intervals, separate stations, missing values, controls and DOM contract.');
 const {preference}=require('../web/theme.js');
 assert.equal(preference({getItem(){return 'dark';}},false),'dark');
@@ -44,7 +44,7 @@ const contextSeries=getChartSeries(data,mixedHistory,'context','precipitation_mm
 assert.equal(contextSeries.find(s=>s.kind==='observation').points[0].value,2);
 assert.ok(contextSeries.find(s=>s.kind==='forecast'));
 assert.ok(contextSeries.find(s=>s.kind==='forecast').points.every(p=>Date.parse(p.time)>=Date.parse(data.generated_at)));
-assert.match(html,/id="theme-toggle"/);assert.match(html,/id="memory"/);
+assert.match(html,/id="theme-toggle"/);assert.doesNotMatch(html,/id="memory"/);
 assert.match(js,/Monitoramento parcial/);assert.doesNotMatch(js,/:'Em avaliação'/);
 console.log('Theme and retrospective scenarios passed: persisted preference, blocked storage, comparable hourly rain, forecast separation, neutral wording.');
 const {effectiveAssessment}=require('../web/dashboard.js');
@@ -188,7 +188,7 @@ assert.equal(plotNodes('plot','svg').length,1);assert.equal(plotNodes('forecast-
 assert.equal(plotNodes('plot','path').length,0); // never connect sparse rain accumulations
 assert.equal(plotNodes('plot','rect').length,3);
 assert.equal(plotNodes('forecast-plot','rect').length,23); // null is a gap, not a zero bar
-assert.match(elements.get('station-comparison').textContent,/2 de 3 estações/);
+assert.equal(ids.has('station-comparison'),false);
 assert.doesNotMatch(plotNodes('plot','text').map(n=>n.textContent).join(' '),/Publicação/);
 assert.equal(plotNodes('plot','text')[0].textContent,plotNodes('forecast-plot','text')[0].textContent);
 const observedSvg=plotNodes('plot','svg')[0];
@@ -204,7 +204,7 @@ vm.runInContext("panel.hours=240;renderChart()",context);
 assert.equal(elements.get('observed-panel').hidden,false);assert.equal(elements.get('forecast-panel').hidden,false);
 assert.match(elements.get('observed-caption').textContent,/até 7 dias/);
 vm.runInContext("panel.hours=24;panel.rainWindow=24;renderChart()",context);
-assert.match(elements.get('chart-caption').textContent,/Acumulados diferentes: 24 h observado e 1 h previsto/);
+assert.match(elements.get('chart-caption').textContent,/Observado: acumulado de 24 h. Previsto: chuva por hora/);
 vm.runInContext("panel.variable='temperature_c';panel.history=null;renderChart()",context);
 assert.equal(plotNodes('plot','svg').length,0);assert.equal(plotNodes('forecast-plot','svg').length,1);
 vm.runInContext('panel.data=null;panel.history=null;renderChart()',context);
@@ -239,12 +239,12 @@ assert.match(plotNodes('plot','text').map(n=>n.textContent).join(' '),/Rainha/);
 assert.doesNotMatch(plotNodes('plot','text').map(n=>n.textContent).join(' '),/cemaden|4201307/i);
 vm.runInContext('panel.scope="nearby";renderChart()',context);
 assert.equal(plotNodes('plot','rect').filter(n=>n.attributes.class==='station-bar').length,1);
-assert.match(elements.get('station-coverage').textContent,/não entram nos indicadores locais/);
+assert.match(elements.get('station-coverage').textContent,/entorno/);
 assert.match(plotNodes('plot','text').map(n=>n.textContent).join(' '),/Joinville/);
 assert.ok(!plotNodes('plot','text').map(n=>n.textContent).join(' ').includes('Rainha'));
 vm.runInContext('panel.scope="local";renderChart()',context);
 assert.equal(plotNodes('plot','rect').filter(n=>n.attributes.class==='station-bar').length,3);
-assert.match(html,/aria-haspopup="dialog"/);assert.equal([...html.matchAll(/data-risk-level=/g)].length,6);
+assert.match(html,/href="\.\/dados\.html#weather-synthesis-detail"/);assert.equal([...html.matchAll(/data-risk-level=/g)].length,6);
 console.log('UX scenarios passed: descriptive normality vs missing data, six colors, explicit signals, human station names, sparse history, optional verified surroundings and local isolation.');
 
 const {chartReadingsAt,chartReadingText}=require('../web/dashboard.js');
@@ -287,8 +287,8 @@ assert.match(inmetContextStatus({...data,inmet_context:{status:'unavailable'}},n
 assert.match(inmetContextStatus({...data,inmet_context:{status:'available',retrieved_at:data.generated_at,notices:[]}},now).title,/Nenhum aviso/);
 assert.match(inmetContextStatus(contextData,now).title,/Avisos para Araquari/);
 assert.match(inmetContextStatus(contextData,now+7*3600000).title,/desatualizada/);
-assert.match(html, /id="inmet-context"[^>]*\bhidden\b/);
-assert.match(html, /id="epagri-context"[^>]*\bhidden\b/);
+assert.doesNotMatch(html, /id="inmet-context"/);
+assert.doesNotMatch(html, /id="epagri-context"/);
 
 const {primaryNotice}=require('../web/dashboard.js');
 assert.equal(primaryNotice(data,now),null);

@@ -77,21 +77,17 @@ def check_layout(page):
     assert page.locator('[data-mode]').count()==0
     assert page.locator('#chart-range').is_visible()
     assert page.locator('#forecast-variable option').count()==3
-    assert 'amarela' in page.locator('#level-kind').inner_text()
+    assert page.locator('#level-kind').inner_text()=='Consultivo'
     assert page.locator('#level-card').get_attribute('data-risk') == 'amarelo'
-    assert 'chuva e vento' in page.locator('#level-title').inner_text()
+    assert page.locator('#level-title').inner_text()=='Atenção'
     page.locator('.station-filter summary').click()
     page.get_by_label('Acumulado observado',exact=True).select_option('1')
     # Main controls must remain comfortably operable on mobile.
     for selector in ['#rain-scope', '#station-select', '#rain-window']:
         box = page.locator(selector).bounding_box()
         assert box and box['height'] >= 34
-    page.get_by_role('button', name='Por que esta leitura?').click()
-    assert page.get_by_role('dialog').is_visible()
-    assert '20,8' in page.get_by_role('dialog').inner_text()
+    assert page.get_by_role('link',name='Ver análise e critérios →').get_attribute('href')=='./dados.html#weather-synthesis-detail'
     check_style_system(page)
-    page.keyboard.press('Escape')
-    assert not page.get_by_role('dialog').is_visible()
     page.get_by_label('Área', exact=True).select_option('nearby')
     assert page.locator('.station-bar').count() == 1
     assert 'Joinville' in page.locator('#plot').inner_text()
@@ -105,10 +101,7 @@ def check_layout(page):
     assert page.locator('#observed-panel').is_visible()
     assert page.locator('#chart-range').input_value() == '24'
     page.locator('#forecast-variable').select_option('precipitation_mm')
-    # Codes are reserved for the expanded details.
-    page.locator('#station-details summary').click()
-    assert '420130702A' in page.locator('#station-readings').inner_text()
-    page.locator('#station-details summary').click()
+    assert page.locator('#station-details').count()==0
     page.locator('.station-filter summary').click()
 
 
@@ -143,14 +136,6 @@ def main():
             page.locator('#theme-toggle').click()
             assert page.locator('html').get_attribute('data-theme') == 'dark'
             check_style_system(page)
-            for trigger in ['level-explain','methods-open','protocol-open']:
-                page.locator('#'+trigger).click()
-                check_style_system(page)
-                page.keyboard.press('Tab')
-                page.locator('#dialog-close').focus()
-                assert page.locator('#dialog-close').evaluate("el=>getComputedStyle(el).outlineStyle!=='none'")
-                page.keyboard.press('Escape')
-                assert not page.get_by_role('dialog').is_visible()
             page.screenshot(path=str(OUTPUT/f'attention-dark-{width}.png'), full_page=True)
             context.close()
         # Positive routine data may show descriptive green; missing/expired data may not.
@@ -166,35 +151,20 @@ def main():
         page = context.new_page()
         page.on('pageerror', lambda error: errors.append(str(error)))
         page.goto(url)
-        page.get_by_role('heading', name='Normalidade nos dados acompanhados').wait_for()
+        page.get_by_role('heading', name='Normalidade').wait_for()
         assert page.locator('#level-card').get_attribute('data-risk') == 'verde'
         page.screenshot(path=str(OUTPUT/'normality-light-1440.png'), full_page=True)
         assert not page.locator('#epagri-context').is_visible()
         assert not page.locator('#inmet-context').is_visible()
         data['dashboard.json']['inmet_context'] = {'status': 'available', 'retrieved_at': data['dashboard.json']['generated_at'], 'notices': []}
         page.reload()
-        page.get_by_role('heading', name='Normalidade nos dados acompanhados').wait_for()
+        page.get_by_role('heading', name='Normalidade').wait_for()
         assert not page.locator('#inmet-context').is_visible()
         policy['evidence'] = [{'status': 'eligible', 'title': 'Aviso regional de teste',
             'valid_from': data['dashboard.json']['generated_at'], 'valid_until': data['dashboard.json']['valid_until'],
             'regions_text': 'Litoral Norte', 'url': 'https://ciram.epagri.sc.gov.br/'}]
-        data['dashboard.json']['inmet_context'] = {'status': 'available', 'retrieved_at': data['dashboard.json']['generated_at'],
-            'notices': [{'id': 'test', 'type': 'Tempestade regional', 'severity': 'Grande perigo', 'lifecycle': 'unverified',
-                'window_as_reported': 'Horários conforme a fonte', 'risks': ['Granizo'], 'instructions': ['Consulte a fonte'],
-                'municipalities': [{'location_id': 'joinville', 'name': 'Joinville', 'distance_km': 14.9}]}]}
-        page.reload()
-        page.locator('#epagri-context').wait_for(state='visible')
-        page.locator('#epagri-context > summary').click()
-        assert 'Aviso regional de teste' in page.locator('#priority-title').inner_text()
-        page.locator('#inmet-context').wait_for(state='visible')
-        page.locator('#inmet-context > summary').click()
-        assert 'Joinville' in page.locator('#inmet-notices').inner_text()
-        assert 'não confirma inclusão de Araquari' in page.locator('#inmet-notices').inner_text()
-        assert 'vigência não confirmada' in page.locator('#inmet-notices').inner_text()
-        assert 'Granizo' in page.locator('#inmet-notices').inner_text()
-        assert page.locator('#level-card').get_attribute('data-risk') == 'verde'
-        check_style_system(page)
-
+        assert page.locator('#epagri-context,#inmet-context').count()==0
+        policy['evidence']=[]
         policy['monitoring_state'] = 'partial'
         policy['numeric_support']['core_complete'] = False
         page.reload()
