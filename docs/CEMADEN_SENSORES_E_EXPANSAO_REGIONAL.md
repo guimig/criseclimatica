@@ -1,5 +1,8 @@
 # Integrações regionais: dez municípios e sensores recentes da PED/Cemaden
 
+> Atualização de 11/11/2026: [Interpretação multifontes](INTERPRETACAO_MULTIFONTES.md) documenta a síntese meteorológica atual, pesos iguais das quatro estações, participação do INMET nas previsões e avisos, substituições e hipóteses de unidades. Restrições anteriores de apresentação não descrevem essa nova camada. A correspondência normativa permanece separada e conserva seus critérios.
+
+
 ## 1. Cobertura geográfica
 
 O Observatório mantém Araquari como localidade de referência e acompanha dez pontos urbanos aproximados em SC: Araquari, Joinville, Blumenau, Itajaí, Jaraguá do Sul, São Francisco do Sul, Itapoá, Garuva, Balneário Barra do Sul e Barra Velha.

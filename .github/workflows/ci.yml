@@ -31,6 +31,7 @@ jobs:
           node --check web/forecasts.js
           node --check web/publication-refresh.js
           node --check web/campus-station.js
+          node --check web/weather-synthesis.js
       - name: Test browser reliability without network
         run: |
           node tests/web_reliability.cjs
@@ -39,6 +40,7 @@ jobs:
           node tests/campus_station.cjs
           node tests/publication_refresh.cjs
           node tests/forecast_contract.cjs
+          node tests/weather_synthesis.cjs
       - name: Build offline synthetic fixture for smoke test
         run: python scripts/build_site.py --fixture tests/fixtures/open_meteo.json --stations-fixture tests/fixtures/inmet_catalog.json --output dist
       - name: Validate generated datasets

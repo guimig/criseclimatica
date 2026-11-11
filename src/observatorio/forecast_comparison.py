@@ -95,7 +95,7 @@ def summarize(detail, alternatives, cptec, stamp):
     start = now.replace(minute=0, second=0, microsecond=0)
     reference = {'id': 'best_match', 'name': 'Open-Meteo · seleção automática', 'provider': 'Open-Meteo',
                  'status': 'available' if detail and fresh(detail.get('current', {}).get('time'), now, 8) else 'unavailable',
-                 'location_id': 'araquari', 'collected_at': detail.get('collected_at'), 'model_run_at': None,
+                 'location_id': 'araquari', 'collected_at': detail.get('collected_at'), 'reference_at': detail.get('current', {}).get('time'), 'model_run_at': None,
                  'grid_point': detail.get('grid_point'), 'requested_point': {k: detail.get('location', {}).get(k) for k in ('latitude', 'longitude')},
                  'hourly': detail.get('hourly', [])}
     records = [_clean_series(r, now) for r in [reference, *alternatives]]
@@ -167,7 +167,7 @@ def merge_archive(previous, comparison):
         hourly = [r for r in record['hourly'] if now+timedelta(hours=1) <= moment(r['time']) <= now+timedelta(hours=72)]
         if hourly:
             rows.append({**record, 'hourly': hourly})
-    publications[comparison['generated_at']] = {'saved_at': comparison['generated_at'], 'records': rows, 'cptec': comparison['cptec']}
+    publications[comparison['generated_at']] = {'saved_at': comparison['generated_at'], 'records': rows, 'cptec': comparison['cptec'], 'inmet': comparison.get('inmet')}
     return {'schema_version': 1, 'kind': ARCHIVE_KIND, 'location_id': 'araquari', 'generated_at': comparison['generated_at'],
             'retention_days': 7, 'verification_performed': False,
             'publications': sorted(publications.values(), key=lambda p: p['saved_at'])[-64:]}

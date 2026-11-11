@@ -1,5 +1,8 @@
 # Leitura multifontes, estados de acompanhamento e memória
 
+> Atualização de 11/11/2026: [Interpretação multifontes](INTERPRETACAO_MULTIFONTES.md) documenta a síntese meteorológica atual, pesos iguais das quatro estações, participação do INMET nas previsões e avisos, substituições e hipóteses de unidades. Restrições anteriores de apresentação não descrevem essa nova camada. A correspondência normativa permanece separada e conserva seus critérios.
+
+
 > Referência técnica atual: [algoritmo completo da classificação e da cor apresentada](ALGORITMO_CLASSIFICACAO_NIVEIS.md), com seleção de fontes/estações, critérios, validade e limitações da completude.
 
 Esta evolução complementa o painel baseado nas PN 13/2026 e 14/2026. A Epagri/Ciram permanece prioritária e o nível formal continua sob competência institucional. A avaliação deixa de depender exclusivamente de correspondências de palavras em boletins: medições e previsões recebem referências numéricas auxiliares identificadas e cruzamentos explícitos, sem votação entre fontes ou nota única de risco.

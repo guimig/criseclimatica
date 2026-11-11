@@ -8,17 +8,19 @@
   <title>Dados meteorológicos | Tempo em Araquari</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <script src="./theme.js?v=period-20261107"></script><link rel="stylesheet" href="./style.css?v=period-20261107">
-  <script defer src="./chart-interaction.js?v=period-20261107"></script><script defer src="./publication-refresh.js?v=publication-recovery-20261109"></script><script defer src="./app.js?v=inmet-recovery-20261110"></script>
+  <script defer src="./chart-interaction.js?v=period-20261107"></script><script defer src="./publication-refresh.js?v=publication-recovery-20261109"></script><script defer src="./app.js?v=multisource-v1"></script>
 <link rel="stylesheet" href="./explore.css?v=period-20261107">
 <script src="./explore.js?v=period-20261107" defer></script>
-<link rel="stylesheet" href="./forecasts.css?v=inmet-forecast-20261110"><script defer src="./forecasts.js?v=inmet-forecast-20261110"></script>
+<link rel="stylesheet" href="./forecasts.css?v=inmet-forecast-20261110"><script defer src="./forecasts.js?v=multisource-v1"></script>
 <link rel="stylesheet" href="./essential.css?v=period-20261107">
-<link rel="stylesheet" href="./campus-station.css?v=campus-20261109"><script defer src="./campus-station.js?v=campus-20261109"></script>
+<link rel="stylesheet" href="./campus-station.css?v=campus-20261109"><script defer src="./campus-station.js?v=multisource-v1"></script>
+<link rel="stylesheet" href="./weather-synthesis.css?v=multisource-v1"><script defer src="./weather-synthesis.js?v=multisource-v1"></script>
 </head>
 <body class="explore-page essential-page">
   <a class="skip-link" href="#main">Ir para o conteúdo</a>
   <header class="sitebar"><div class="page-width sitebar-inner"><nav class="site-nav" aria-label="Navegação principal"><a href="./">Painel</a><a href="./dados.html" aria-current="page">Dados e fontes</a></nav><button id="theme-toggle" type="button" aria-label="Usar tema escuro" aria-pressed="false">☾ Escuro</button></div></header>
   <main class="shell" id="main">
+<section id="weather-synthesis-detail" class="weather-synthesis" aria-label="Síntese local de Araquari"></section>
     <section class="hero" aria-labelledby="headline">
       <div class="hero-row">
         <div>
@@ -90,7 +92,7 @@
 <p id="campus-status" role="status">Consultando a estação do campus…</p><div id="campus-values" class="campus-values"></div>
 <div class="campus-controls"><label for="campus-variable">Histórico da estação · últimas 24 h</label><select id="campus-variable"></select></div>
 <div id="campus-plot" class="campus-plot"></div><output id="campus-readout" class="campus-readout" aria-live="off"></output>
-<p id="campus-chart-note"></p><p id="campus-extra"></p><p id="campus-reference">Medições locais complementares; não alteram a classificação do painel.</p>
+<p id="campus-chart-note"></p><p id="campus-extra"></p><p id="campus-reference">Medições locais; participação com pesos iguais nas variáveis comparáveis.</p>
 </section>
 <section class="panel" aria-labelledby="cemaden-title">
         <div class="panel-top">

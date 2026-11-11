@@ -12,6 +12,10 @@ function forecastCurrent(data,now=Date.now()) {
   const f=data?.forecast;
   return Boolean(f?.status==='available'&&fresh(f.collected_at,8,now)&&fresh(f.reference_at,8,now));
 }
+function forecastFieldCurrent(data,field,now=Date.now()) {
+  const source=data?.forecast?.sources_by_variable?.[field];
+  return source?source.status==='available'&&now<Date.parse(source.valid_until):forecastCurrent(data,now);
+}
 function currentGauges(data,now=Date.now()) {
   const gauge=data?.gauge_distribution;
   if(gauge?.status!=='available')return null;
@@ -100,6 +104,8 @@ function signalBrief(signal,data) {
 }
 function riskPresentation(data,now=Date.now()) {
   if(!data)return {color:'neutral',active:null,title:panel.fetchError?'Dados indisponíveis':'Consultando dados',kind:'Carregamento da publicação',reason:'Ainda não foi possível carregar uma publicação verificável. O painel tenta novamente automaticamente; consulte as fontes oficiais enquanto aguarda.'};
+  const weather=typeof WeatherSynthesis!=='undefined'?WeatherSynthesis.presentation(data.synthesis,now):null;
+  if(weather)return weather;
   if(!dashboardCurrent(data,now))return {color:'neutral',active:null,title:'Atualização necessária',kind:'Dados desatualizados',reason:'A última atualização perdeu validade. Consulte as fontes oficiais enquanto aguarda novos dados.'};
   const policy=effectiveAssessment(data,now),objective=policy?.numeric_support;
   if(!policy||!(now<Date.parse(policy.valid_until)))return {color:'neutral',active:null,title:'Dados insuficientes para classificar',kind:'Leitura parcial',reason:'Não há referências válidas suficientes para distinguir normalidade de uma situação de atenção.'};
@@ -114,10 +120,11 @@ function riskPresentation(data,now=Date.now()) {
 }
 function renderSummary() {
   if(typeof ForecastComparison!=='undefined')ForecastComparison.renderCompact(el('forecast-comparison'),panel.data?.forecast_comparison);
+  if(typeof WeatherSynthesis!=='undefined')WeatherSynthesis.render(el('weather-synthesis-home'),panel.data?.synthesis);
   const data=panel.data, current=dashboardCurrent(data), policy=effectiveAssessment(data), validPolicy=current&&Date.now()<Date.parse(policy?.valid_until);
   el('publication-time').textContent=data?'Painel atualizado em '+date(data.generated_at):'Atualização indisponível';
   el('publication-status').hidden=current&&!panel.fetchError&&!panel.incompleteHistory;
-  el('publication-status').textContent=panel.fetchError?(data?'Falha ao consultar a publicação. A última leitura foi preservada com seus horários originais; o painel tentará novamente automaticamente.':'Falha ao carregar os dados publicados. O painel tentará novamente automaticamente; consulte as fontes oficiais enquanto aguarda.'):current&&panel.incompleteHistory?'O histórico observado não pôde ser verificado por completo. As demais referências foram preservadas; nova tentativa automática.':data?'A coleta publicada está atrasada. A classificação foi suspensa; confira os horários das referências. O painel busca novas publicações automaticamente.':'Não foi possível carregar uma publicação verificável de Araquari. O painel tentará novamente automaticamente.';
+  el('publication-status').textContent=panel.fetchError?(data?'Falha ao consultar a publicação. A última leitura foi preservada com seus horários originais; o painel tentará novamente automaticamente.':'Falha ao carregar os dados publicados. O painel tentará novamente automaticamente; consulte as fontes oficiais enquanto aguarda.'):current&&panel.incompleteHistory?'O histórico observado não pôde ser verificado por completo. As demais referências foram preservadas; nova tentativa automática.':data?'A coleta publicada está atrasada. Cada referência conserva seu próprio prazo; confira os horários. O painel busca novas publicações automaticamente.':'Não foi possível carregar uma publicação verificável de Araquari. O painel tentará novamente automaticamente.';
   const presentation=riskPresentation(data);
   el('level-dot').className='level-dot '+presentation.color;
   el('level-card').dataset.risk=presentation.color;
@@ -139,11 +146,13 @@ function renderSummary() {
     const median=Number.isFinite(gauges.median_mm);
     updateMetric('observed',num(median?gauges.median_mm:gauges.maximum_mm)+' mm',`${current?'':'Última leitura · '}${median?'Mediana':'Maior leitura'} · ${gauges.station_count} estações · maior: ${num(gauges.maximum_mm)} mm${gauges.latest_at?' · '+date(gauges.latest_at):''}`);
   } else updateMetric('observed','—','Sem leitura local válida · não é chuva zero');
+  const forecastSources=data?.forecast?.sources_by_variable||{};
+  if(el('forecast-provider-label'))el('forecast-provider-label').textContent=[...new Set(Object.values(forecastSources).filter(s=>s.status==='available').map(s=>s.name))].join(' · ')||'Sem produto horário completo';
   const f=data?.forecast, rain=f?.rain, gust=f?.wind?.gust_kmh, heat=f?.heat;
-  const forecastValid=forecastCurrent(data),prefix=current?'':'Publicação anterior · ';
-  updateMetric('forecast',forecastValid&&rain?.status==='complete'?num(rain.total_mm)+' mm':'—',forecastValid&&rain?.status==='complete'?`${prefix}${date(rain.start_at)} a ${date(rain.end_at)}`:'Janela incompleta ou referência vencida');
-  updateMetric('gust',forecastValid&&Number.isFinite(gust?.maximum)?num(gust.maximum)+' km/h':'—',forecastValid&&gust?.at?prefix+date(gust.at):'Sem série completa de 24 h');
-  updateMetric('temperature',forecastValid&&Number.isFinite(heat?.maximum_c)?num(heat.maximum_c)+' °C':'—',forecastValid&&heat?.maximum_at?prefix+date(heat.maximum_at):'Sem série completa de 24 h');
+  const rainValid=forecastFieldCurrent(data,'precipitation_mm'),gustValid=forecastFieldCurrent(data,'gust_kmh'),heatValid=forecastFieldCurrent(data,'temperature_c'),prefix=current?'':'Publicação anterior · ';
+  updateMetric('forecast',rainValid&&rain?.status==='complete'?num(rain.total_mm)+' mm':'—',rainValid&&rain?.status==='complete'?`${prefix}${forecastSources.precipitation_mm?.name||'Open-Meteo'} · ${date(rain.start_at)} a ${date(rain.end_at)}`:'Janela incompleta ou referência vencida');
+  updateMetric('gust',gustValid&&Number.isFinite(gust?.maximum)?num(gust.maximum)+' km/h':'—',gustValid&&gust?.at?prefix+(forecastSources.gust_kmh?.name||'Open-Meteo')+' · '+date(gust.at):'Sem série completa de 24 h');
+  updateMetric('temperature',heatValid&&Number.isFinite(heat?.maximum_c)?num(heat.maximum_c)+' °C':'—',heatValid&&heat?.maximum_at?prefix+(forecastSources.temperature_c?.name||'Open-Meteo')+' · '+date(heat.maximum_at):'Sem série completa de 24 h');
   const peak=f?.rain_peaks?.find(p=>p.hours===3), revision=data?.revision;
   let reading=current&&peak?`A chuva prevista se concentra entre ${date(peak.start_at)} e ${date(peak.end_at)}: ${num(peak.total_mm)} mm na maior janela de 3 horas.`:'A distribuição temporal depende de séries completas e recentes; ausência de dados não indica redução do evento.';
   if(current&&revision?.status==='comparable_publications')reading+=` Para os mesmos horários futuros, a chuva passou de ${num(revision.previous_rain_mm)} para ${num(revision.current_rain_mm)} mm entre publicações. Essa revisão não mede precisão.`;
@@ -151,6 +160,7 @@ function renderSummary() {
   el('scenario-reading').textContent=reading;
 }
 function stationReference(data,source,station) {
+  if(source==='ifc')return {source,station,name:'IFC Araquari',municipality:'Araquari'};
   return [...(data?.station_catalog||[]),...(data?.regional_rain_context?.stations||[])].find(r=>r.source===source&&r.station===station)||{};
 }
 function getChartSeries(data,history,mode,variable,hours,now=Date.now(),observedRainField='rain_1h_mm') {
@@ -169,7 +179,8 @@ function getChartSeries(data,history,mode,variable,hours,now=Date.now(),observed
   }
   const field=variable==='precipitation_mm'?(observedRainField||'rain_1h_mm'):variable;
   const fields=variable==='gust_kmh'?['wind_kmh','gust_kmh']:[field];
-  const rows=Array.isArray(history?.records)?history.records:[],grouped=new Map();
+  const rows=Array.isArray(history?.records)?history.records.slice():[],grouped=new Map();
+  for(const r of data?.synthesis?.observation_history||[]){if(r.source==='ifc'&&fields.includes(r.variable))rows.push({source:'ifc',station:r.station,observed_at:r.end_at,[r.variable]:r.value});}
   for(const r of rows) {
     const t=Date.parse(r.observed_at);
     if(!Number.isFinite(t)||t>anchor||t<anchor-hours*3600000)continue;
@@ -351,6 +362,7 @@ function renderChart() {
   el('chart-heading').textContent='Observações e previsão';
   el('recent-summary').hidden=panel.observedVariable!=='temperature_c';
   el('observed-heading').textContent=rain?`Chuva medida · ${panel.rainWindow} h`:'Observado · '+variable.toLowerCase();
+  if(el('forecast-source'))el('forecast-source').textContent=data?.forecast?.sources_by_variable?.[panel.variable]?.name||'Previsão horária';
   el('forecast-heading').textContent=forecastRain?'Chuva prevista · por hora':panel.variable==='temperature_c'?'Temperatura prevista':'Vento e rajadas previstos';
   el('chart-period').textContent='Horários de Brasília';
   const base=Number.isFinite(Date.parse(data?.forecast?.start_at))?Date.parse(data.forecast.start_at):Math.floor(anchor/3600000)*3600000;
@@ -365,11 +377,11 @@ function renderChart() {
   drawWeatherChart(el('forecast-plot'),el('forecast-legend'),el('forecast-tooltip'),forecast,[base,base+panel.hours*3600000],el('forecast-heading').textContent,forecastUnit,shared);
   el('observed-period').textContent=snapshot?'Última leitura disponível de cada estação':date(new Date(anchor-panel.hours*3600000).toISOString())+' — '+date(new Date(anchor).toISOString());
   const names=[...new Set(allObserved.map(s=>s.name))];
-  el('observed-source').textContent=rain?'Cemaden':'Estações · METAR / Cemaden';
+  el('observed-source').textContent=rain?(nearby?'Cemaden · entorno':'Estações de Araquari'):'Estações · IFC / METAR / Cemaden';
   el('station-coverage').textContent=rain?(nearby?`${names.length} estações do entorno com posição verificada, a até ${data?.regional_rain_context?.radius_km||40} km do ponto de Araquari. Apenas últimas leituras; não entram nos indicadores locais.`:`Araquari · ${names.length} estações de chuva com amostras neste período. Altere a área para consultar o entorno.`):'Medições pontuais de estações próximas, com fontes e distâncias nos detalhes.';
   el('forecast-period').textContent=date(new Date(base).toISOString())+' — '+date(new Date(base+panel.hours*3600000).toISOString());
-  el('observed-caption').textContent=rain&&snapshot?`Acumulado de ${panel.rainWindow} h por estação. As leituras podem ter horários diferentes; toque nas barras para conferir.`:rain?(panel.rainWindow===1?'Cada faixa ocupa a hora realmente medida. Espaços sem faixas são períodos sem amostra; a coleta tem alvo de cerca de 40 min, sujeita a atrasos.':'Faixas de acumulado móvel de 24 h podem se sobrepor. Não some as faixas nem compare sua altura com chuva prevista de 1 h.'):'Amostras de estação; linhas interrompidas em lacunas superiores a 4 h. Não são médias municipais.';
-  el('forecast-caption').textContent=forecastRain?'Cada barra é uma hora de previsão. A primeira pode incluir a hora em curso. Espaços sem dados não significam chuva zero.':'Open-Meteo · modelo para o ponto municipal de Araquari. Linha tracejada; ausência de pontos mantém lacunas.';
+  el('observed-caption').textContent=rain&&snapshot?`Acumulado de ${panel.rainWindow} h por estação. As leituras podem ter horários diferentes; toque nas barras para conferir.`:rain?(panel.rainWindow===1?'Cada faixa ocupa a hora realmente medida. Espaços sem faixas são períodos sem amostra; a coleta tem alvo de 30 min, sujeita a atrasos.':'Faixas de acumulado móvel de 24 h podem se sobrepor. Não some as faixas nem compare sua altura com chuva prevista de 1 h.'):'Amostras de estação; linhas interrompidas em lacunas superiores a 4 h. Não são médias municipais.';
+  el('forecast-caption').textContent=forecastRain?'Cada barra é uma hora de previsão. A primeira pode incluir a hora em curso. Espaços sem dados não significam chuva zero.':(data?.forecast?.sources_by_variable?.[panel.variable]?.name||'Previsão horária')+' · ponto municipal de Araquari. Linha tracejada; ausência de pontos mantém lacunas.';
   if(panel.hours>168)el('observed-caption').textContent+=' Histórico retido por até 7 dias; períodos anteriores sem registros não significam chuva zero.';
   el('chart-caption').textContent=(shared?'Mesma escala vertical; períodos observados e previstos diferentes. ':rain&&forecastRain&&panel.rainWindow===24?'Acumulados diferentes: 24 h observado e 1 h previsto. Não compare diretamente as alturas. ':snapshot?'Gráficos com escalas próprias; confira os valores e períodos. ':'')+(!dashboardCurrent(data)?'Atualização vencida: referência anterior. ':'')+'Toque nos gráficos ou use as setas para consultar os intervalos.';
   renderStationDetails(allObserved,anchor);
@@ -398,7 +410,7 @@ function showHistory() {
   });
 }
 function paragraph(host,text,cls='') {host.append(node('p',cls,text));}
-function openDialog(title,render) {const dialog=el('detail-dialog');el('dialog-title').textContent=title;const body=el('dialog-content');body.replaceChildren();render(body);if(!dialog.open)dialog.showModal();}
+function openDialog(title,render) {const dialog=el('detail-dialog');el('dialog-title').textContent=title;const body=el('dialog-content');body.replaceChildren();if(typeof WeatherSynthesis!=='undefined'&&panel.data?.synthesis)WeatherSynthesis.render(body,panel.data.synthesis,true);render(body);if(!dialog.open)dialog.showModal();}
 function primaryNotice(data,now=Date.now()) {
   if(!dashboardCurrent(data,now))return null;
   return (effectiveAssessment(data,now)?.evidence||[]).find(n=>n.status==='eligible'&&now<Date.parse(n.valid_until))||null;
@@ -446,7 +458,7 @@ function showEvidence() {
   openDialog('Evidências de Araquari',body=>{
     const data=panel.data;if(!data){paragraph(body,'Publicação não disponível.');return;}
     paragraph(body,dashboardCurrent(data)?'Referências da publicação atual.':'Publicação anterior: cada referência conserva seu prazo individual; a classificação atual está suspensa.','notice');
-    body.append(node('h3','','Avisos prioritários · Epagri/Ciram'));
+    body.append(node('h3','','Avisos meteorológicos · Epagri/Ciram'));
     for(const e of data.assessment?.evidence||[]){const card=node('article','evidence-block');card.append(officialLink(e.url,e.title));paragraph(card,`${e.regions_text||'Abrangência não confirmada'} · ${date(e.valid_from)} a ${date(e.valid_until)}`);paragraph(card,`Estado na análise: ${e.status==='eligible'?'território e janela explicitados':e.status==='expired'?'prazo encerrado':'requer verificação'}. ${e.matched_cue?'Trecho usado: “'+e.matched_cue+'”.':'Sem correspondência qualitativa suficiente.'}`);body.append(card);}
     const gauges=data.gauge_distribution;body.append(node('h3','','Chuva observada · estações do município'));
     paragraph(body,`Cemaden · ${gauges?.station_count||0} estação(ões) com janelas de 24 h e horários de fim a até 30 min entre si. ${gauges?.excluded_time_count||0} referência(s) excluída(s) por tempo ou conflito.`);
@@ -454,7 +466,7 @@ function showEvidence() {
     body.append(node('h3','','Previsão e observações próximas'));
     for(const p of data.forecast?.rain_peaks||[])paragraph(body,`Open-Meteo · maior janela de ${p.hours} h: ${num(p.total_mm)} mm, de ${date(p.start_at)} a ${date(p.end_at)}.`);
     for(const r of data.recent_observations||[])paragraph(body,`${r.source} ${r.code} · ${num(r.distance_km)} km do ponto municipal · ${date(r.observed_at)} · temperatura ${num(r.temperature_c)} °C; vento ${num(r.wind_kmh)} km/h; rajada ${num(r.gust_kmh)} km/h. ${Date.now()<Date.parse(r.valid_until)?'':'Referência vencida.'}`);
-    body.append(node('h3','','Avisos complementares · INMET'));
+    body.append(node('h3','','Avisos meteorológicos · INMET'));
     paragraph(body,'Contexto regional para conferência. Presença, severidade e indisponibilidade destes avisos não alteram o nível, a cor ou a completude da classificação.');
     const notices=inmetNotices(data);
     if(!notices.length)paragraph(body,'Nenhum aviso regional verificável disponível nesta consulta. Isso não comprova ausência de risco.');

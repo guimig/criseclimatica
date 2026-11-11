@@ -772,7 +772,7 @@ function renderCemadenSensors() {
         const metric = child('div', 'observed-metric');
         const descriptor = `${reading.sensor_name} · sensor ${reading.sensor_id}`;
         metric.append(child('span', '', descriptor),
-          child('strong', '', `${value(reading.value, 2)}${reading.unit ? ' ' + reading.unit : ' (unidade não confirmada)'}`),
+          child('strong', '', `${value(reading.value, 2)}${reading.unit ? ' ' + reading.unit : reading.unit_inference?.suggested_unit?' '+reading.unit_inference.suggested_unit+' (inferida; escala a validar)':' (unidade em investigação)'}`),
           child('span', '', datetime(reading.observed_at)));
         metrics.append(metric);
       }
