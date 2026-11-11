@@ -95,7 +95,7 @@ def summarize(detail, alternatives, cptec, stamp):
     start = now.replace(minute=0, second=0, microsecond=0)
     reference = {'id': 'best_match', 'name': 'Open-Meteo · seleção automática', 'provider': 'Open-Meteo',
                  'status': 'available' if detail and fresh(detail.get('current', {}).get('time'), now, 8) else 'unavailable',
-                 'location_id': 'araquari', 'collected_at': detail.get('collected_at'), 'model_run_at': None,
+                 'location_id': 'araquari', 'collected_at': detail.get('collected_at'), 'reference_at': detail.get('current', {}).get('time'), 'model_run_at': None,
                  'grid_point': detail.get('grid_point'), 'requested_point': {k: detail.get('location', {}).get(k) for k in ('latitude', 'longitude')},
                  'hourly': detail.get('hourly', [])}
     records = [_clean_series(r, now) for r in [reference, *alternatives]]

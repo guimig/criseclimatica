@@ -70,6 +70,8 @@ class MultisourceTests(unittest.TestCase):
     def test_stale_models_and_conflicting_hour_cannot_be_selected(self):
         r=model();r['collected_at']=iso(NOW-timedelta(hours=9))
         f,_=select_forecast({'records':[r]},STAMP);self.assertEqual(f['status'],'unavailable')
+        r=model();r['reference_at']=iso(NOW-timedelta(hours=9))
+        f,_=select_forecast({'records':[r]},STAMP);self.assertEqual(f['status'],'unavailable')
         r=model();r['hourly'].append({**r['hourly'][3],'gust_kmh':200})
         f,_=select_forecast({'records':[r]},STAMP)
         self.assertEqual(f['sources_by_variable']['gust_kmh']['status'],'unavailable')

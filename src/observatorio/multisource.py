@@ -157,6 +157,7 @@ def select_forecast(comparison, stamp):
         candidates = []
         for record in records:
             if record.get('status') != 'available' or not fresh(record.get('collected_at'), now, 8): continue
+            if record.get('reference_at') and not fresh(record['reference_at'], now, 8): continue
             bins = hourly_bins(record.get('hourly', []), field)
             if not all(t in bins for t in slots): continue
             candidates.append((record, bins))
@@ -166,7 +167,8 @@ def select_forecast(comparison, stamp):
         record, bins = candidates[0]
         selections[field] = {'status': 'available', 'id': record['id'], 'name': record['name'],
             'provider': record.get('provider', 'Open-Meteo'), 'collected_at': record['collected_at'],
-            'valid_until': iso(moment(record['collected_at'])+timedelta(hours=8)),
+            'valid_until': iso(min(moment(record['collected_at']), moment(record.get('reference_at')) or moment(record['collected_at']))+timedelta(hours=8)),
+            'reference_at': record.get('reference_at'),
             'fallback': record['id'] != 'best_match', 'reason': 'first_fresh_complete_product_not_skill_ranking',
             'requested_point': record.get('requested_point'), 'grid_point': record.get('grid_point')}
         for t, value in bins.items():
