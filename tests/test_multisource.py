@@ -104,6 +104,9 @@ class MultisourceTests(unittest.TestCase):
         result,h,detail=build(dash,{},campus(),{},{'records':[model()]},{},{},STAMP)
         validate_product(result);self.assertIsNone(result['formal_level'])
         self.assertEqual(len(result['notices']),2)
+        self.assertEqual(h['assessments'][0]['notices'], result['notices'])
+        _,again,_=build(dash,{},campus(),{},{'records':[model()]},{},{},STAMP,h)
+        self.assertEqual(len(again['assessments']),1)
         self.assertEqual(notices(dash,iso(NOW+timedelta(hours=7))),[])
 
     def test_unit_hypotheses_are_empirical_and_never_silently_confirmed(self):

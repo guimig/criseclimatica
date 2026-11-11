@@ -7,7 +7,7 @@ Implementação de 11/11/2026, método `araquari-multisource-v1`. Este documento
 - `src/observatorio/multisource.py`: registro de estações, evidências normalizadas, estatísticas, seleção de previsões, avisos e cobertura por fenômeno.
 - `src/observatorio/unit_inference.py`: hipóteses empíricas de unidades, com alternativas e limitações.
 - `data/dashboard.json → synthesis`: síntese compartilhada entre inicial e detalhes; inclui evidências, fontes selecionadas e histórico gráfico local.
-- `data/multisource_history.json`: amostras normalizadas e contador de chuva do IFC, até sete dias e 6.000 registros; conflitos ficam marcados e não reaparecem silenciosamente.
+- `data/multisource_history.json`: amostras normalizadas e contador de chuva do IFC, até sete dias e 6.000 registros, além de até 336 avaliações com cobertura, fontes escolhidas, sinais e avisos; conflitos ficam marcados e não reaparecem silenciosamente.
 - `data/model_forecast_history.json`: mantém os modelos horários já existentes e passa a guardar também o produto municipal INMET de cada coleta, quando disponível. Não reconstrói previsões anteriores à implantação.
 - `web/weather-synthesis.js` e `.css`: apresentação compartilhada, validade individual e explicação. Sem consulta a provedores meteorológicos no navegador.
 

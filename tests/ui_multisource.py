@@ -27,9 +27,9 @@ def main():
         browser=p.chromium.launch(headless=True, executable_path=os.environ.get("WEATHER_BROWSER_PATH"))
         for width in (390,1440):
             context=browser.new_context(viewport={'width':width,'height':1000})
-            for name,payload in home.items():context.route('**/data/'+name,lambda route,payload=payload:route.fulfill(json=payload))
+            for name,payload in home.items():context.route('**/data/'+name,lambda route,request,payload=payload:route.fulfill(json=payload))
             for name,payload in ds.items():
-                if name not in ('data/dashboard.json','data/latest.json'):context.route('**/'+name,lambda route,payload=payload:route.fulfill(json=payload))
+                if name not in ('data/dashboard.json','data/latest.json'):context.route('**/'+name,lambda route,request,payload=payload:route.fulfill(json=payload))
             page=context.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
             page.goto(url);page.locator('#weather-synthesis-home .synthesis-daily').wait_for()
             assert 'INMET' in page.locator('#weather-synthesis-home').inner_text()

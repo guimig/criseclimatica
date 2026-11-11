@@ -94,8 +94,13 @@ def merge_history(previous, observations, campus, stamp):
         if moment(r.get('end_at')) and moment(r['end_at']) >= now-timedelta(days=7):
             conflicts.add((r['station'], r['variable'], r['end_at'], r['method']))
     records = sorted((r for k, r in unique.items() if k not in conflicts), key=lambda r: (r['end_at'], r['station'], r['variable']))[-MAX_HISTORY:]
+    assessments = (previous or {}).get('assessments', [])
+    if not isinstance(assessments, list) or len(assessments) > 336:
+        raise ValueError('Invalid multisource assessment history')
+    assessments = [r for r in assessments if isinstance(r, dict) and moment(r.get('generated_at'))
+                   and now-timedelta(days=7) <= moment(r['generated_at']) <= now]
     return {'schema_version': 1, 'kind': HISTORY_KIND, 'generated_at': stamp, 'retention_days': 7,
-            'method_version': VERSION, 'records': records,
+            'method_version': VERSION, 'records': records, 'assessments': assessments,
             'conflicts': [dict(zip(('station', 'variable', 'end_at', 'method'), k)) for k in sorted(conflicts)[-MAX_HISTORY:]]}
 
 
@@ -279,6 +284,12 @@ def build(dashboard, primary, campus, sensors, comparison, inmet, bulletins, sta
               'selected_forecast': forecast, 'observation_history': [r for r in history['records'] if r['variable'] in ('rain_1h_mm','rain_24h_mm','temperature_c','wind_kmh','gust_kmh')],
               'formal_level': None, 'notice_weighting': 'equal_meteorological_relevance_not_institutional_color_conversion',
               'normative_assessment': deepcopy(dashboard['assessment']), 'institutional_decision_automated': False}
+    assessment = {'generated_at': stamp, 'method_version': VERSION, 'coverage': coverage,
+                  'selected_forecasts': forecast['sources_by_variable'], 'notices': advisory,
+                  'attention_signals': [r for r in signals if r['band'] > 0], 'rejected': rejected}
+    snapshots = {r['generated_at']: r for r in history['assessments']}
+    snapshots[stamp] = assessment
+    history['assessments'] = sorted(snapshots.values(), key=lambda r: r['generated_at'])[-336:]
     return result, history, detail
 
 
