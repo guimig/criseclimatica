@@ -39,7 +39,7 @@
     for(const [name,fields] of Object.entries({rain:['rain_24h_mm','rain_1h_mm'],wind:['gust_kmh','wind_kmh'],temperature:['temperature_c']})){
       const box=element('article','synthesis-item');box.append(element('h4','',names[name]));
       const field=fields.find(f=>currentStats(data,f,now)),stat=field?currentStats(data,field,now):null;
-      if(stat){box.append(element('p','',`${detailed?(fieldNames[field]||'Temperatura')+': ':''}${number(stat.median)} ${stat.unit}${stat.count>1?' · mediana':''}`),element('p','small',`${stat.count} ${stat.count>1?'estações':'estação'} · maior: ${number(stat.max)} ${stat.unit}`));}
+      if(stat){box.append(element('p','',`${detailed||name==='rain'?(fieldNames[field]||'Temperatura')+': ':''}${number(stat.median)} ${stat.unit}${stat.count>1?' · mediana':''}`),element('p','small',`${stat.count} ${stat.count>1?'estações':'estação'} · maior: ${number(stat.max)} ${stat.unit}`));}
       else box.append(element('p','small','Sem medição local comparável e atual.'));
       const forecastFields={rain:['precipitation_mm'],wind:['wind_kmh','gust_kmh'],temperature:['temperature_c']}[name];
       const products=[...new Set(forecastFields.map(f=>data.selected_forecast?.sources_by_variable?.[f]).filter(r=>live(r,now)).map(r=>r.name+(r.fallback?' · substituição ativa':'')))];
