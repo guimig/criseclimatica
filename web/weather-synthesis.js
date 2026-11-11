@@ -21,7 +21,7 @@
     if(live(normative,now)&&['laranja','vermelho'].includes(normative.suggested_level))return {color:normative.suggested_level,active:normative.suggested_level,title:normative.title,kind:'Correspondência normativa · conferir',reason:normative.reason};
     if(notices.length){
       const sources=[...new Set(notices.map(r=>r.source))].join(' e ');
-      return {color:'amarelo',active:null,title:'Avisos meteorológicos para Araquari',kind:'Situação meteorológica',reason:`${sources}: ${notices.map(r=>`${r.title} · ${r.severity} · ${date(r.start_at)} a ${date(r.end_at)}`).join('; ')}. A correspondência com a norma está nos detalhes.`};
+      return {color:'amarelo',active:null,title:'Avisos meteorológicos para Araquari',kind:'Situação meteorológica',reason:`${sources}: ${notices.slice(0,2).map(r=>`${r.title} · ${r.severity} · ${date(r.start_at)} a ${date(r.end_at)}`).join('; ')}${notices.length>2?'; mais '+(notices.length-2)+' aviso(s) nos detalhes':''}. A correspondência com a norma está nos detalhes.`};
     }
     if(signals.length){const s=signals[0];return {color:'amarelo',active:null,title:'Atenção a '+(s.variable.startsWith('rain')?'chuva':'vento'),kind:'Referência técnica · acompanhamento',reason:`${s.nature==='observation'?'Medição':'Previsão'} de ${fieldNames[s.variable]||s.variable}: ${number(s.value)} ${s.unit} · ${s.name||s.source} · ${date(s.end_at)}. ${s.nature==='observation'?'Os extremos são preservados individualmente.':'Previsão não confirma ocorrência.'}`};}
     const observation=data.observations.some(r=>live(r,now));
