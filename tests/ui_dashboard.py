@@ -86,7 +86,13 @@ def check_layout(page):
     for selector in ['#rain-scope', '#station-select', '#rain-window']:
         box = page.locator(selector).bounding_box()
         assert box and box['height'] >= 34
-    assert page.get_by_role('link',name='Ver análise e critérios →').get_attribute('href')=='./dados.html#weather-synthesis-detail'
+    button=page.get_by_role('button',name='Entenda a classificação de riscos',exact=True)
+    button.click();assert page.locator('#detail-dialog').is_visible()
+    assert 'Atenção' in page.locator('#dialog-content').inner_text()
+    assert page.locator('#dialog-content a').get_attribute('href')=='./dados.html#weather-synthesis-detail'
+    check_style_system(page)
+    page.keyboard.press('Escape');assert not page.locator('#detail-dialog').is_visible()
+    assert button.evaluate('(node) => node === document.activeElement')
     check_style_system(page)
     page.get_by_label('Área', exact=True).select_option('nearby')
     assert page.locator('.station-bar').count() == 1
@@ -163,7 +169,31 @@ def main():
         policy['evidence'] = [{'status': 'eligible', 'title': 'Aviso regional de teste',
             'valid_from': data['dashboard.json']['generated_at'], 'valid_until': data['dashboard.json']['valid_until'],
             'regions_text': 'Litoral Norte', 'url': 'https://ciram.epagri.sc.gov.br/'}]
-        assert page.locator('#epagri-context,#inmet-context').count()==0
+        policy['evidence'][0]['summary']='Chuva intensa e rajadas no Litoral Norte.'
+        stamp=data['dashboard.json']['generated_at'];until=data['dashboard.json']['valid_until']
+        data['dashboard.json']['inmet_context']['notices']=[{'id':'28680','type':'Tempestade','severity':'Perigo potencial','lifecycle':'unverified','start_at':stamp,'end_at':stamp,'window_as_reported':'Período conforme a publicação original','municipalities':[{'location_id':'araquari','name':'Araquari'},{'location_id':'joinville','name':'Joinville','distance_km':15}],'risks':['Chuva de 20 a 30 mm/h e rajadas de 40 a 60 km/h.'],'url':'https://alertas2.inmet.gov.br/'}]
+        for width in (320,390,1440):
+            page.set_viewport_size({'width':width,'height':1000});page.reload()
+            page.locator('#epagri-context').wait_for();page.locator('#inmet-context').wait_for()
+            assert page.locator('#epagri-context').get_attribute('open') is None
+            assert page.locator('#inmet-context').get_attribute('open') is None
+            for key in ('epagri','inmet'):page.locator('#'+key+'-context > summary').click()
+            assert 'Chuva intensa e rajadas' in page.locator('#epagri-notices').inner_text()
+            assert 'Araquari, Joinville' in page.locator('#inmet-notices').inner_text()
+            assert 'validade a confirmar' in page.locator('#inmet-notices').inner_text()
+            assert page.locator('#inmet-notices a').get_attribute('href')=='https://alertas2.inmet.gov.br/28680'
+            assert page.locator('#epagri-notices a').get_attribute('href')=='https://ciram.epagri.sc.gov.br/'
+            for theme in ('light','dark'):
+                if page.locator('html').get_attribute('data-theme')!=theme:page.locator('#theme-toggle').click()
+                check_style_system(page);assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+                page.screenshot(path=str(OUTPUT/f'positive-notices-{theme}-{width}.png'),full_page=True)
+                page.locator('#level-explain').click();page.locator('#detail-dialog').wait_for();check_style_system(page)
+                page.screenshot(path=str(OUTPUT/f'risk-explanation-{theme}-{width}.png'))
+                page.get_by_role('button',name='Fechar explicação').click()
+            # A refresh preserves the reader's disclosure choice.
+            page.locator('#refresh').click();page.wait_for_function('!panel.loading')
+            assert page.locator('#inmet-context').get_attribute('open') is not None
+        data['dashboard.json']['inmet_context']['notices']=[]
         policy['evidence']=[]
         policy['monitoring_state'] = 'partial'
         policy['numeric_support']['core_complete'] = False

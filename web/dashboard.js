@@ -143,6 +143,8 @@ function renderSummary() {
     const active=item.dataset.riskLevel===(presentation.active||presentation.color);item.classList.toggle('is-active',active);
     if(active)item.setAttribute('aria-current','step');else item.removeAttribute('aria-current');
   }
+  renderHomeNotices();
+  if(el('detail-dialog').open)renderRiskExplanation();
   const localStats=typeof WeatherSynthesis!=='undefined'?WeatherSynthesis.currentStats(data?.synthesis,'rain_24h_mm'):null;
   const gauges=currentGauges(data),observed=localStats?.median??gauges?.median_mm??gauges?.maximum_mm;
   const count=localStats?.count??gauges?.station_count,maximum=localStats?.max??gauges?.maximum_mm;
@@ -408,6 +410,84 @@ function inmetContextStatus(data,now=Date.now()) {
   return count?{title:'Avisos para Araquari e entorno',description:`${count} aviso(s) retornado(s). Confira abaixo os municípios abrangidos, o período e as limitações de validade.`}:
     {title:'Nenhum aviso aplicável retornado',description:'A consulta INMET não retornou avisos não encerrados para Araquari e o entorno monitorado. Isso não comprova ausência de risco.'};
 }
+// Source notices are presented for human review; this selection does not classify risk.
+function reportedWindowExpired(text,now) {
+  const dates=String(text||'').match(/\d{2}\/\d{2}\/\d{4}/g);
+  if(!dates?.length)return false;
+  const [d,m,y]=dates.at(-1).split('/');
+  const parts=Object.fromEntries(new Intl.DateTimeFormat('en',{timeZone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(now)).map(p=>[p.type,p.value]));
+  return `${y}-${m}-${d}`<`${parts.year}-${parts.month}-${parts.day}`;
+}
+function noticePeriod(notice,now=Date.now()) {
+  const start=Date.parse(notice.start_at),end=Date.parse(notice.end_at);
+  if(Number.isFinite(start)&&Number.isFinite(end)&&start<end)return `${date(notice.start_at)} a ${date(notice.end_at)} · ${now<start?'início futuro':'em curso'}`;
+  return `${notice.window_as_reported||'Período não confirmado'} · validade a confirmar`;
+}
+function homeNotices(data,now=Date.now()) {
+  const rows=[],seen=new Set();
+  function add(row){const key=row.source+':'+(row.id||row.url||row.title);if(!seen.has(key)){seen.add(key);rows.push(row);}}
+  const source=data?.source_status?.find(s=>s.source==='Epagri/Ciram · avisos');
+  for(const n of data?.assessment?.base_assessment?.evidence||data?.assessment?.evidence||[]){
+    const regions=String(n.regions_text||'');
+    const scoped=['municipality_explicit','regional_reference_not_municipal_confirmation'].includes(n.scope)||(!n.scope&&!/exceto|exceção|menos|não inclui/i.test(regions)&&/Araquari|Litoral Norte|todas as regi|todo o estado/i.test(regions));
+    const checked=n.checked_at||source?.reference_at;
+    if(!scoped||!['eligible','needs_territorial_or_temporal_check'].includes(n.status)||!fresh(checked,6,now))continue;
+    if(Number.isFinite(Date.parse(n.valid_until))&&now>=Date.parse(n.valid_until))continue;
+    const url=safeLink(n.url);if(!url)continue;
+    add({...n,source:'Epagri/Ciram',title:n.title||'Aviso meteorológico',url,regions:regions||'Araquari e região',start_at:n.valid_from,end_at:n.valid_until,
+      summary:n.summary||'',retained_previous:source?.status==='unavailable'});
+  }
+  const feed=data?.inmet_context||data?.complementary_notices;
+  if((feed?.status==='available'||feed?.retained_previous)&&fresh(feed.retrieved_at,6,now))for(const n of feed.notices||[]){
+    const start=Date.parse(n.start_at),end=Date.parse(n.end_at),timed=Number.isFinite(start)&&Number.isFinite(end)&&start<end;
+    if(n.lifecycle==='expired'||reportedWindowExpired(n.window_as_reported,now)||(timed&&end<=now)||(feed.retained_previous&&!timed))continue;
+    const municipalities=(n.municipalities||[]).filter(m=>m.location_id==='araquari'||(Number.isFinite(m.distance_km)&&m.distance_km>=0&&m.distance_km<=40));
+    if(!Array.isArray(n.municipalities)&&n.ibge_code==='4201307')municipalities.push({location_id:'araquari',name:'Araquari'});
+    if(!municipalities.length)continue;
+    const local=municipalities.some(m=>m.location_id==='araquari');
+    const direct=/^\d+$/.test(String(n.id))?'https://alertas2.inmet.gov.br/'+n.id:n.url;
+    const url=safeLink(direct);if(!url)continue;
+    add({...n,source:'INMET',title:n.type||'Aviso meteorológico',url,
+      regions:municipalities.map(m=>m.name||m.location_id).join(', ')+(local?'':' · entorno; Araquari não confirmada'),
+      summary:(n.risks||[]).filter(t=>typeof t==='string').join(' '),retained_previous:n.retained_previous||feed.retained_previous});
+  }
+  return rows;
+}
+function renderHomeNotices() {
+  const rows=homeNotices(panel.data);
+  for(const [id,source]of [['epagri','Epagri/Ciram'],['inmet','INMET']]){
+    const notices=rows.filter(n=>n.source===source),disclosure=el(id+'-context'),body=el(id+'-notices');
+    disclosure.hidden=!notices.length;if(!notices.length)disclosure.open=false;
+    el(id+'-notice-summary').textContent=`Avisos · ${source} (${notices.length})`;
+    body.replaceChildren();
+    for(const n of notices){
+      const card=node('article','home-notice-item');card.append(node('h3','',n.title));
+      if(n.severity)paragraph(card,'Severidade: '+n.severity+'.','small');
+      paragraph(card,'Abrangência: '+n.regions+'.');paragraph(card,'Período: '+noticePeriod(n)+'.');
+      if(n.summary)paragraph(card,String(n.summary).slice(0,650));
+      if(n.retained_previous)paragraph(card,'Consulta anterior; atualização da fonte indisponível.','small');
+      card.append(officialLink(n.url,'Ler aviso completo ↗'));body.append(card);
+    }
+  }
+}
+let riskExplanationKey=null;
+function renderRiskExplanation(force=false) {
+  const presentation=riskPresentation(panel.data),product=panel.data?.risk_classification;
+  const key=JSON.stringify([panel.data?.generated_at,presentation.color,presentation.reason,product?.candidates?.map(c=>Date.now()<Date.parse(c.valid_until)),product?.requirements?.map(r=>r.available&&Date.now()<Date.parse(r.valid_until))]);
+  if(!force&&key===riskExplanationKey)return;riskExplanationKey=key;
+  const body=el('dialog-content');body.replaceChildren();body.append(node('h3','',riskNames[presentation.color]||presentation.title));paragraph(body,presentation.reason);
+  const levels=product?.levels||panel.data?.protocol?.levels||[];
+  const criterion=levels.find(l=>l.id===presentation.color)?.criterion;
+  if(criterion){body.append(node('h3','','Critério utilizado'));paragraph(body,criterion);}
+  const candidates=(product?.candidates||[]).filter(c=>c.level===presentation.color&&Date.now()<Date.parse(c.valid_until));
+  if(candidates.length){body.append(node('h3','','Evidências atuais'));for(const c of candidates.slice(0,6))paragraph(body,`${c.reason} Referência válida até ${date(c.valid_until)}.`);}
+  if(presentation.color==='neutral')for(const r of product?.requirements||[])if(!r.available||!(Date.now()<Date.parse(r.valid_until)))paragraph(body,r.label+': ausente ou vencida.');
+  paragraph(body,'Classificação consultiva. Decisões sobre as atividades cabem à autoridade institucional.','small');
+  if(levels.length){const details=node('details','risk-explanation-levels');details.append(node('summary','','Ver os seis níveis'));for(const level of levels){details.append(node('h4','',riskNames[level.id]||level.name));paragraph(details,level.criterion);}body.append(details);}
+  const link=node('a','','Ver análise e critérios completos →');link.href='./dados.html#weather-synthesis-detail';body.append(link);
+}
+function showAssessment() {renderRiskExplanation(true);if(!el('detail-dialog').open)el('detail-dialog').showModal();}
+
 async function readJson(path,retry='') {const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),15000);try{const response=await fetch(retry?path+'?refresh='+encodeURIComponent(retry):path,{cache:'no-store',signal:controller.signal});if(!response.ok)throw new Error('HTTP '+response.status);return await response.json();}finally{clearTimeout(timer);}}
 async function loadDashboard() {
   if(panel.loading)return;
@@ -437,12 +517,15 @@ async function loadDashboard() {
   finally{if(id===panel.loadId){panel.loading=false;el('refresh').disabled=false;renderSummary();renderRecent();renderChart();}}
 }
 function selectVariable(variable) {panel.variable=variable;if(el('forecast-variable'))el('forecast-variable').value=variable;for(const button of document.querySelectorAll('[data-variable]')){const selected=button.dataset.variable===variable;button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));}renderChart();}
-if(typeof module!=='undefined')module.exports={primaryNotice,inmetContextStatus,inmetNotices,fresh,dashboardCurrent,protocolCurrent,forecastCurrent,currentGauges,signalCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale,chartReadingsAt,chartReadingText};
+if(typeof module!=='undefined')module.exports={homeNotices,noticePeriod,reportedWindowExpired,primaryNotice,inmetContextStatus,inmetNotices,fresh,dashboardCurrent,protocolCurrent,forecastCurrent,currentGauges,signalCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale,chartReadingsAt,chartReadingText};
 if(typeof document!=='undefined'){
   function navigationState(){for(const link of document.querySelectorAll('nav a[href^="#"]')){const active=link.getAttribute('href')===(location.hash||'#main');if(active)link.setAttribute('aria-current','location');else link.removeAttribute('aria-current');}}
   window.addEventListener('hashchange',navigationState);navigationState();
   document.addEventListener('observatorythemechange',renderChart);
   el('refresh').addEventListener('click',loadDashboard);
+  el('level-explain').addEventListener('click',showAssessment);
+  el('dialog-close').addEventListener('click',()=>el('detail-dialog').close());
+  el('detail-dialog').addEventListener('click',event=>{const dialog=el('detail-dialog'),box=dialog.getBoundingClientRect();if(event.target===dialog&&(event.clientX<box.left||event.clientX>box.right||event.clientY<box.top||event.clientY>box.bottom))dialog.close();});
   for(const b of document.querySelectorAll('[data-variable]'))b.addEventListener('click',()=>selectVariable(b.dataset.variable));
   for(const b of document.querySelectorAll('[data-observed-focus]'))b.addEventListener('click',()=>{
     panel.hours=24;panel.rainWindow=24;panel.observedVariable='precipitation_mm';panel.observedView='stations';panel.scope='local';panel.station='all';

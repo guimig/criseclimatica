@@ -2,3 +2,8 @@
 @media(max-width:650px){.home-page .chart-caption{font-size:14px}.home-page .metric-pair .metric>span:last-child{font-size:14px}.home-page .metric-label{font-size:12px}}
 
 .home-page .analysis-link{display:inline-flex;align-items:center;min-height:44px}
+
+.home-page #level-explain{font-size:14px;max-width:100%;white-space:normal;text-align:left}
+.home-page .home-notice{margin:16px 0}.home-page .home-notice-item{overflow-wrap:anywhere}.home-notice-item+.home-notice-item{border-top:1px solid var(--line);margin-top:16px;padding-top:16px}
+.home-page .home-notice-item h3{font-size:17px;margin:0 0 10px}.home-page .home-notice-item p{font-size:14px;line-height:1.6;margin:0 0 10px}.home-page .home-notice-item a{display:inline-flex;align-items:center;min-height:44px;font-size:14px}
+.home-page #detail-dialog{width:min(720px,calc(100% - 32px))}.home-page #dialog-content{overflow-wrap:anywhere}.home-page #dialog-content p{font-size:15px;line-height:1.65}.home-page .risk-explanation-levels{margin:16px 0}.home-page .risk-explanation-levels h4{margin:14px 0 6px}

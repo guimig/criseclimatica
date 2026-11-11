@@ -5,8 +5,8 @@
   <meta name="theme-color" content="#19634f"><meta name="description" content="Nível de risco, observações e previsão para Araquari.">
   <title>Tempo em Araquari</title><link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <script src="./theme.js?v=period-20261107"></script>
-  <link rel="stylesheet" href="./dashboard.css?v=period-20261107"><link rel="stylesheet" href="./essential.css?v=period-20261107"><link rel="stylesheet" href="./home.css?v=clear-home-v2">
-  <script defer src="./chart-interaction.js?v=period-20261107"></script><script defer src="./publication-refresh.js?v=publication-recovery-20261109"></script><script defer src="./weather-synthesis.js?v=clear-home-v2"></script><script defer src="./dashboard.js?v=clear-home-v2"></script>
+  <link rel="stylesheet" href="./dashboard.css?v=period-20261107"><link rel="stylesheet" href="./essential.css?v=period-20261107"><link rel="stylesheet" href="./home.css?v=home-notices-v1">
+  <script defer src="./chart-interaction.js?v=period-20261107"></script><script defer src="./publication-refresh.js?v=publication-recovery-20261109"></script><script defer src="./weather-synthesis.js?v=home-notices-v1"></script><script defer src="./dashboard.js?v=home-notices-v1"></script>
 </head>
 <body class="essential-page home-page">
   <a class="skip" href="#main">Ir para o conteúdo</a>
@@ -21,8 +21,10 @@
       <div class="risk-scale" aria-label="Níveis de risco da norma">
         <span data-risk-level="verde" class="risk-step verde">Normalidade</span><span data-risk-level="azul" class="risk-step azul">Preparação</span><span data-risk-level="amarelo" class="risk-step amarelo">Atenção</span><span data-risk-level="laranja" class="risk-step laranja">Alerta</span><span data-risk-level="vermelho" class="risk-step vermelho">Alerta máximo</span><span data-risk-level="roxo" class="risk-step roxo">Calamidade</span>
       </div>
-      <a id="level-explain" class="analysis-link" href="./dados.html#weather-synthesis-detail">Ver análise e critérios →</a>
+      <button id="level-explain" class="text-button" type="button" aria-haspopup="dialog" aria-controls="detail-dialog">Entenda a classificação de riscos</button>
     </section>
+    <details id="epagri-context" class="card priority-card home-notice" hidden><summary id="epagri-notice-summary">Avisos · Epagri/Ciram</summary><div id="epagri-notices" class="priority-content"></div></details>
+    <details id="inmet-context" class="card priority-card home-notice" hidden><summary id="inmet-notice-summary">Avisos · INMET</summary><div id="inmet-notices" class="priority-content"></div></details>
     <section class="metric-grid comparison-metrics" aria-label="Observado e previsto em Araquari">
       <article class="comparison-metric"><h2>Chuva</h2><div class="metric-pair">
         <button class="metric" data-observed-focus type="button"><span class="metric-label">OBSERVADA · 24 H</span><strong id="observed-value">—</strong><span id="observed-note">—</span></button>
@@ -60,6 +62,7 @@
   </main>
   <footer class="wrap footer"><a href="./dados.html#weather-synthesis-detail">Análise e critérios</a><a href="./dados.html">Estações e fontes</a><a href="https://github.com/guimig/criseclimatica" target="_blank" rel="noopener noreferrer">GitHub ↗</a></footer>
 
+  <dialog id="detail-dialog" aria-labelledby="dialog-title"><div class="dialog-heading"><h2 id="dialog-title">Entenda a classificação de riscos</h2><button id="dialog-close" type="button" aria-label="Fechar explicação">✕</button></div><div id="dialog-content"></div></dialog>
   <noscript><p class="wrap notice">Ative JavaScript para carregar o painel.</p></noscript>
 </body>
 </html>

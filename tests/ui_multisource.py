@@ -61,8 +61,14 @@ def main():
             assert page.locator('#campus-values').count()==0
             assert page.locator('.comparison-metric').count()==3
             assert page.locator('#level-title').inner_text()=='Atenção'
-            assert page.locator('#weather-synthesis-home,#campus-station,#forecast-comparison,#memory,#inmet-context,#epagri-context').count()==0
+            assert page.locator('#weather-synthesis-home,#campus-station,#forecast-comparison,#memory').count()==0
             assert len(page.locator('#level-reason').inner_text())<180
+            page.locator('#level-explain').click();assert page.locator('#detail-dialog').is_visible()
+            assert 'Critério utilizado' in page.locator('#dialog-content').inner_text()
+            assert 'Evidências atuais' in page.locator('#dialog-content').inner_text()
+            page.locator('.risk-explanation-levels > summary').click()
+            assert page.locator('.risk-explanation-levels h4').count()==6
+            page.keyboard.press('Escape');assert not page.locator('#detail-dialog').is_visible()
             for theme in ('light','dark'):
                 if theme=='dark':page.locator('#theme-toggle').click()
                 assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')

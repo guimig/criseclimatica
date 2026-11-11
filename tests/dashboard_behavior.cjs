@@ -287,8 +287,8 @@ assert.match(inmetContextStatus({...data,inmet_context:{status:'unavailable'}},n
 assert.match(inmetContextStatus({...data,inmet_context:{status:'available',retrieved_at:data.generated_at,notices:[]}},now).title,/Nenhum aviso/);
 assert.match(inmetContextStatus(contextData,now).title,/Avisos para Araquari/);
 assert.match(inmetContextStatus(contextData,now+7*3600000).title,/desatualizada/);
-assert.doesNotMatch(html, /id="inmet-context"/);
-assert.doesNotMatch(html, /id="epagri-context"/);
+assert.match(html, /id="inmet-context"[^>]*hidden/);
+assert.match(html, /id="epagri-context"[^>]*hidden/);
 
 const {primaryNotice}=require('../web/dashboard.js');
 assert.equal(primaryNotice(data,now),null);
@@ -302,3 +302,33 @@ assert.equal(inmetNotices(retainedContext,now).some(n=>n.id==='unverified'),fals
 assert.match(inmetContextStatus(retainedContext,now).title,/consulta anterior/);
 assert.equal(inmetNotices(retainedContext,now+7*3600000).length,0);
 console.log('Retained INMET notices: failed query remains explicit; unverified or expired windows excluded.');
+
+// Home disclosures show positive regional notices only, independently of the risk level.
+global.location={href:'https://guimig.github.io/criseclimatica/',origin:'https://guimig.github.io'};
+const {homeNotices,noticePeriod}=require('../web/dashboard.js');
+const noticeClock=Date.parse('2026-11-06T20:30:00Z'),noticeStamp='2026-11-06T20:00:00Z';
+const positiveNotice={id:'28680',type:'Tempestade',lifecycle:'unverified',window_as_reported:'06/11/2026 20:00 — 07/11/2026 23:59',start_at:noticeStamp,end_at:noticeStamp,municipalities:[{location_id:'araquari',name:'Araquari'}],risks:['Chuva e vento.'],url:'https://alertas2.inmet.gov.br/'};
+const noticeData={inmet_context:{status:'available',retrieved_at:noticeStamp,notices:[positiveNotice]},source_status:[{source:'Epagri/Ciram · avisos',status:'available',reference_at:noticeStamp}],assessment:{evidence:[{status:'eligible',title:'Chuva intensa',regions_text:'Litoral Norte',checked_at:noticeStamp,valid_from:noticeStamp,valid_until:'2026-11-07T20:00:00Z',summary:'Previsão de temporais.',url:'https://ciram.epagri.sc.gov.br/aviso/'}]}};
+assert.deepEqual(homeNotices(null,noticeClock),[]);
+assert.deepEqual(homeNotices({inmet_context:{status:'available',retrieved_at:noticeStamp,notices:[]}},noticeClock),[]);
+const found=homeNotices(noticeData,noticeClock);assert.equal(found.length,2);
+assert.equal(found[1].url,'https://alertas2.inmet.gov.br/28680');assert.match(noticePeriod(found[1],noticeClock),/validade a confirmar/);
+assert.match(found[0].summary,/temporais/);
+const nearbyNotice={...positiveNotice,municipalities:[{location_id:'joinville',name:'Joinville',distance_km:15}]};
+const withNotice=n=>({...noticeData,assessment:{},inmet_context:{...noticeData.inmet_context,notices:[n]}});
+assert.match(homeNotices(withNotice(nearbyNotice),noticeClock)[0].regions,/Araquari não confirmada/);
+assert.equal(homeNotices(withNotice({...nearbyNotice,municipalities:[{name:'Distante',distance_km:41}]}),noticeClock).length,0);
+assert.equal(homeNotices(withNotice({...positiveNotice,lifecycle:'expired'}),noticeClock).length,0);
+assert.equal(homeNotices(withNotice({...positiveNotice,window_as_reported:'01/11/2026 — 02/11/2026'}),noticeClock).length,0);
+assert.equal(homeNotices({...noticeData,inmet_context:{status:'unavailable'},assessment:{}},noticeClock).length,0);
+assert.equal(homeNotices(noticeData,noticeClock+7*3600000).length,0);
+assert.equal(homeNotices({...noticeData,assessment:{evidence:[{...noticeData.assessment.evidence[0],scope:'not_verified',regions_text:'Oeste'}]},inmet_context:{}},noticeClock).length,0);
+assert.equal(homeNotices({...noticeData,inmet_context:{...noticeData.inmet_context,retained_previous:true,status:'unavailable'},assessment:{}},noticeClock).length,0);
+assert.equal(homeNotices({...noticeData,assessment:{},inmet_context:{...noticeData.inmet_context,notices:[positiveNotice,positiveNotice]}},noticeClock).length,1);
+vm.runInContext('panel.data=null;renderHomeNotices();renderHomeNotices()',context);
+assert.equal(elements.get('epagri-context').hidden,true);assert.equal(elements.get('inmet-context').hidden,true);
+assert.equal(elements.get('inmet-notices').children.length,0);
+context.noticeInput=noticeData;vm.runInContext('panel.data=noticeInput;renderRiskExplanation(true)',context);
+assert.equal(elements.get('dialog-content').children.at(-1).href,'./dados.html#weather-synthesis-detail');
+delete global.location;
+console.log('Home evidence passed: positive/empty/failed/expired, geographic scope, pending time, direct links, deduplication and repeated rendering.');
