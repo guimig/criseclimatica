@@ -41,6 +41,11 @@
     finally {clearTimeout(timeout);}
   }
   function bounds() {return [Date.parse(feed?.window_start), Math.min(Date.now(), Date.parse(feed?.window_end))];}
+  function suspect(key,point) {
+    if(!point||point.value!==0||!['temperature','humidity'].includes(key))return false;
+    const other=feed?.metrics?.[key==='temperature'?'humidity':'temperature'];
+    return [other?.latest,...(other?.series||[])].some(p=>p&&p.time===point.time&&p.value===0);
+  }
   function fresh(point) {return point && Date.now()-Date.parse(point.time) <= 90*60000;}
   function render() {
     const status = el('campus-status'), cards = el('campus-values'); cards.replaceChildren();
@@ -52,13 +57,13 @@
       feed.status === 'unavailable' ? 'A consulta à estação falhou nesta coleta. Isso não significa ausência de chuva ou vento.' :
       feed.status === 'fixture_mode' ? 'Sem consulta instrumental nesta simulação.' : 'Sem medição recente válida. O histórico disponível está identificado abaixo.';
     for (const key of ['temperature', 'humidity', 'rain_daily', 'wind_gust', 'pressure', 'rain_intensity']) {
-      const point = feed.metrics[key]?.latest, valid = pointValid(point, key, start, end);
+      const point = feed.metrics[key]?.latest, valid = pointValid(point, key, start, end)&&!suspect(key,point);
       const card = create('div', undefined, 'campus-value');
       card.append(create('span', definitions[key][0]), create('strong', valid ? number(point.value)+' '+definitions[key][1] : 'Sem dado'));
-      card.append(create('small', valid ? date(point.time)+(fresh(point) ? '' : ' · leitura antiga') : 'Sem referência válida'));
+      card.append(create('small', valid ? date(point.time)+(fresh(point) ? '' : ' · leitura antiga') : suspect(key,point)?'Temperatura e umidade simultaneamente zeradas; leitura suspeita':'Sem referência válida'));
       cards.append(card);
     }
-    el('campus-reference').textContent = 'Consulta: '+date(feed.checked_at)+'. Coleta alvo a cada 30 minutos; sem garantia de transmissão contínua. Não altera a classificação do painel.';
+    el('campus-reference').textContent = 'Consulta: '+date(feed.checked_at)+'. Coleta alvo a cada 30 minutos; sem garantia de transmissão contínua. Integra a síntese local por variável; não define nível institucional.';
     const direction = feed.metrics.wind_direction_deg?.latest, mean = feed.metrics.wind_avg?.latest;
     el('campus-extra').textContent = [pointValid(mean, 'wind_avg', start, end) ? 'Vento médio informado: '+number(mean.value)+' km/h ('+date(mean.time)+').' : '',
       pointValid(direction, 'wind_direction_deg', start, end) ? 'Direção: '+number(direction.value)+'° ('+date(direction.time)+').' : ''].filter(Boolean).join(' ');
@@ -67,7 +72,7 @@
   function renderChart() {
     const target = el('campus-plot'), readout = el('campus-readout'), keepFocus = target.contains(document.activeElement); target.replaceChildren();
     const key = selection.value || 'temperature', metric = feed?.metrics?.[key], [start, end] = bounds();
-    const points = (Array.isArray(metric?.series) ? metric.series : []).filter(p => pointValid(p, key, start, end)).sort((a,b) => Date.parse(a.time)-Date.parse(b.time)).slice(0,300);
+    const points = (Array.isArray(metric?.series) ? metric.series : []).filter(p => pointValid(p, key, start, end)&&!suspect(key,p)).sort((a,b) => Date.parse(a.time)-Date.parse(b.time)).slice(0,300);
     el('campus-chart-note').textContent = key === 'rain_daily' ? 'Máximo em cada intervalo de 5 minutos. Contador diário informado; pode reiniciar. Não é chuva das últimas 24 h.' :
       metric?.aggregation === 'MAX' ? 'Máximo informado em cada intervalo de 5 minutos.'+(key==='wind_gust'?' O intervalo de medição original da rajada ainda precisa de confirmação.':'') : 'Média das leituras disponíveis em intervalos de 5 minutos. Lacunas não são interpoladas.';
     if(points.length)el('campus-chart-note').textContent += ' '+points.length+' intervalos com dados na janela consultada.';

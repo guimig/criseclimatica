@@ -49,7 +49,7 @@
       grid.append(card);
     }
     if(!days.length)box.append(dom('p','comparison-note','Nenhuma data de previsão atual disponível.'));
-    box.append(grid,dom('p','comparison-note','Comparação contextual, sem média nem votação entre fontes. Extremos de amostras horárias podem diferir dos extremos diários previstos. Textos de chuva e vento não são convertidos em mm, probabilidade ou km/h; este produto não altera a classificação.'));
+    box.append(grid,dom('p','comparison-note','Comparação contextual, sem média nem votação entre fontes. Extremos de amostras horárias podem diferir dos extremos diários previstos. Textos de chuva e vento não são convertidos em mm, probabilidade ou km/h; este produto participa da síntese diária e não define nível institucional.'));
     const link=dom('a','comparison-link','Consultar previsão INMET ↗');link.href='https://previsao.inmet.gov.br/4201307';link.target='_blank';link.rel='noopener noreferrer';box.append(link);target.append(box);
   }
   function renderCompact(target,data){

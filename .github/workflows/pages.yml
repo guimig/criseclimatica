@@ -46,6 +46,7 @@ jobs:
           node tests/campus_station.cjs
           node tests/publication_refresh.cjs
           node tests/forecast_contract.cjs
+          node tests/weather_synthesis.cjs
       - name: Fetch live forecast and build static site
         if: steps.freshness.outputs.refresh == 'true'
         env:

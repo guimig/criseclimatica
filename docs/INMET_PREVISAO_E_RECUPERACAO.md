@@ -1,6 +1,9 @@
 # INMET: previsão municipal e recuperação dos avisos
 
-Integração de 10/11/2026, complementar às fontes existentes. **Não altera classificação de risco, limiares numéricos, previsão horária principal ou critérios da norma.** Avisos e previsão municipal são produtos distintos.
+> Atualização de 11/11/2026: [Interpretação multifontes](INTERPRETACAO_MULTIFONTES.md) documenta a síntese meteorológica atual, pesos iguais das quatro estações, participação do INMET nas previsões e avisos, substituições e hipóteses de unidades. Restrições anteriores de apresentação não descrevem essa nova camada. A correspondência normativa permanece separada e conserva seus critérios.
+
+
+Integração de 10/11/2026, complementar às fontes existentes. **Participa da síntese diária/por turno na inicial e nos detalhes; não altera limiares numéricos ou critérios da norma.** Avisos e previsão municipal são produtos distintos.
 
 ## Previsão municipal de Araquari
 

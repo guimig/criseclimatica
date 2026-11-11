@@ -1,5 +1,8 @@
 # Comparação de previsões em Araquari
 
+> Atualização de 11/11/2026: [Interpretação multifontes](INTERPRETACAO_MULTIFONTES.md) documenta a síntese meteorológica atual, pesos iguais das quatro estações, participação do INMET nas previsões e avisos, substituições e hipóteses de unidades. Restrições anteriores de apresentação não descrevem essa nova camada. A correspondência normativa permanece separada e conserva seus critérios.
+
+
 A Open-Meteo permanece referência operacional provisória pela cobertura horária, sem comprovação de maior habilidade local. Sua seleção automática (`best_match`) pode compartilhar os modelos consultados separadamente. Não há votação entre três fontes independentes, nem média automática, ranking ou mudança nas regras institucionais.
 
 ## Produtos

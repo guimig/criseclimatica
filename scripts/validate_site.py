@@ -13,6 +13,7 @@ from urllib.parse import urlparse, unquote
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from observatorio.inmet_forecast import validate_product as validate_inmet_forecast
 from observatorio.alerts import retain_valid_notices
+from observatorio.multisource import validate_product as validate_multisource
 from observatorio.campus_station import validate_product as validate_campus
 
 
@@ -135,6 +136,13 @@ def validate(output: Path, *, fixture: bool = False) -> None:
             or dashboard.get("generated_at") != overview.get("generated_at")
             or dashboard.get("fixture_mode", False) is not fixture or dashboard.get("decision_automated") is not False):
         raise ValueError("Invalid primary Araquari dashboard")
+    validate_multisource(dashboard["synthesis"])
+    multisource_history = json.loads((data / "multisource_history.json").read_text(encoding="utf-8"))
+    if (multisource_history.get("kind") != "araquari_normalized_evidence_history"
+            or multisource_history.get("generated_at") != overview.get("generated_at")
+            or len(multisource_history.get("records", [])) > 6000
+            or overview.get("multisource_history_published") is not True):
+        raise ValueError("Invalid normalized observation history")
     policy = dashboard.get("assessment", {})
     allowed_levels = ("verde", "azul", "amarelo", "laranja", "vermelho", "roxo")
     if (policy.get("suggested_level") not in (None, *allowed_levels)

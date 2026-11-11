@@ -20,6 +20,8 @@ sys.path.insert(0, str(ROOT / "src"))
 from observatorio.assessment_history import merge as merge_assessment_history
 from observatorio.inmet_forecast import collect as collect_inmet_forecast, compare_daily as compare_inmet_daily, unavailable as inmet_forecast_unavailable
 from observatorio.forecast_comparison import collect as collect_models, summarize as compare_forecasts, merge_archive
+from observatorio.multisource import build as build_multisource
+from observatorio.unit_inference import annotate as annotate_units
 from observatorio.dashboard import summarize as summarize_dashboard
 from observatorio.analysis import summarize as summarize_analysis, forecast_snapshot
 from observatorio.territorial_alignment import summarize as summarize_alignment
@@ -186,6 +188,7 @@ def build(
     client = FixtureClient(fixture) if fixture is not None else OpenMeteoClient()
 
     # Never use live site state in an offline fixture build.
+    previous_multisource = None
     previous_model_archive = None
     previous_assessment_history = None
     previous_dashboard_history = None
@@ -225,6 +228,9 @@ def build(
             if previous_overview and previous_overview.get("assessment_history_published"):
                 raise
             print("Assessment history not yet available; first publication", file=sys.stderr)
+        previous_multisource = fetch_previous_json(previous_url, "data/multisource_history.json", max_bytes=8_000_000)
+        if previous_multisource is None and previous_overview and previous_overview.get("multisource_history_published"):
+            raise RuntimeError("Published multisource history missing; preserving previous publication")
         previous_model_archive = fetch_previous_json(previous_url, "data/model_forecast_history.json", max_bytes=5_000_000)
         if previous_model_archive is None and previous_overview and previous_overview.get("model_comparison_archive_published"):
             raise RuntimeError("Published model archive missing; refusing forecast history loss")
@@ -329,6 +335,7 @@ def build(
                                   on_request=ped_limiter.acquire)
         cemaden_sensors = collect_cemaden_sensors(locations, stamp, session=ped_session,
                                                  on_request=ped_limiter.acquire)
+    cemaden_sensors = annotate_units(cemaden_sensors)
     campus = campus_empty(stamp, "fixture_mode") if fixture is not None else collect_campus(stamp)
     print("Campus IFC station:", campus["status"])
     # Both sources publish forecasts/publications, not fresh station observations.
@@ -352,11 +359,6 @@ def build(
     manifest["publication_status"] = "complete" if len(details) == len(locations) else "partial"
     # Preserve the last publication if neither forecasts nor a live operational
     # source can be refreshed. Metadata and old annual archives do not qualify.
-    operational = (alerts, observations, rain, cemaden, cemaden_sensors, cptec,
-                   epagri_notices, epagri_bulletins)
-    if not details and not any(feed.get("status") in ("available", "partial", "no_recent_notices", "no_recent_bulletins")
-                               for feed in operational):
-        raise RuntimeError("All operational sources failed; preserving previous publication")
     coverage = summarize_coverage(locations, manifest, cemaden, cemaden_sensors, observations, stamp)
     print(f"Provider status: open_meteo={manifest['available_locations']}/{len(locations)} "
           f"alerts={alerts['status']} metar={observations['status']} "
@@ -382,6 +384,12 @@ def build(
                       collect_inmet_forecast(now_utc(), previous=previous_inmet_forecast))
     inmet_forecast = compare_inmet_daily(inmet_forecast, details.get("araquari", {}))
     print("INMET municipal forecast:", inmet_forecast["status"])
+    operational = (alerts, observations, rain, cemaden, cemaden_sensors, cptec,
+                   epagri_notices, epagri_bulletins, campus, inmet_forecast)
+    if not details and not any(r.get("status") == "available" for r in model_records) and not any(feed.get("status") in ("available", "partial", "no_recent_notices", "no_recent_bulletins")
+                               for feed in operational):
+        raise RuntimeError("All operational sources failed; preserving previous publication")
+
     stamp = now_utc()
     manifest["generated_at"] = stamp
     analysis = summarize_analysis(locations, details, cemaden, observations, alerts, cptec,
@@ -389,10 +397,20 @@ def build(
     dashboard, observation_history = summarize_dashboard(analysis, details, epagri_notices,
         epagri_bulletins, defesa_sc, stamp, previous_history=previous_dashboard_history, sensors=cemaden_sensors)
     comparison = compare_forecasts(details.get('araquari', {}), model_records, cptec, stamp)
+    comparison['inmet'] = inmet_forecast
     model_archive = merge_archive(previous_model_archive, comparison)
     inmet_forecast['publication_at'] = stamp
     comparison['inmet'] = inmet_forecast
     dashboard['forecast_comparison'] = comparison
+    synthesis, multisource_history, selected_detail = build_multisource(dashboard,
+        next(r for r in analysis['locations'] if r['location_id'] == 'araquari'), campus,
+        cemaden_sensors, comparison, inmet_forecast, epagri_bulletins, stamp, previous_multisource)
+    synthesis['unit_inference'] = cemaden_sensors.get('unit_inference', [])
+    dashboard['synthesis'] = synthesis
+    dashboard['forecast'] = synthesis['selected_forecast']
+    dashboard['forecast_series'] = selected_detail['hourly']
+    dashboard['method_version'] = synthesis['method_version']
+    manifest['multisource_history_published'] = True
     manifest['model_comparison_archive_published'] = True
     assessment_history = merge_assessment_history(previous_assessment_history, dashboard, stamp)
     dashboard["alert_history"] = {
@@ -427,6 +445,7 @@ def build(
         def publish_json(path, payload):
             # Artifact identity is independent from collection/measurement age.
             write_json_atomic(path, {**payload, 'publication_at': stamp})
+        publish_json(data / "multisource_history.json", multisource_history)
         publish_json(data / "inmet_forecast.json", inmet_forecast)
         publish_json(data / "forecast_comparison.json", comparison)
         publish_json(data / "model_forecast_history.json", model_archive)

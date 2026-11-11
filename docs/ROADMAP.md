@@ -1,5 +1,8 @@
 # Roadmap consolidado — atualização de 08/11/2026
 
+> Atualização de 11/11/2026: [Interpretação multifontes](INTERPRETACAO_MULTIFONTES.md) documenta a síntese meteorológica atual, pesos iguais das quatro estações, participação do INMET nas previsões e avisos, substituições e hipóteses de unidades. Restrições anteriores de apresentação não descrevem essa nova camada. A correspondência normativa permanece separada e conserva seus critérios.
+
+
 ## Estado atual verificado
 
 - Cobertura configurada: vinte municípios de SC/PR, com Araquari como referência principal.

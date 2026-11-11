@@ -234,10 +234,10 @@ def summarize(analysis, details, epagri, bulletins, defesa, stamp, previous_hist
     policy=integrate(policy,summarize_objective(primary,detail,epagri,stamp,sensors=sensors))
     policy['base_assessment']=base_policy
     source_status = [
-        {'source':'Epagri/Ciram · avisos','role':'prioritária','status':epagri.get('status','unavailable'),'reference_at':epagri.get('retrieved_at')},
+        {'source':'Epagri/Ciram · avisos','role':'meteorológica · igual relevância','normative_priority':True,'status':epagri.get('status','unavailable'),'reference_at':epagri.get('retrieved_at')},
         {'source':'Defesa Civil SC · publicações','role':'complementar','status':defesa.get('status','unavailable'),'reference_at':defesa.get('last_successful_check'),
          'checked_at':defesa.get('checked_at'),'diagnostics':defesa.get('source_diagnostics',[])[:5]},
-        {'source':'INMET · avisos','role':'complementar','status':primary.get('official_notices',{}).get('status','unavailable'),'reference_at':primary.get('official_notices',{}).get('retrieved_at')},
+        {'source':'INMET · avisos','role':'meteorológica · igual relevância','normative_priority':False,'status':primary.get('official_notices',{}).get('status','unavailable'),'reference_at':primary.get('official_notices',{}).get('retrieved_at')},
         {'source':'Open-Meteo · previsão','role':'modelo','status':forecast.get('status','unavailable'),'reference_at':forecast.get('reference_at')},
         {'source':'Cemaden · chuva local','role':'observação','status':primary.get('observed_rain',{}).get('status','unavailable'),'reference_at':primary.get('observed_rain',{}).get('checked_at')},
     ]

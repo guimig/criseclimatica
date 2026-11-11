@@ -1,5 +1,8 @@
 # Algoritmo da referência dos níveis da norma
 
+> Atualização de 11/11/2026: [Interpretação multifontes](INTERPRETACAO_MULTIFONTES.md) documenta a síntese meteorológica atual, pesos iguais das quatro estações, participação do INMET nas previsões e avisos, substituições e hipóteses de unidades. Restrições anteriores de apresentação não descrevem essa nova camada. A correspondência normativa permanece separada e conserva seus critérios.
+
+
 Este documento descreve **o algoritmo implementado**, da entrada dos dados à cor exibida na home. Não é uma proposta de novos critérios. Conferido em 07/11/2026 contra o código-base `75f60f29e7bf2332a77e6edc95f8b1a6f1a39298`; a alteração de interface que acompanha esta documentação não modifica o classificador Python nem a função de apresentação dos níveis.
 
 Versões publicadas: `numeric-support-v1` para o apoio quantitativo; `pn13-14-2026-multisource-v3` para a integração; `pn13-14-2026-v1` para a avaliação qualitativa original conservada em `base_assessment`.

@@ -1,6 +1,9 @@
 # Estação meteorológica do IFC Araquari
 
-Integração implantada em 09/11/2026 para acompanhamento local. **Não participa da classificação de risco, dos limiares auxiliares, da mediana de pluviômetros ou das sugestões institucionais.** A instalação, calibração e metodologia dos sensores ainda precisam de confirmação com os responsáveis pela estação.
+> Atualização de 11/11/2026: [Interpretação multifontes](INTERPRETACAO_MULTIFONTES.md) documenta a síntese meteorológica atual, pesos iguais das quatro estações, participação do INMET nas previsões e avisos, substituições e hipóteses de unidades. Restrições anteriores de apresentação não descrevem essa nova camada. A correspondência normativa permanece separada e conserva seus critérios.
+
+
+Integração implantada em 09/11/2026 para acompanhamento local. **Participa da síntese meteorológica local com peso igual às demais estações nas variáveis compatíveis; não define nível institucional. Contador diário não é equiparado ao acumulado móvel de 24 h.** A instalação, calibração e metodologia dos sensores ainda precisam de confirmação com os responsáveis pela estação.
 
 ## Acesso e coleta
 

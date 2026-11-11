@@ -2,6 +2,10 @@
 
 Portal meteorológico aberto com prioridade em Araquari e cobertura de vinte municípios de Santa Catarina e Paraná. Python coleta e processa dados no GitHub Actions; GitHub Pages publica HTML, CSS, JavaScript e JSON. Sem banco pago, Google Sheets, backend no navegador ou credenciais públicas.
 
+## Interpretação multifontes
+
+A síntese local usa as quatro estações de Araquari com pesos iguais nas variáveis comparáveis. INMET participa da previsão diária/por turno da inicial; previsões horárias podem ser substituídas por variável quando houver outro produto completo. Epagri/Ciram e INMET têm igual relevância meteorológica; a correspondência normativa continua separada da situação meteorológica. Unidades inferidas são identificadas com evidências e limitações. Veja [método atual, cobertura, unidades e critérios](docs/INTERPRETACAO_MULTIFONTES.md).
+
 ## Painel de acompanhamento de Araquari
 
 A página inicial **Tempo em Araquari** adota o Painel essencial: faixa de referência, quatro indicadores e dois gráficos sempre visíveis, separados entre observações e previsão, com seletor de período direto na tela. Avisos, comparação de modelos e históricos permanecem acessíveis por expansão. Previsão, observações, chuva, vento/rajadas e temperatura podem ser explorados por período, ponteiro, toque e teclado. Fontes, estações e municípios complementares permanecem em `dados.html`, fora da leitura principal.
@@ -29,7 +33,7 @@ A inicial mostra faixas de 24 h; a área detalhada compara seleção automática
 ## O que está implementado
 
 - Open-Meteo: estimativas atuais e previsão horária/diária, com identificação explícita de modelo.
-- Avisos INMET por código municipal IBGE, detalhados na home para Araquari e entorno monitorado até 40 km, com arquivo progressivo. São contexto complementar: não alteram nível, cor ou completude da classificação e não comprovam desastres ocorridos. Epagri/Ciram permanece prioritária.
+- Avisos INMET por código municipal IBGE, detalhados na home para Araquari e entorno monitorado até 40 km, com arquivo progressivo. Participam da síntese meteorológica com relevância igual à Epagri/Ciram, sem conversão automática em nível institucional nem comprovação de desastre ocorrido.
 - METAR/NOAA: consulta conjunta de Joinville (SBJV), Navegantes (SBNF), Blumenau (SSBL), Florianópolis (SBFL), Afonso Pena (SBCT) e Bacacheri (SBBI). Exibe todos os boletins válidos até 180 km, distinguindo contexto regional acima de 100 km e mantendo a observação principal dentro de 100 km.
 - Cemaden PED: acumulados de 1–120h por estação e consulta regional SC/PR de sensores recentes, com SGAA e limite compartilhado de requisições. Sensores: até 24 estações por localidade em um raio de 130 km; acumulados municipais: todas as estações retornadas, sem o antigo corte de seis na interface.
 - INMET: catálogos automático/convencional, arquivo anual observado com atraso e adaptador de precipitação recente condicionado a acesso autorizado.

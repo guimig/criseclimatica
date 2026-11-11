@@ -1,5 +1,8 @@
 # Registro de decisoes de projeto
 
+> Atualização de 11/11/2026: [Interpretação multifontes](INTERPRETACAO_MULTIFONTES.md) documenta a síntese meteorológica atual, pesos iguais das quatro estações, participação do INMET nas previsões e avisos, substituições e hipóteses de unidades. Restrições anteriores de apresentação não descrevem essa nova camada. A correspondência normativa permanece separada e conserva seus critérios.
+
+
 - Tecnologia definida: Python para ETL, GitHub Actions para agendamento e GitHub Pages para interface.
 - Prioridade geografica: Araquari e Litoral Norte SC; visao Brasil por agregados numa fase posterior.
 - Sem custo de banco de dados; nao utilizar Google Sheets como armazenamento principal.

@@ -167,7 +167,7 @@ def merge_archive(previous, comparison):
         hourly = [r for r in record['hourly'] if now+timedelta(hours=1) <= moment(r['time']) <= now+timedelta(hours=72)]
         if hourly:
             rows.append({**record, 'hourly': hourly})
-    publications[comparison['generated_at']] = {'saved_at': comparison['generated_at'], 'records': rows, 'cptec': comparison['cptec']}
+    publications[comparison['generated_at']] = {'saved_at': comparison['generated_at'], 'records': rows, 'cptec': comparison['cptec'], 'inmet': comparison.get('inmet')}
     return {'schema_version': 1, 'kind': ARCHIVE_KIND, 'location_id': 'araquari', 'generated_at': comparison['generated_at'],
             'retention_days': 7, 'verification_performed': False,
             'publications': sorted(publications.values(), key=lambda p: p['saved_at'])[-64:]}
