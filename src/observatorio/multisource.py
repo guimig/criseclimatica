@@ -266,7 +266,7 @@ def build(dashboard, primary, campus, sensors, comparison, inmet, bulletins, sta
                         'start_at': iso(peak-timedelta(hours=1)) if field == 'precipitation_mm' else iso(peak),
                         'end_at': iso(peak), 'valid_until': source['valid_until'], 'band': band(bins[peak], variable)})
     coverage = {}
-    for name, observed_fields, forecast_fields in (('rain', ('rain_1h_mm','rain_24h_mm'), ('precipitation_mm',)),
+    for name, observed_fields, forecast_fields in (('rain', ('rain_1h_mm','rain_24h_mm','rain_daily_mm','rain_intensity_mmh'), ('precipitation_mm',)),
            ('wind', ('wind_kmh','gust_kmh'), ('wind_kmh','gust_kmh')), ('temperature', ('temperature_c',), ('temperature_c',))):
         obs = [r for r in observations if r['variable'] in observed_fields]
         pred = [forecast['sources_by_variable'][f] for f in forecast_fields if forecast['sources_by_variable'][f]['status'] == 'available']

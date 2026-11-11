@@ -180,7 +180,7 @@ function getChartSeries(data,history,mode,variable,hours,now=Date.now(),observed
   const field=variable==='precipitation_mm'?(observedRainField||'rain_1h_mm'):variable;
   const fields=variable==='gust_kmh'?['wind_kmh','gust_kmh']:[field];
   const rows=Array.isArray(history?.records)?history.records.slice():[],grouped=new Map();
-  for(const r of data?.synthesis?.observation_history||[]){if(r.source==='ifc'&&r.variable===field)rows.push({source:'ifc',station:r.station,observed_at:r.end_at,[field]:r.value});}
+  for(const r of data?.synthesis?.observation_history||[]){if(r.source==='ifc'&&fields.includes(r.variable))rows.push({source:'ifc',station:r.station,observed_at:r.end_at,[r.variable]:r.value});}
   for(const r of rows) {
     const t=Date.parse(r.observed_at);
     if(!Number.isFinite(t)||t>anchor||t<anchor-hours*3600000)continue;
