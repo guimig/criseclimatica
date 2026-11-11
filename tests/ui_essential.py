@@ -58,7 +58,7 @@ def main():
     OUTPUT.mkdir(exist_ok=True)
     with server() as url,sync_playwright() as pw:
         browser=pw.chromium.launch()
-        for width in (320,390,768,1024,1440,1920):
+        for width in (320,390,768,900,1024,1440,1920):
             context=browser.new_context(viewport={'width':width,'height':1050},has_touch=width<800)
             def route(r):
                 path=r.request.url.split('/data/')[-1].split('?')[0]
@@ -80,10 +80,12 @@ def main():
                 assert page.locator('.station-filter').get_attribute('open') is None
                 assert page.get_by_role('button',name='Por estação',exact=True).is_visible()
                 assert page.get_by_role('button',name='Ao longo do tempo',exact=True).is_visible()
-                assert page.locator('#forecast-plot .chart-unit').inner_text()=='mm'
+                assert page.locator('#forecast-plot .chart-unit').text_content()=='mm'
                 if width<1024:
                     boxes=[card.bounding_box() for card in page.locator('.comparison-metric').all()]
                     assert all(boxes[i+1]['y']>=boxes[i]['y']+boxes[i]['height'] for i in range(2))
+                    a,b=page.locator('#observed-panel').bounding_box(),page.locator('#forecast-panel').bounding_box()
+                    assert b['y']>=a['y']+a['height']
                 for period in ('72','168','240','24'):
                     page.locator('#chart-range').select_option(period)
                     assert page.locator('#observed-panel').is_visible() and page.locator('#forecast-panel').is_visible()

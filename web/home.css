@@ -27,3 +27,10 @@
 .home-page .observed-chart-options .station-filter[open]{flex-basis:100%}
 .home-page .observed-chart-options .station-filter>summary{min-height:44px}
 .home-page .chart-unit{fill:var(--muted);font-family:inherit;font-size:11px;font-weight:600}
+
+/* Two charts need desktop width; intermediate screens use the mobile flow. */
+@media(min-width:801px) and (max-width:1023px){
+  .home-page .chart-panels{grid-template-columns:1fr;gap:24px}
+  .home-page .weather-panel+.weather-panel{padding:24px 0 0;border-left:0;border-top:1px solid var(--line)}
+  .home-page .plot-tools{min-height:0}
+}
