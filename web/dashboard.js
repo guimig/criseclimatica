@@ -375,7 +375,7 @@ function renderChart() {
   if(panel.hours>168)el('observed-caption').textContent+=' Histórico: até 7 dias.';
   el('forecast-caption').textContent=forecastRain?'Chuva por hora.':'Previsão horária.';
   el('chart-caption').textContent=rain&&forecastRain&&panel.rainWindow===24?'Observado: acumulado de 24 h. Previsto: chuva por hora.':'Toque ou passe o cursor para ver valores.';
-  if(panel.chartExpired)el('chart-caption').textContent='Atualização vencida: gráficos da última coleta. Confira os horários.';
+  if(panel.chartExpired)el('chart-caption').textContent='Atualização vencida. '+el('chart-caption').textContent;
 
 
 }
