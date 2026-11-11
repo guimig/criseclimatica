@@ -139,6 +139,8 @@ def validate(output: Path, *, fixture: bool = False) -> None:
         raise ValueError("Invalid primary Araquari dashboard")
     validate_multisource(dashboard["synthesis"])
     validate_classification(dashboard["risk_classification"])
+    if dashboard["risk_classification"] != dashboard["synthesis"].get("risk_classification"):
+        raise ValueError("Home and detailed risk classifications must match")
     multisource_history = json.loads((data / "multisource_history.json").read_text(encoding="utf-8"))
     if (multisource_history.get("kind") != "araquari_normalized_evidence_history"
             or multisource_history.get("generated_at") != overview.get("generated_at")

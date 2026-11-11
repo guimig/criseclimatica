@@ -84,6 +84,11 @@
 
     }
     target.append(details);
+    if(detailed&&data.alert_history?.episodes?.length){
+      const history=element('details','synthesis-method');history.append(element('summary','','Histórico de níveis'),element('p','small','Registros por coleta; os intervalos não representam duração contínua de um evento.'));
+      for(const row of data.alert_history.episodes.slice(0,12))history.append(element('p','small',`${row.label||riskNames[row.state]||'Sem classificação'} · ${date(row.first_seen_at)} a ${date(row.last_seen_at)} · ${row.samples} coletas.`));
+      target.append(history);
+    }
   }
   window.WeatherSynthesis={valid,currentStats,presentation,riskLevel,render};
   const target=document.getElementById('weather-synthesis-detail');
@@ -93,7 +98,7 @@
       const feed=await fetch('./data/dashboard.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('dashboard');return r.json();});
       if(feed.fixture_mode||feed.generated_at!==latest.generated_at||feed.publication_at!==latest.generated_at||!valid(feed.synthesis))throw Error('publication');
       if(version&&Date.parse(feed.generated_at)<Date.parse(version))return;
-      version=feed.generated_at;data=feed.synthesis;render(target,data,true);
+      version=feed.generated_at;data={...feed.synthesis,alert_history:feed.alert_history};render(target,data,true);
     }catch{if(!data)target.replaceChildren(element('p','','Não foi possível consultar a síntese local. Nova tentativa automática.'));else render(target,data,true);}finally{loading=false;}}
     load();setInterval(()=>{if(!document.hidden)load();},60000);window.addEventListener('online',load);document.addEventListener('visibilitychange',()=>{if(!document.hidden)load();});document.getElementById('reload')?.addEventListener('click',load);
   }

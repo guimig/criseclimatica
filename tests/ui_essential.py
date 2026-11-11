@@ -140,7 +140,7 @@ def main():
                 page.locator('[data-focus="gust_kmh"]').click();before_url=page.url
                 page.locator('[data-observed-focus]').click()
                 assert page.url==before_url and '/dados.html' not in page.url
-                assert page.locator('[data-observed-focus] .metric-action').inner_text()=='Ver no gráfico ↓'
+                assert page.locator('[data-observed-focus]').evaluate('(node) => node.tagName')=='BUTTON'
                 assert page.locator('#observed-panel').is_visible() and page.locator('#forecast-panel').is_visible()
                 assert page.locator('#observed-variable').input_value()=='precipitation_mm'
                 assert page.locator('#rain-window').input_value()=='24'
