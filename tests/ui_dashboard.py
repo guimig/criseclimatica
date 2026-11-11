@@ -80,6 +80,8 @@ def check_layout(page):
     assert page.locator('#level-kind').inner_text()=='Consultivo'
     assert page.locator('#level-card').get_attribute('data-risk') == 'amarelo'
     assert page.locator('#level-title').inner_text()=='Atenção'
+    assert page.get_by_role('button', name='Ao longo do tempo', exact=True).is_visible()
+    assert page.locator('.station-filter').get_attribute('open') is None
     page.locator('.station-filter summary').click()
     page.get_by_label('Acumulado observado',exact=True).select_option('1')
     # Main controls must remain comfortably operable on mobile.

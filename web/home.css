@@ -7,3 +7,23 @@
 .home-page .home-notice{margin:16px 0}.home-page .home-notice-item{overflow-wrap:anywhere}.home-notice-item+.home-notice-item{border-top:1px solid var(--line);margin-top:16px;padding-top:16px}
 .home-page .home-notice-item h3{font-size:17px;margin:0 0 10px}.home-page .home-notice-item p{font-size:14px;line-height:1.6;margin:0 0 10px}.home-page .home-notice-item a{display:inline-flex;align-items:center;min-height:44px;font-size:14px}
 .home-page #detail-dialog{width:min(720px,calc(100% - 32px))}.home-page #dialog-content{overflow-wrap:anywhere}.home-page #dialog-content p{font-size:15px;line-height:1.65}.home-page .risk-explanation-levels{margin:16px 0}.home-page .risk-explanation-levels h4{margin:14px 0 6px}
+
+/* A separate frame for each variable makes the desktop pairs unambiguous. */
+@media(min-width:1024px){
+  .home-page .comparison-metric{padding:16px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
+  .home-page .comparison-metric h2{margin-bottom:14px}
+  .home-page .comparison-metric .metric-label{font-size:11px;min-height:36px}
+}
+@media(min-width:761px) and (max-width:1023px){
+  .home-page .comparison-metrics{grid-template-columns:1fr}
+  .home-page .comparison-metric+.comparison-metric{border-top:1px solid var(--line);padding-top:14px}
+  .home-page .metric-label{font-size:12px;min-height:0}
+  .home-page .metric-pair .metric>span:last-child{font-size:14px;min-height:0}
+}
+@media(hover:hover){.home-page .metric:hover strong{text-decoration:underline;text-underline-offset:4px}}
+.home-page .observed-chart-options{display:flex;align-items:flex-start;flex-wrap:wrap;gap:8px 12px;margin-top:12px}
+.home-page .observed-chart-options .plot-view{margin:0;max-width:100%;flex-wrap:wrap}
+.home-page .observed-chart-options .station-filter{margin:0;flex:1 1 auto}
+.home-page .observed-chart-options .station-filter[open]{flex-basis:100%}
+.home-page .observed-chart-options .station-filter>summary{min-height:44px}
+.home-page .chart-unit{fill:var(--muted);font-family:inherit;font-size:11px;font-weight:600}

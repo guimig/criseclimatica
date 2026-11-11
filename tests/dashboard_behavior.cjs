@@ -337,3 +337,12 @@ global.location={href:'https://guimig.github.io/criseclimatica/',origin:'https:/
 assert.deepEqual(homeNotices({assessment:{evidence:{bad:true}},inmet_context:{status:'available',retrieved_at:noticeStamp,notices:'invalid'}},noticeClock),[]);
 assert.deepEqual(homeNotices(withNotice({...positiveNotice,municipalities:'invalid',risks:{}}),noticeClock),[]);
 delete global.location;
+
+// A station with both wind and gust readings is still one station.
+context.windCountFixture={...irregular};
+context.windCountHistory={records:[{source:'ifc',station:'ifc-araquari',observed_at:irregular.generated_at,wind_kmh:10,gust_kmh:25}]};
+vm.runInContext("panel.data=windCountFixture;panel.history=windCountHistory;panel.observedVariable='gust_kmh';panel.variable='gust_kmh';panel.station='all';panel.scope='local';renderChart()",context);
+assert.equal(elements.get('station-coverage').textContent,'1 estação · leituras disponíveis');
+assert.equal(elements.get('observed-source').textContent,'IFC');
+assert.equal(plotNodes('plot','text').find(n=>n.attributes.class==='chart-unit').textContent,'km/h');
+console.log('Chart coverage passed: wind and gust count once per station, actual source attribution and explicit axis units.');
