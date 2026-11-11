@@ -8,8 +8,10 @@ Método `araquari-risk-v2`. Referência de categorias: PN 13/2026, art. 6º. Est
 2. Três comparações: chuva observada/prevista, rajada observada/máxima prevista e temperatura observada/máxima prevista.
 3. Uma frase de previsão para o turno atual, quando disponível.
 4. Dois gráficos: observações e previsão, com período e controles independentes.
+5. Botão **Entenda a classificação de riscos**: abre uma explicação do nível atual, das evidências e dos seis níveis, sem sair da inicial.
+6. Avisos positivos Epagri/Ciram e INMET em blocos recolhidos por padrão, com título, abrangência, período, resumo e acesso ao anúncio completo.
 
-A inicial não tem painéis próprios por instituto, estação, método, memória ou comparação de modelos. Essas informações permanecem em **Dados e fontes**. Os indicadores levam aos gráficos correspondentes. Uma temperatura diária INMET usada por falta de série horária é identificada como diária e leva à comparação detalhada.
+A inicial mantém somente os avisos positivos em blocos por instituto. Ausência de avisos, falhas de consulta e estados negativos são detalhados em **Dados e fontes**, juntamente com estações, métodos, histórico e comparação de modelos. Os avisos do entorno são identificados sem afirmar inclusão municipal de Araquari; janelas não conciliadas aparecem como **validade a confirmar**, sem declaração de vigência. Avisos encerrados ou consultas vencidas não permanecem na inicial. Avisos preservados de consulta anterior só aparecem com janela verificada ainda válida e indicação da origem anterior. Abrir ou fechar um bloco não altera a classificação. Os indicadores levam aos gráficos correspondentes. Uma temperatura diária INMET usada por falta de série horária é identificada como diária e leva à comparação detalhada.
 
 ## Critérios dos níveis
 

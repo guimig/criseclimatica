@@ -49,6 +49,7 @@ class ProtocolTests(unittest.TestCase):
         self.assertEqual(r['suggested_level'],'amarelo')
         self.assertIsNone(r['official_level'])
         self.assertEqual(r['evidence'][0]['matched_cue'],'alagamento')
+        self.assertIn('temporais',r['evidence'][0]['summary'])
         self.assertEqual(r['status'],'suggested_for_review')
 
     def test_primary_explicit_high_risk_supports_orange(self):

@@ -115,6 +115,7 @@ def assess(epagri, analysis, checked_at):
             active = bool(start and end and start < end and end > now and start <= now+timedelta(days=14))
             entry = {"source":"Epagri/Ciram", "title":n.get('title'), "url":n['url'],
                      "scope":scope or 'not_verified', "regions_text":n.get('regions_text'),
+                     "summary":str(n.get("summary") or n.get("assessment_text") or "")[:600],
                      "valid_from":n.get('valid_from'), "valid_until":n.get('valid_until'),
                      "published_at":n.get('published_at'), "checked_at":epagri.get('retrieved_at'),
                      "status":'eligible' if scope and active else 'expired' if end and end<=now else 'needs_territorial_or_temporal_check',
