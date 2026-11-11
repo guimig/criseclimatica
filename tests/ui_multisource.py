@@ -21,6 +21,7 @@ def main():
         'rain_daily':{'latest':{'time':stamp,'value':12},'series':[{'time':iso(now-timedelta(minutes=60-5*i)),'value':i} for i in range(13)]}}}
     primary={'observed_rain':{'status':'available','stations':[{'code':s,'observed_at':stamp,'rain_1h_mm':i,'rain_24h_mm':i+2} for i,s in enumerate(list(STATIONS)[:3])]},'recent_observations':[]}
     synth,_,detail=build(dash,primary,c,{},comp,comp['inmet'],{},stamp)
+    assert synth['statistics']['rain_1h_mm']['station_count']==4
     dash.update(synthesis=synth,forecast=synth['selected_forecast'],forecast_series=detail['hourly'],forecast_comparison=comp,publication_at=stamp)
     ds=datasets();ds['data/dashboard.json']=dash;ds['data/latest.json']['generated_at']=stamp
     with sync_playwright() as p,server() as url:

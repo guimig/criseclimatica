@@ -45,6 +45,11 @@
       const products=[...new Set(forecastFields.map(f=>data.selected_forecast?.sources_by_variable?.[f]).filter(r=>live(r,now)).map(r=>r.name+(r.fallback?' · substituição ativa':'')))];
       box.append(element('p','small',products.length?'Previsão horária: '+products.join('; '):'Sem previsão horária completa para esta variável.'));
       if(detailed&&stat){box.append(element('p','small',`Média: ${number(stat.mean)} ${stat.unit} · intervalo: ${number(stat.min)}–${number(stat.max)} ${stat.unit}. Pesos iguais por estação.`));for(const r of stat.members)box.append(element('p','small',`${r.name}: ${number(r.value)} ${r.unit} · ${date(r.end_at)}${r.method.includes('approximation')?' · intervalo aproximado em 5 min':''}`));}
+      if(detailed)for(const other of fields.filter(f=>f!==field)){
+        const extra=currentStats(data,other,now);if(!extra)continue;
+        box.append(element('p','small',`${fieldNames[other]||other}: ${number(extra.median)} ${extra.unit} · ${extra.count} ${extra.count>1?'estações':'estação'} · média ${number(extra.mean)} ${extra.unit} · maior ${number(extra.max)} ${extra.unit}.`));
+        for(const r of extra.members)box.append(element('p','small',`${r.name}: ${number(r.value)} ${r.unit} · ${date(r.end_at)}${r.method.includes('approximation')?' · intervalo aproximado em 5 min':''}`));
+      }
       grid.append(box);
     }
     target.append(grid);
