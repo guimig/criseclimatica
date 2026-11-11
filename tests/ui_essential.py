@@ -18,6 +18,12 @@ def check_compact_header(page,width):
                 assert chart.bounding_box()['width']<=720,chart.bounding_box()
         if page.locator('.metric-grid').count():
             assert page.locator('.comparison-metric').count()==3
+            cards=page.locator('.comparison-metric')
+            boxes=[card.bounding_box() for card in cards.all()]
+            assert max(b['y'] for b in boxes)-min(b['y'] for b in boxes)<2
+            assert all(boxes[i+1]['x']-boxes[i]['x']-boxes[i]['width']>=12 for i in range(2))
+            for card in cards.all():
+                assert card.evaluate('(node) => parseFloat(getComputedStyle(node).borderLeftWidth)>=1 && parseFloat(getComputedStyle(node).paddingLeft)>=14 && node.scrollWidth<=node.clientWidth')
             for pair in page.locator('.metric-pair').all():
                 values=[n.bounding_box()['y'] for n in pair.locator('strong').all()]
                 assert max(values)-min(values)<2,values
@@ -52,7 +58,7 @@ def main():
     OUTPUT.mkdir(exist_ok=True)
     with server() as url,sync_playwright() as pw:
         browser=pw.chromium.launch()
-        for width in (320,390,768,1024,1440,1920):
+        for width in (320,390,768,900,1024,1440,1920):
             context=browser.new_context(viewport={'width':width,'height':1050},has_touch=width<800)
             def route(r):
                 path=r.request.url.split('/data/')[-1].split('?')[0]
@@ -71,6 +77,15 @@ def main():
                 assert page.locator('[data-mode]').count()==0
                 assert page.locator('.shared-chart-controls').count()==0
                 assert page.locator('#chart-range').is_visible()
+                assert page.locator('.station-filter').get_attribute('open') is None
+                assert page.get_by_role('button',name='Por estação',exact=True).is_visible()
+                assert page.get_by_role('button',name='Ao longo do tempo',exact=True).is_visible()
+                assert page.locator('#forecast-plot .chart-unit').text_content()=='mm'
+                if width<1024:
+                    boxes=[card.bounding_box() for card in page.locator('.comparison-metric').all()]
+                    assert all(boxes[i+1]['y']>=boxes[i]['y']+boxes[i]['height'] for i in range(2))
+                    a,b=page.locator('#observed-panel').bounding_box(),page.locator('#forecast-panel').bounding_box()
+                    assert b['y']>=a['y']+a['height']
                 for period in ('72','168','240','24'):
                     page.locator('#chart-range').select_option(period)
                     assert page.locator('#observed-panel').is_visible() and page.locator('#forecast-panel').is_visible()

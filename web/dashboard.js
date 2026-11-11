@@ -288,6 +288,7 @@ function drawWeatherChart(target,legend,tooltip,series,domain,label,unit,sharedS
   const [minT,maxT]=domain,W=Math.max(180,Math.round(target.clientWidth||600)),H=250,L=45,R=12,T=16,B=42,w=W-L-R,h=H-T-B;
   const x=t=>L+(t-minT)/(maxT-minT)*w,y=v=>T+h-(v-low)/(high-low)*h;
   const root=svg('svg',{viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':`${label} (${unit}). Horários de Brasília. Use setas para explorar.`,tabindex:0});
+  root.append(svg('text',{x:L,y:11,class:'chart-unit'},unit));
   for(let value=low;value<=high+scale.step/100;value+=scale.step){root.append(svg('line',{x1:L,x2:W-R,y1:y(value),y2:y(value),class:'chart-grid'}),svg('text',{x:L-7,y:y(value)+4,'text-anchor':'end',class:'chart-label'},num(value,scale.step<1||scale.step%1?1:0)));}
   const ticks=W<360?2:3;
   for(let i=0;i<=ticks;i++){
@@ -369,9 +370,10 @@ function renderChart() {
   el('plot').classList.toggle('snapshot-plot',snapshot);
   drawWeatherChart(el('forecast-plot'),el('forecast-legend'),el('forecast-tooltip'),forecast,[base,base+panel.hours*3600000],el('forecast-heading').textContent,forecastUnit,shared);
   el('observed-period').textContent=snapshot?'Última leitura disponível de cada estação':date(new Date(anchor-panel.hours*3600000).toISOString())+' — '+date(new Date(anchor).toISOString());
-  const names=[...new Set(allObserved.map(s=>s.name))];
-  el('observed-source').textContent=rain?(nearby?'Cemaden · entorno':'Estações de Araquari'):'Estações · IFC / METAR / Cemaden';
-  el('station-coverage').textContent=`${names.length} ${names.length===1?'estação':'estações'} · ${nearby?'entorno':'Araquari'}`;
+  const stations=new Set(observed.map(s=>s.source+':'+s.station));
+  const sources=[...new Set(observed.map(s=>s.source==='ifc'?'IFC':String(s.source).includes('metar')?'METAR':String(s.source).startsWith('cemaden')?'Cemaden':'Estações'))];
+  el('observed-source').textContent=rain?(nearby?'Cemaden · entorno':'Estações de Araquari'):sources.join(' / ')||'Sem leituras';
+  el('station-coverage').textContent=`${stations.size} ${stations.size===1?'estação':'estações'} · ${rain?(nearby?'entorno':'Araquari'):'leituras disponíveis'}`;
   el('forecast-period').textContent=date(new Date(base).toISOString())+' — '+date(new Date(base+panel.hours*3600000).toISOString());
   el('observed-caption').textContent=rain?`Acumulado de ${panel.rainWindow} h por estação.`:'Medições por estação.';
   if(panel.hours>168)el('observed-caption').textContent+=' Histórico: até 7 dias.';
