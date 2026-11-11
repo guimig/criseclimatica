@@ -424,10 +424,11 @@ function noticePeriod(notice,now=Date.now()) {
   return `${notice.window_as_reported||'Período não confirmado'} · validade a confirmar`;
 }
 function homeNotices(data,now=Date.now()) {
-  const rows=[],seen=new Set();
+  const rows=[],seen=new Set(),list=value=>Array.isArray(value)?value:[];
   function add(row){const key=row.source+':'+(row.id||row.url||row.title);if(!seen.has(key)){seen.add(key);rows.push(row);}}
   const source=data?.source_status?.find(s=>s.source==='Epagri/Ciram · avisos');
-  for(const n of data?.assessment?.base_assessment?.evidence||data?.assessment?.evidence||[]){
+  for(const n of list(data?.assessment?.base_assessment?.evidence||data?.assessment?.evidence)){
+    if(!n||typeof n!=='object')continue;
     const regions=String(n.regions_text||'');
     const scoped=['municipality_explicit','regional_reference_not_municipal_confirmation'].includes(n.scope)||(!n.scope&&!/exceto|exceção|menos|não inclui/i.test(regions)&&/Araquari|Litoral Norte|todas as regi|todo o estado/i.test(regions));
     const checked=n.checked_at||source?.reference_at;
@@ -438,10 +439,11 @@ function homeNotices(data,now=Date.now()) {
       summary:n.summary||'',retained_previous:source?.status==='unavailable'});
   }
   const feed=data?.inmet_context||data?.complementary_notices;
-  if((feed?.status==='available'||feed?.retained_previous)&&fresh(feed.retrieved_at,6,now))for(const n of feed.notices||[]){
+  if((feed?.status==='available'||feed?.retained_previous)&&fresh(feed.retrieved_at,6,now))for(const n of list(feed.notices)){
+    if(!n||typeof n!=='object')continue;
     const start=Date.parse(n.start_at),end=Date.parse(n.end_at),timed=Number.isFinite(start)&&Number.isFinite(end)&&start<end;
     if(n.lifecycle==='expired'||reportedWindowExpired(n.window_as_reported,now)||(timed&&end<=now)||(feed.retained_previous&&!timed))continue;
-    const municipalities=(n.municipalities||[]).filter(m=>m.location_id==='araquari'||(Number.isFinite(m.distance_km)&&m.distance_km>=0&&m.distance_km<=40));
+    const municipalities=list(n.municipalities).filter(m=>m&&(m.location_id==='araquari'||(Number.isFinite(m.distance_km)&&m.distance_km>=0&&m.distance_km<=40)));
     if(!Array.isArray(n.municipalities)&&n.ibge_code==='4201307')municipalities.push({location_id:'araquari',name:'Araquari'});
     if(!municipalities.length)continue;
     const local=municipalities.some(m=>m.location_id==='araquari');
@@ -449,7 +451,7 @@ function homeNotices(data,now=Date.now()) {
     const url=safeLink(direct);if(!url)continue;
     add({...n,source:'INMET',title:n.type||'Aviso meteorológico',url,
       regions:municipalities.map(m=>m.name||m.location_id).join(', ')+(local?'':' · entorno; Araquari não confirmada'),
-      summary:(n.risks||[]).filter(t=>typeof t==='string').join(' '),retained_previous:n.retained_previous||feed.retained_previous});
+      summary:list(n.risks).filter(t=>typeof t==='string').join(' '),retained_previous:n.retained_previous||feed.retained_previous});
   }
   return rows;
 }
@@ -473,15 +475,16 @@ function renderHomeNotices() {
 let riskExplanationKey=null;
 function renderRiskExplanation(force=false) {
   const presentation=riskPresentation(panel.data),product=panel.data?.risk_classification;
-  const key=JSON.stringify([panel.data?.generated_at,presentation.color,presentation.reason,product?.candidates?.map(c=>Date.now()<Date.parse(c.valid_until)),product?.requirements?.map(r=>r.available&&Date.now()<Date.parse(r.valid_until))]);
+  const candidates=Array.isArray(product?.candidates)?product.candidates.filter(Boolean):[],requirements=Array.isArray(product?.requirements)?product.requirements.filter(Boolean):[];
+  const key=JSON.stringify([panel.data?.generated_at,presentation.color,presentation.reason,candidates.map(c=>Date.now()<Date.parse(c.valid_until)),requirements.map(r=>r.available&&Date.now()<Date.parse(r.valid_until))]);
   if(!force&&key===riskExplanationKey)return;riskExplanationKey=key;
   const body=el('dialog-content');body.replaceChildren();body.append(node('h3','',riskNames[presentation.color]||presentation.title));paragraph(body,presentation.reason);
-  const levels=product?.levels||panel.data?.protocol?.levels||[];
+  const rawLevels=product?.levels||panel.data?.protocol?.levels,levels=Array.isArray(rawLevels)?rawLevels.filter(Boolean):[];
   const criterion=levels.find(l=>l.id===presentation.color)?.criterion;
   if(criterion){body.append(node('h3','','Critério utilizado'));paragraph(body,criterion);}
-  const candidates=(product?.candidates||[]).filter(c=>c.level===presentation.color&&Date.now()<Date.parse(c.valid_until));
-  if(candidates.length){body.append(node('h3','','Evidências atuais'));for(const c of candidates.slice(0,6))paragraph(body,`${c.reason} Referência válida até ${date(c.valid_until)}.`);}
-  if(presentation.color==='neutral')for(const r of product?.requirements||[])if(!r.available||!(Date.now()<Date.parse(r.valid_until)))paragraph(body,r.label+': ausente ou vencida.');
+  const currentCandidates=candidates.filter(c=>c.level===presentation.color&&Date.now()<Date.parse(c.valid_until));
+  if(currentCandidates.length){body.append(node('h3','','Evidências atuais'));for(const c of currentCandidates.slice(0,6))paragraph(body,`${c.reason} Referência válida até ${date(c.valid_until)}.`);}
+  if(presentation.color==='neutral')for(const r of requirements)if(!r.available||!(Date.now()<Date.parse(r.valid_until)))paragraph(body,r.label+': ausente ou vencida.');
   paragraph(body,'Classificação consultiva. Decisões sobre as atividades cabem à autoridade institucional.','small');
   if(levels.length){const details=node('details','risk-explanation-levels');details.append(node('summary','','Ver os seis níveis'));for(const level of levels){details.append(node('h4','',riskNames[level.id]||level.name));paragraph(details,level.criterion);}body.append(details);}
   const link=node('a','','Ver análise e critérios completos →');link.href='./dados.html#weather-synthesis-detail';body.append(link);

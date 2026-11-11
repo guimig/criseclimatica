@@ -4,7 +4,7 @@ Portal meteorológico aberto com prioridade em Araquari e cobertura de vinte mun
 
 ## Inicial e classificação atual
 
-A inicial apresenta o nível consultivo, três comparações entre observado e previsto e dois gráficos interativos. Fontes, estações, avisos completos e métodos ficam em **Dados e fontes**. O nível usa as seis categorias da norma; Normalidade exige cobertura atual e ausência de sinais de atenção. Veja [critérios completos, dados usados e limitações](docs/CLASSIFICACAO_CONSULTIVA.md).
+A inicial apresenta o nível consultivo, três comparações entre observado e previsto e dois gráficos interativos. O botão **Entenda a classificação de riscos** explica o nível atual na própria inicial. Avisos positivos Epagri/Ciram e INMET aparecem em blocos recolhidos, com abrangência, período, resumo e link para o anúncio completo. Fontes, estações e métodos ficam em **Dados e fontes**. O nível usa as seis categorias da norma; Normalidade exige cobertura atual e ausência de sinais de atenção. Veja [critérios completos, dados usados e limitações](docs/CLASSIFICACAO_CONSULTIVA.md).
 
 ## Interpretação multifontes
 
@@ -12,7 +12,7 @@ A síntese local usa as quatro estações de Araquari com pesos iguais nas vari�
 
 ## Painel de acompanhamento de Araquari
 
-A página inicial **Tempo em Araquari** adota o Painel essencial: faixa de referência, quatro indicadores e dois gráficos sempre visíveis, separados entre observações e previsão, com seletor de período direto na tela. Avisos, comparação de modelos e históricos permanecem acessíveis por expansão. Previsão, observações, chuva, vento/rajadas e temperatura podem ser explorados por período, ponteiro, toque e teclado. Fontes, estações e municípios complementares permanecem em `dados.html`, fora da leitura principal.
+A página inicial **Tempo em Araquari** adota o Painel essencial: nível consultivo, três comparações entre observado e previsto e dois gráficos sempre visíveis, separados entre observações e previsão, com seletor de período direto na tela. Avisos positivos podem ser expandidos na inicial; comparação de modelos e históricos permanecem na página detalhada. Previsão, observações, chuva, vento/rajadas e temperatura podem ser explorados por período, ponteiro, toque e teclado. Fontes, estações e municípios complementares permanecem em `dados.html`, fora da leitura principal.
 
 **PN 13/2026 e PN 14/2026 — ASSINST/REI** substituem o protocolo anterior. As seis categorias são qualitativas; não se atribui um nível por média de chuva/vento ou pela cor de outro órgão. A sugestão é rastreável e combina evidência qualitativa Epagri com apoio quantitativo identificado; o apoio pode elevar a sugestão conforme regras explícitas. A decisão formal permanece humana. Dados ausentes não são tratados como zero; o verde descritivo exige as condições de completude documentadas.
 

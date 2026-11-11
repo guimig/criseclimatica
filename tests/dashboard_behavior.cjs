@@ -332,3 +332,8 @@ context.noticeInput=noticeData;vm.runInContext('panel.data=noticeInput;renderRis
 assert.equal(elements.get('dialog-content').children.at(-1).href,'./dados.html#weather-synthesis-detail');
 delete global.location;
 console.log('Home evidence passed: positive/empty/failed/expired, geographic scope, pending time, direct links, deduplication and repeated rendering.');
+
+global.location={href:'https://guimig.github.io/criseclimatica/',origin:'https://guimig.github.io'};
+assert.deepEqual(homeNotices({assessment:{evidence:{bad:true}},inmet_context:{status:'available',retrieved_at:noticeStamp,notices:'invalid'}},noticeClock),[]);
+assert.deepEqual(homeNotices(withNotice({...positiveNotice,municipalities:'invalid',risks:{}}),noticeClock),[]);
+delete global.location;
