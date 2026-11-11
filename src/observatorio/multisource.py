@@ -220,7 +220,7 @@ def notices(dashboard, stamp):
         rows.append({'source': 'Epagri/Ciram', 'id': n.get('url'), 'title': n.get('title'), 'url': n.get('url'),
                      'scope': n.get('scope'), 'start_at': n.get('valid_from'), 'end_at': n['valid_until'],
                      'valid_until': iso(min(moment(n['valid_until']), checked+timedelta(hours=6))),
-                     'severity': n.get('supports_level') or 'Consultar texto original', 'weight': 1})
+                     'severity': 'Consultar texto original', 'normative_correspondence': n.get('supports_level'), 'weight': 1})
     feed = dashboard.get('inmet_context', {})
     if fresh(feed.get('retrieved_at'), now, 6) and (feed.get('status') == 'available' or feed.get('retained_previous')):
         for n in feed.get('notices', []):
@@ -231,7 +231,7 @@ def notices(dashboard, stamp):
             rows.append({'source': 'INMET', 'id': n.get('id'), 'title': n.get('type'), 'url': n.get('url'),
                          'scope': 'municipality_explicit', 'start_at': n['start_at'], 'end_at': n['end_at'],
                          'valid_until': iso(min(end, moment(feed['retrieved_at'])+timedelta(hours=6))),
-                         'severity': n.get('severity'), 'retained_previous': n.get('retained_previous', False), 'weight': 1})
+                         'severity': n.get('severity'), 'assessment_text': str(n.get('type') or '')+'. '+'. '.join(n.get('risks') or []), 'retained_previous': n.get('retained_previous', False), 'weight': 1})
     return sorted(rows, key=lambda n: (n['start_at'], n['source'], n['id'] or ''))
 
 

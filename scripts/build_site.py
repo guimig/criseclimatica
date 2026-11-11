@@ -20,6 +20,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from observatorio.assessment_history import merge as merge_assessment_history
 from observatorio.inmet_forecast import collect as collect_inmet_forecast, compare_daily as compare_inmet_daily, unavailable as inmet_forecast_unavailable
 from observatorio.forecast_comparison import collect as collect_models, summarize as compare_forecasts, merge_archive
+from observatorio.risk_classification import classify
 from observatorio.multisource import build as build_multisource
 from observatorio.unit_inference import annotate as annotate_units
 from observatorio.dashboard import summarize as summarize_dashboard
@@ -410,6 +411,10 @@ def build(
     dashboard['forecast'] = synthesis['selected_forecast']
     dashboard['forecast_series'] = selected_detail['hourly']
     dashboard['method_version'] = synthesis['method_version']
+    classification = classify(dashboard, selected_detail, stamp)
+    dashboard['risk_classification'] = classification
+    synthesis['risk_classification'] = classification
+    multisource_history['assessments'][-1]['risk_classification'] = classification
     manifest['multisource_history_published'] = True
     manifest['model_comparison_archive_published'] = True
     assessment_history = merge_assessment_history(previous_assessment_history, dashboard, stamp)

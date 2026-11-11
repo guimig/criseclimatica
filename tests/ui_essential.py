@@ -17,8 +17,10 @@ def check_compact_header(page,width):
             for chart in page.locator(selector).all():
                 assert chart.bounding_box()['width']<=720,chart.bounding_box()
         if page.locator('.metric-grid').count():
-            values=[page.locator('#'+name+'-value').bounding_box()['y'] for name in ('observed','forecast','gust','temperature')]
-            assert max(values)-min(values)<2,values
+            assert page.locator('.comparison-metric').count()==3
+            for pair in page.locator('.metric-pair').all():
+                values=[n.bounding_box()['y'] for n in pair.locator('strong').all()]
+                assert max(values)-min(values)<2,values
     assert page.locator('h1').count()==1
     assert page.locator('.site-brand,.hero-eyebrow').count()==0
     bar=page.locator('.sitebar').bounding_box()
@@ -64,7 +66,7 @@ def main():
                 assert page.locator('h1').inner_text()=='Tempo em Araquari'
                 assert 'O tempo, com contexto' not in page.locator('body').inner_text()
                 assert 'Valores essenciais' not in page.locator('body').inner_text()
-                assert not page.locator('.forecast-comparison-card').get_attribute('open')
+                assert page.locator('.forecast-comparison-card').count()==0
                 assert page.locator('#rain-window').input_value()=='24'
                 assert page.locator('[data-mode]').count()==0
                 assert page.locator('.shared-chart-controls').count()==0
@@ -138,7 +140,7 @@ def main():
                 page.locator('[data-focus="gust_kmh"]').click();before_url=page.url
                 page.locator('[data-observed-focus]').click()
                 assert page.url==before_url and '/dados.html' not in page.url
-                assert page.locator('[data-observed-focus] .metric-action').inner_text()=='Ver no gráfico ↓'
+                assert page.locator('[data-observed-focus]').evaluate('(node) => node.tagName')=='BUTTON'
                 assert page.locator('#observed-panel').is_visible() and page.locator('#forecast-panel').is_visible()
                 assert page.locator('#observed-variable').input_value()=='precipitation_mm'
                 assert page.locator('#rain-window').input_value()=='24'

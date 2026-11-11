@@ -13,28 +13,36 @@
     const values=rows.map(r=>r.value).sort((a,b)=>a-b),mid=Math.floor(values.length/2);
     return {members:rows,count:rows.length,mean:values.reduce((a,b)=>a+b,0)/values.length,median:values.length%2?values[mid]:(values[mid-1]+values[mid])/2,max:values.at(-1),min:values[0],unit:rows[0].unit};
   }
+  const riskNames={verde:'Normalidade',azul:'Preparação',amarelo:'Atenção',laranja:'Alerta',vermelho:'Alerta máximo',roxo:'Calamidade'};
+  function riskLevel(product,now=Date.now()){
+    const neutral={color:'neutral',active:null,title:'Sem classificação',kind:'Dados parciais',reason:'Faltam referências atuais para definir o nível.'};
+    if(!product||product.method_version!=='araquari-risk-v2'||product.kind!=='consultative_risk_level_not_official_decision'||product.official_level!==null||!Array.isArray(product.candidates))return neutral;
+    if(Date.parse(product.generated_at)>now+600000)return neutral;
+    const order=Object.keys(riskNames);
+    const candidates=product.candidates.filter(c=>c&&order.includes(c.level)&&c.level!=='roxo'&&typeof c.reason==='string'&&Array.isArray(c.evidence)&&c.evidence.length&&live(c,now)).sort((a,b)=>order.indexOf(b.level)-order.indexOf(a.level));
+    const c=candidates[0];return c?{color:c.level,active:c.level,title:riskNames[c.level],kind:'Consultivo',reason:c.reason}:neutral;
+  }
   function presentation(data,now=Date.now()){
-    if(!valid(data))return null;
-    const signals=data.signals.filter(r=>live(r,now)&&r.band>0).sort((a,b)=>b.band-a.band);
-    const notices=data.notices.filter(r=>live(r,now));
-    const normative=data.normative_assessment;
-    if(live(normative,now)&&['laranja','vermelho'].includes(normative.suggested_level))return {color:normative.suggested_level,active:normative.suggested_level,title:normative.title,kind:'Correspondência normativa · conferir',reason:normative.reason};
-    if(notices.length){
-      const sources=[...new Set(notices.map(r=>r.source))].join(' e ');
-      return {color:'amarelo',active:null,title:'Avisos meteorológicos para Araquari',kind:'Situação meteorológica',reason:`${sources}: ${notices.slice(0,2).map(r=>`${r.title} · ${r.severity} · ${date(r.start_at)} a ${date(r.end_at)}`).join('; ')}${notices.length>2?'; mais '+(notices.length-2)+' aviso(s) nos detalhes':''}. A correspondência com a norma está nos detalhes.`};
-    }
-    if(signals.length){const s=signals[0];return {color:'amarelo',active:null,title:'Atenção a '+(s.variable.startsWith('rain')?'chuva':'vento'),kind:'Referência técnica · acompanhamento',reason:`${s.nature==='observation'?'Medição':'Previsão'} de ${fieldNames[s.variable]||s.variable}: ${number(s.value)} ${s.unit} · ${s.name||s.source} · ${date(s.end_at)}. ${s.nature==='observation'?'Os extremos são preservados individualmente.':'Previsão não confirma ocorrência.'}`};}
-    const observation=data.observations.some(r=>live(r,now));
-    const forecast=Object.values(data.selected_forecast?.sources_by_variable||{}).some(r=>live(r,now));
-    if(observation||forecast)return {color:'neutral',active:null,title:'Acompanhamento das condições locais',kind:observation&&forecast?'Observações e previsões':'Cobertura parcial',reason:'Nenhuma referência técnica de atenção nas evidências ainda válidas. Confira abaixo chuva, vento, temperatura e a cobertura disponível; isso não constitui declaração de normalidade institucional.'};
-    const daily=data.forecast_context?.days?.some(r=>live(r,now));
-    return {color:'neutral',active:null,title:daily?'Previsão diária disponível':'Sem referências atuais suficientes',kind:'Cobertura parcial',reason:daily?'A previsão diária continua disponível. Medições e detalhamento horário não têm referências atuais suficientes.':'As fontes disponíveis não sustentam uma leitura atual. Consulte os horários e os canais oficiais.'};
+    return data?.risk_classification?riskLevel(data.risk_classification,now):null;
   }
   function element(tag,cls,text){const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;}
   function render(target,data,detailed=false){
     if(!target)return;target.replaceChildren();
     if(!valid(data)){target.append(element('p','','Síntese local indisponível nesta publicação.'));return;}
-    const now=Date.now();target.append(element(detailed?'h2':'h3','','Condições em Araquari'));
+    const now=Date.now();
+    if(detailed&&data.risk_classification){
+      const risk=riskLevel(data.risk_classification,now),box=element('section','risk-analysis');
+      box.append(element('h2','','Classificação de risco'),element('h3','',risk.title),element('p','',risk.reason),element('p','small','Nível consultivo com referência às categorias da PN 13/2026. A decisão institucional permanece com a autoridade competente.'));
+      box.append(element('h4','','Evidências utilizadas'));
+      const candidates=data.risk_classification.candidates||[];
+      for(const c of candidates)box.append(element('p','small',`${riskNames[c.level]} · ${c.reason} · válida até ${date(c.valid_until)}${live(c,now)?'':' · vencida'}.`));
+      box.append(element('h4','','Cobertura necessária para normalidade'));
+      for(const r of data.risk_classification.requirements||[])box.append(element('p','small',`${r.label}: ${r.available&&live(r,now)?'disponível':'ausente ou vencida'}.`));
+      box.append(element('h4','','Critérios por nível'));
+      for(const level of data.risk_classification.levels||[])box.append(element('p','small',`${level.name}: ${level.criterion}`));
+      const link=element('a','','Critérios completos e limites do algoritmo ↗');link.href='https://github.com/guimig/criseclimatica/blob/main/docs/CLASSIFICACAO_CONSULTIVA.md';link.target='_blank';link.rel='noopener noreferrer';box.append(link);target.append(box);
+    }
+    target.append(element(detailed?'h2':'h3','','Observações e previsões'));
     const grid=element('div','synthesis-grid');
     for(const [name,fields] of Object.entries({rain:['rain_24h_mm','rain_1h_mm'],wind:['gust_kmh','wind_kmh'],temperature:['temperature_c']})){
       const box=element('article','synthesis-item');box.append(element('h4','',names[name]));
@@ -73,11 +81,16 @@
     if(detailed){
       for(const r of data.regional_observations||[])if(live(r,now))details.append(element('p','small',`Contexto regional: ${r.name} · ${r.distance_km} km · ${number(r.value)} ${r.unit} · ${date(r.end_at)}. Não participa da média das quatro estações locais.`));
       for(const r of data.unit_inference||[])details.append(element('p','small',`Sensor ${r.sensor_id}: ${r.suggested_unit?'unidade provável '+r.suggested_unit:'unidade ainda ambígua'} · ${r.sample_count} leituras, ${r.nonzero_count} não nulas. Inferência não habilitada para limiares.`));
-      const n=data.normative_assessment;details.append(element('p','small',`Correspondência normativa registrada em ${date(data.generated_at)}: ${n?.title||'a verificar'}; ${n?.reason||''} Não é decisão institucional.${Date.parse(n?.valid_until)<=now?' Referência normativa vencida.':''}`));
+
     }
     target.append(details);
+    if(detailed&&data.alert_history?.episodes?.length){
+      const history=element('details','synthesis-method');history.append(element('summary','','Histórico de níveis'),element('p','small','Registros por coleta; os intervalos não representam duração contínua de um evento.'));
+      for(const row of data.alert_history.episodes.slice(0,12))history.append(element('p','small',`${row.label||riskNames[row.state]||'Sem classificação'} · ${date(row.first_seen_at)} a ${date(row.last_seen_at)} · ${row.samples} coletas.`));
+      target.append(history);
+    }
   }
-  window.WeatherSynthesis={valid,currentStats,presentation,render};
+  window.WeatherSynthesis={valid,currentStats,presentation,riskLevel,render};
   const target=document.getElementById('weather-synthesis-detail');
   if(target){let data=null,version=null,loading=false;
     async function load(){if(loading)return;loading=true;try{
@@ -85,7 +98,7 @@
       const feed=await fetch('./data/dashboard.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('dashboard');return r.json();});
       if(feed.fixture_mode||feed.generated_at!==latest.generated_at||feed.publication_at!==latest.generated_at||!valid(feed.synthesis))throw Error('publication');
       if(version&&Date.parse(feed.generated_at)<Date.parse(version))return;
-      version=feed.generated_at;data=feed.synthesis;render(target,data,true);
+      version=feed.generated_at;data={...feed.synthesis,alert_history:feed.alert_history};render(target,data,true);
     }catch{if(!data)target.replaceChildren(element('p','','Não foi possível consultar a síntese local. Nova tentativa automática.'));else render(target,data,true);}finally{loading=false;}}
     load();setInterval(()=>{if(!document.hidden)load();},60000);window.addEventListener('online',load);document.addEventListener('visibilitychange',()=>{if(!document.hidden)load();});document.getElementById('reload')?.addEventListener('click',load);
   }

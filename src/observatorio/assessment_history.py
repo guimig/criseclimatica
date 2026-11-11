@@ -23,7 +23,9 @@ def merge(previous,dashboard,stamp):
             if moment(old.get('last_seen_at')) is None:raise ValueError('Invalid notice history clock')
             if moment(old['last_seen_at'])>=cutoff:notices[old['id']]=dict(old)
     policy=dashboard['assessment'];state=policy.get('suggested_level') or policy.get('monitoring_state','partial')
-    version=policy.get('rule_version');last=episodes[-1] if episodes else None
+    classification=dashboard.get('risk_classification')
+    if classification:state=classification.get('level') or 'partial'
+    version=classification['method_version'] if classification else policy.get('rule_version');last=episodes[-1] if episodes else None
     same=last and last['state']==state and last.get('rule_version')==version and now-moment(last['last_seen_at'])<=timedelta(hours=6)
     if same:
         if last['last_seen_at']!=stamp:last['samples']+=1
@@ -33,7 +35,7 @@ def merge(previous,dashboard,stamp):
             last['last_sample_is_current']=False
             last['next_sample_at']=stamp
             last['transition_kind']='collection_gap' if now-moment(last['last_seen_at'])>timedelta(hours=6) else 'different_state_sampled'
-        episodes.append({'state':state,'label':policy.get('title'),'first_seen_at':stamp,'last_seen_at':stamp,
+        episodes.append({'state':state,'label':classification.get('name') if classification else policy.get('title'),'first_seen_at':stamp,'last_seen_at':stamp,
                          'samples':1,'rule_version':version,'last_sample_is_current':True})
     for e in episodes:
         e['sampled_span_hours']=round((moment(e['last_seen_at'])-moment(e['first_seen_at'])).total_seconds()/3600,3)

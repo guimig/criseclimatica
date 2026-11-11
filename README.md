@@ -2,6 +2,10 @@
 
 Portal meteorológico aberto com prioridade em Araquari e cobertura de vinte municípios de Santa Catarina e Paraná. Python coleta e processa dados no GitHub Actions; GitHub Pages publica HTML, CSS, JavaScript e JSON. Sem banco pago, Google Sheets, backend no navegador ou credenciais públicas.
 
+## Inicial e classificação atual
+
+A inicial apresenta o nível consultivo, três comparações entre observado e previsto e dois gráficos interativos. Fontes, estações, avisos completos e métodos ficam em **Dados e fontes**. O nível usa as seis categorias da norma; Normalidade exige cobertura atual e ausência de sinais de atenção. Veja [critérios completos, dados usados e limitações](docs/CLASSIFICACAO_CONSULTIVA.md).
+
 ## Interpretação multifontes
 
 A síntese local usa as quatro estações de Araquari com pesos iguais nas variáveis comparáveis. INMET participa da previsão diária/por turno da inicial; previsões horárias podem ser substituídas por variável quando houver outro produto completo. Epagri/Ciram e INMET têm igual relevância meteorológica; a correspondência normativa continua separada da situação meteorológica. Unidades inferidas são identificadas com evidências e limitações. Veja [método atual, cobertura, unidades e critérios](docs/INTERPRETACAO_MULTIFONTES.md).

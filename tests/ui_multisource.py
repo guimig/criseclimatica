@@ -6,6 +6,7 @@ from copy import deepcopy
 from ui_dashboard import fixture, server, OUTPUT
 from ui_details import datasets
 from ui_forecasts import comparison_fixture
+from observatorio.risk_classification import classify
 from observatorio.multisource import build, STATIONS
 from observatorio.dashboard import gauge_distribution
 from ui_campus_station import campus_feed
@@ -30,37 +31,53 @@ def main():
     for key,metric in c['metrics'].items():raw['metrics'][key].update(metric)
     home['campus_station.json']=raw
     dash.update(synthesis=synth,forecast=synth['selected_forecast'],forecast_series=detail['hourly'],forecast_comparison=comp,publication_at=stamp)
+    dash['risk_classification']=classify(dash,detail,stamp);synth['risk_classification']=dash['risk_classification']
     ds=datasets();ds['data/dashboard.json']=dash;ds['data/latest.json']['generated_at']=stamp
+    original=deepcopy(dash)
+    calm_comp=deepcopy(comp)
+    for record in calm_comp['records']:
+        for row in record['hourly']:row.update(gust_kmh=20,wind_kmh=10)
+    calm_c=deepcopy(c);calm_c['metrics']['wind_gust']['latest']['value']=20
+    calm_synth,_,calm_detail=build(original,primary,calm_c,{},calm_comp,comp['inmet'],{},stamp)
+    calm=deepcopy(original);calm.update(synthesis=calm_synth,forecast=calm_synth['selected_forecast'],forecast_series=calm_detail['hourly'])
+    calm['risk_classification']=classify(calm,calm_detail,stamp);calm_synth['risk_classification']=calm['risk_classification']
+    assert calm['risk_classification']['level']=='verde'
     with sync_playwright() as p,server() as url:
         browser=p.chromium.launch(headless=True, executable_path=os.environ.get("WEATHER_BROWSER_PATH"))
-        for width in (390,1440):
+        for width in (320,390,1440):
+            dash.clear();dash.update(deepcopy(original))
             context=browser.new_context(viewport={'width':width,'height':1000})
             for name,payload in home.items():context.route('**/data/'+name,lambda route,request,payload=payload:route.fulfill(json=payload))
             for name,payload in ds.items():
                 if name.removeprefix('data/') not in home:context.route('**/'+name,lambda route,request,payload=payload:route.fulfill(json=payload))
             page=context.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
-            page.goto(url);page.locator('#weather-synthesis-home .synthesis-daily').wait_for()
-            assert 'INMET' in page.locator('#weather-synthesis-home').inner_text()
-            assert 'ECMWF' in page.locator('#forecast-note').inner_text()
+            page.goto(url);page.locator('#forecast-brief').wait_for()
+            assert 'chuva' in page.locator('#forecast-brief').inner_text().lower()
+            assert 'ECMWF' in page.locator('#forecast-source').inner_text()
             assert page.locator('#forecast-value').inner_text()!='—'
             assert '3,0' in page.locator('#observed-value').inner_text()
             page.locator('#plot .station-bar').first.wait_for()
             assert page.locator('#plot .station-bar').count()==3
-            page.locator('#campus-values .campus-value').first.wait_for()
-            assert page.locator('#weather-synthesis-home .synthesis-item').count()==3
-            assert 'vento' in page.locator('#level-title').inner_text().lower()
-            page.get_by_role('button',name='Por que esta leitura?').click()
-            assert 'Pesos iguais' in page.get_by_role('dialog').inner_text()
-            assert '4 estações' in page.get_by_role('dialog').inner_text()
-            page.keyboard.press('Escape')
+            assert page.locator('#campus-values').count()==0
+            assert page.locator('.comparison-metric').count()==3
+            assert page.locator('#level-title').inner_text()=='Atenção'
+            assert page.locator('#weather-synthesis-home,#campus-station,#forecast-comparison,#memory,#inmet-context,#epagri-context').count()==0
+            assert len(page.locator('#level-reason').inner_text())<180
             for theme in ('light','dark'):
                 if theme=='dark':page.locator('#theme-toggle').click()
                 assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
                 page.screenshot(path=str(OUTPUT/f'multisource-home-{theme}-{width}.png'),full_page=True)
             page.goto(url+'dados.html');page.locator('#weather-synthesis-detail .synthesis-daily').wait_for()
             assert 'INMET' in page.locator('#weather-synthesis-detail').inner_text()
+            assert 'Classificação de risco' in page.locator('#weather-synthesis-detail').inner_text()
+            assert '4 estações' in page.locator('#weather-synthesis-detail').inner_text()
             assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
             page.screenshot(path=str(OUTPUT/f'multisource-details-{width}.png'),full_page=True)
+            dash.clear();dash.update(deepcopy(calm))
+            page.goto(url);page.get_by_role('heading',name='Normalidade',exact=True).wait_for()
+            assert page.locator('#level-card').get_attribute('data-risk')=='verde'
+            assert 'acompanhamento das condições' not in page.locator('#level-card').inner_text().lower()
+            page.screenshot(path=str(OUTPUT/f'clear-normality-{width}.png'),full_page=True)
             assert not errors,errors;context.close()
         browser.close()
     print('Multisource browser checks passed: home/details, mobile/desktop, INMET, equal stations, fallback and themes.')

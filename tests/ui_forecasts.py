@@ -46,9 +46,9 @@ def main():
             context.route('**/data/**',route)
             page=context.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
             try:
-                page.goto(url);page.locator('.forecast-comparison-card summary').click();page.locator('.comparison-range').first.wait_for()
-                assert page.locator('#forecast-comparison .inmet-forecast-day').count()==2
-                assert 'vento' in page.locator('#forecast-comparison .inmet-municipal-forecast').inner_text().lower()
+                page.goto(url);page.locator('#forecast-value').wait_for()
+                assert page.locator('#forecast-comparison').count()==0
+                assert page.locator('.comparison-metric').count()==3
                 page.locator('.station-filter summary').click()
                 for theme in ('light','dark'):
                     if theme=='dark':page.locator('#theme-toggle').click()

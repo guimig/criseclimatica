@@ -1,5 +1,8 @@
 # Interpretação multifontes de Araquari
 
+> Apresentação e classificação atuais: [Classificação consultiva e inicial objetiva](CLASSIFICACAO_CONSULTIVA.md). A inicial não exibe mais blocos por fonte; a síntese detalhada e os métodos permanecem na página de dados. O texto genérico “Acompanhamento das condições locais” foi substituído pelo nível consultivo calculado.
+
+
 Implementação de 11/11/2026, método `araquari-multisource-v1`. Este documento descreve a síntese meteorológica atual. As regras de correspondência normativa anteriores continuam separadas; não se atribui decisão institucional automaticamente.
 
 ## Produtos e responsabilidades

@@ -25,7 +25,7 @@ def main():
     # Keep one identity for the campus artifact and the detail manifest.
     with server() as url,sync_playwright() as playwright:
         browser=playwright.chromium.launch();OUTPUT.mkdir(exist_ok=True)
-        for page_name in ('index.html','dados.html'):
+        for page_name in ('dados.html',):
             for width,height,theme in [(1440,1100,'light'),(390,844,'dark'),(320,900,'light')]:
                 context=browser.new_context(viewport={'width':width,'height':height},color_scheme=theme)
                 data=home.copy() if page_name=='index.html' else {k.removeprefix('data/'):v for k,v in detail.items()}
