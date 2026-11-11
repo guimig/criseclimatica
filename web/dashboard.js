@@ -362,6 +362,7 @@ function renderChart() {
   el('chart-heading').textContent='Observações e previsão';
   el('recent-summary').hidden=panel.observedVariable!=='temperature_c';
   el('observed-heading').textContent=rain?`Chuva medida · ${panel.rainWindow} h`:'Observado · '+variable.toLowerCase();
+  if(el('forecast-source'))el('forecast-source').textContent=data?.forecast?.sources_by_variable?.[panel.variable]?.name||'Previsão horária';
   el('forecast-heading').textContent=forecastRain?'Chuva prevista · por hora':panel.variable==='temperature_c'?'Temperatura prevista':'Vento e rajadas previstos';
   el('chart-period').textContent='Horários de Brasília';
   const base=Number.isFinite(Date.parse(data?.forecast?.start_at))?Date.parse(data.forecast.start_at):Math.floor(anchor/3600000)*3600000;
@@ -376,7 +377,7 @@ function renderChart() {
   drawWeatherChart(el('forecast-plot'),el('forecast-legend'),el('forecast-tooltip'),forecast,[base,base+panel.hours*3600000],el('forecast-heading').textContent,forecastUnit,shared);
   el('observed-period').textContent=snapshot?'Última leitura disponível de cada estação':date(new Date(anchor-panel.hours*3600000).toISOString())+' — '+date(new Date(anchor).toISOString());
   const names=[...new Set(allObserved.map(s=>s.name))];
-  el('observed-source').textContent=rain?'Estações de Araquari':'Estações · IFC / METAR / Cemaden';
+  el('observed-source').textContent=rain?(nearby?'Cemaden · entorno':'Estações de Araquari'):'Estações · IFC / METAR / Cemaden';
   el('station-coverage').textContent=rain?(nearby?`${names.length} estações do entorno com posição verificada, a até ${data?.regional_rain_context?.radius_km||40} km do ponto de Araquari. Apenas últimas leituras; não entram nos indicadores locais.`:`Araquari · ${names.length} estações de chuva com amostras neste período. Altere a área para consultar o entorno.`):'Medições pontuais de estações próximas, com fontes e distâncias nos detalhes.';
   el('forecast-period').textContent=date(new Date(base).toISOString())+' — '+date(new Date(base+panel.hours*3600000).toISOString());
   el('observed-caption').textContent=rain&&snapshot?`Acumulado de ${panel.rainWindow} h por estação. As leituras podem ter horários diferentes; toque nas barras para conferir.`:rain?(panel.rainWindow===1?'Cada faixa ocupa a hora realmente medida. Espaços sem faixas são períodos sem amostra; a coleta tem alvo de 30 min, sujeita a atrasos.':'Faixas de acumulado móvel de 24 h podem se sobrepor. Não some as faixas nem compare sua altura com chuva prevista de 1 h.'):'Amostras de estação; linhas interrompidas em lacunas superiores a 4 h. Não são médias municipais.';

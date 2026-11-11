@@ -59,7 +59,9 @@
     const inmet=days.find(r=>r.source==='INMET');
     if(inmet){
       const periods={manha:'manhã',tarde:'tarde',noite:'noite',dia:'dia'};
-      target.append(element('p','synthesis-daily',`INMET · ${inmet.day.split('-').reverse().join('/')} · mín. ${number(inmet.minimum_c)} °C / máx. ${number(inmet.maximum_c)} °C${inmet.cached?' · consulta anterior':''}. `+(inmet.periods||[]).map(p=>`${periods[p.period]||p.period}: ${p.summary}${p.wind_intensity_text?'; vento '+p.wind_intensity_text:''}`).join(' · ')));
+      const grouped=new Map();for(const p of inmet.periods||[]){const text=`${p.summary}${p.wind_intensity_text?'; vento '+p.wind_intensity_text:''}`;if(!grouped.has(text))grouped.set(text,[]);grouped.get(text).push(periods[p.period]||p.period);}
+      const descriptions=[...grouped].map(([text,labels])=>labels.join(', ')+': '+text).join(' · ');
+      target.append(element('p','synthesis-daily',`INMET · ${inmet.day.split('-').reverse().join('/')} · mín. ${number(inmet.minimum_c)} °C / máx. ${number(inmet.maximum_c)} °C${inmet.cached?' · consulta anterior':''}. `+descriptions));
     }
     const cp=days.find(r=>r.source==='CPTEC/INPE');
     if(cp)target.append(element('p','small',`CPTEC/INPE · ${cp.day.split('-').reverse().join('/')} · ${cp.locality||'localidade de referência'}: ${number(cp.minimum_c)}–${number(cp.maximum_c)} °C. Períodos ainda não conciliados com os produtos horários.`));
