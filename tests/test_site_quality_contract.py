@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'scripts'))
@@ -13,6 +14,23 @@ from validate_site import validate
 
 
 class QualityDeploymentTests(unittest.TestCase):
+    def setUp(self):
+        # Historical RSS examples must be evaluated at their scenario clock,
+        # never at the date on which a scheduled production job runs.
+        clock = patch('build_site.now_utc', return_value='2026-11-06T12:00:00Z')
+        clock.start()
+        self.addCleanup(clock.stop)
+
+    def test_expired_editorial_feed_does_not_invalidate_an_otherwise_valid_site(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target=Path(directory)/'site'
+            with patch('build_site.now_utc', return_value='2030-11-13T12:00:00Z'):
+                build(target,fixture=ROOT/'tests/fixtures/open_meteo.json')
+            bulletins=json.loads((target/'data/epagri_bulletins.json').read_text())
+            self.assertEqual(bulletins['status'],'no_recent_bulletins')
+            self.assertEqual(bulletins['bulletins'],[])
+            validate(target,fixture=True)
+
     def test_offline_build_has_both_new_attributed_datasets(self):
         with tempfile.TemporaryDirectory() as directory:
             target=Path(directory)/'site'

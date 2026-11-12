@@ -42,3 +42,11 @@ Nesse host, configure previamente `GITHUB_UPDATE_TOKEN` no mecanismo privado de 
 6. Renove o token privado antes do vencimento definido no GitHub. Não se publica a credencial nem seu valor em arquivos ou logs.
 
 O GitHub continua executando o pipeline mesmo com disparo externo. Esse mecanismo reduz a dependência do evento `schedule`, mas não elimina indisponibilidade de runners, provedores ou Pages. Referência: [API oficial de workflows](https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event).
+
+## Correção de 12/11/2026 — teste histórico bloqueando a coleta
+
+O disparo externo continuou a cada 30 minutos, mas o job falhava em **Validate code before collecting**, antes de consultar as fontes. Os testes de integração de boletins editoriais Epagri/Ciram comparavam publicações fictícias de 05/11 com o relógio real. Após sete dias, o parser corretamente retornou `no_recent_bulletins`; dois testes que esperavam boletins disponíveis falharam. A última publicação preservada era de 12/11 às 13:34:07 UTC (10:34 de Brasília).
+
+Os cenários desses testes agora usam relógio explícito de 06/11. Há também regressão com relógio de 2030, verificando que boletins expirados continuam excluídos e que um artefato válido com essa fonte vazia pode ser publicado. Não houve extensão de validade nem mudança dos critérios de risco.
+
+A suíte Python completa e os contratos JavaScript continuam sendo executados antes de cada coleta, inclusive em ciclos automáticos. A validação integral dos dados reais continua obrigatória antes do deploy. A correção está no relógio do cenário de teste; nenhum teste foi removido e nenhuma barreira de integridade foi desativada. Agendamento de 30 minutos e publicação atômica preservados.
