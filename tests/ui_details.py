@@ -51,6 +51,23 @@ def datasets():
 def main():
     from playwright.sync_api import sync_playwright
     data=datasets();OUTPUT.mkdir(exist_ok=True)
+    from observatorio.defesa_civil_sc import event_window
+    from zoneinfo import ZoneInfo
+    now=datetime.now(timezone.utc);start=now-timedelta(hours=3)
+    local=start.astimezone(ZoneInfo('America/Sao_Paulo'))
+    alert={'title':'ATENÇÃO – '+local.strftime('%d/%m %H:%M')+' – Temporais nas próximas 2 horas.',
+           'url':'https://www.defesacivil.sc.gov.br/'+local.strftime('%Y/%m/%d')+'/aviso-ui/',
+           'published_at':(start+timedelta(minutes=4)).isoformat(),'category':'alerta_publicado',
+           'mentioned_location_ids':['araquari'],'summary':'Resumo de teste.',
+           'assessment_text':'Temporais para os municípios de Araquari e Joinville nas próximas 2 horas.',
+           'validity_status':'not_verified_from_publication_date'}
+    alert['event_window']=event_window(alert)
+    monitor={'title':'Monitoramento Meteorológico DC/SC','url':'https://www.defesacivil.sc.gov.br/'+local.strftime('%Y/%m/%d')+'/monitor-ui/',
+             'published_at':now.isoformat(),'category':'monitoramento_publicado','mentioned_location_ids':[],
+             'regional_references':['state_context_not_municipal_confirmation'],
+             'summary':'Contexto regional de teste.','assessment_text':'Informações regionais para Santa Catarina.',
+             'validity_status':'not_verified_from_publication_date'}
+    data['data/defesa_civil_sc.json'].update(status='available',checked_at=now.isoformat(),last_successful_check=now.isoformat(),publications=[alert,monitor])
     with server() as url,sync_playwright() as playwright:
         browser=playwright.chromium.launch()
         for width,height in [(1440,1100),(768,1050),(390,844),(320,900)]:
@@ -101,6 +118,16 @@ def main():
                 assert page.get_by_role('tab',name='Histórico e redes',exact=True).get_attribute('aria-selected')=='true'
                 page.go_back()
                 assert page.get_by_role('tab',name='Avisos',exact=True).get_attribute('aria-selected')=='true'
+                page.goto(url+'dados.html#defesa-title')
+                page.locator('#defesa-list .defesa-entry').first.wait_for()
+                assert page.locator('#defesa-list .defesa-entry').count()==2
+                assert 'encerrada' in page.locator('#defesa-list').inner_text()
+                assert 'Contexto regional; abrangência municipal não confirmada' in page.locator('#defesa-list').inner_text()
+                full=page.locator('#defesa-list .defesa-entry details').first
+                assert not full.evaluate('el=>el.open')
+                full.locator('summary').click()
+                assert 'para os municípios de Araquari' in full.inner_text()
+                assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
                 page.goto(url+'dados.html#archive-title')
                 page.locator('#archive-title').wait_for(state='visible')
                 assert page.get_by_role('tab',name='Histórico e redes',exact=True).get_attribute('aria-selected')=='true'

@@ -484,7 +484,7 @@ function renderDefesa() {
   const source = state.defesa;
   const posts = Array.isArray(source?.publications) ? source.publications : [];
   const mentioned = posts.filter(p => Array.isArray(p.mentioned_location_ids) && p.mentioned_location_ids.includes(state.slug));
-  const statewide = posts.filter(p => p.category === 'previsao_publicada' && !mentioned.includes(p));
+  const statewide = posts.filter(p => !mentioned.includes(p)&&(p.category === 'previsao_publicada'||p.regional_references?.some(r=>['litoral_norte','state_context_not_municipal_confirmation'].includes(r))));
   const selected = [...mentioned, ...statewide].slice(0, 9);
   $('defesa-count').textContent = mentioned.length ? `${mentioned.length} publicação(ões) mencionando a localidade` : 'Menção municipal não identificada';
   const failures = (source?.source_diagnostics || []).slice(0, 2).join(' / ');
@@ -503,11 +503,14 @@ function renderDefesa() {
         anchor.href = address.href; anchor.target = '_blank'; anchor.rel = 'noopener noreferrer';
       }
     } catch (_) { /* omit invalid link */ }
-    const where = mentioned.includes(post) ? 'Menção explícita ao município no resumo' : 'Boletim estadual; abrangência local não verificada';
+    const where = mentioned.includes(post) ? 'Menção explícita ao município no texto da fonte' : 'Contexto regional; abrangência municipal não confirmada';
     const timeText = post.publication_precision === 'calendar_day_from_url_not_exact_time' ? `data aproximada: ${post.published_at?.slice(0, 10).split('-').reverse().join('/')}` : datetime(post.published_at);
     const label = child('span', 'analysis-foot', `${post.category?.replaceAll('_', ' ') || 'Publicação'} · ${timeText} · ${where}`);
     item.append(anchor, label);
     if (post.summary) item.append(child('p', 'defesa-summary', post.summary));
+    const window=post.event_window;
+    if(window&&Number.isFinite(Date.parse(window.end_at)))item.append(child('p','analysis-foot',`Janela informada: ${datetime(window.start_at)} a ${datetime(window.end_at)} · ${Date.now()>=Date.parse(window.end_at)?'encerrada':'revisão ou cancelamento não confirmados'}.`));
+    if(post.assessment_text){const details=child('details','source-disclosure');details.append(child('summary','','Ler texto da fonte'),child('p','defesa-summary',post.assessment_text));item.append(details);}
     target.append(item);
   }
 }

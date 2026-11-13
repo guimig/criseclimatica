@@ -166,7 +166,7 @@ def publication_evidence(bulletins, defesa, stamp):
         clock='retrieved_at' if source=='Epagri/Ciram' else 'last_successful_check'
         if not eligible(feed,stamp,clock):continue
         query_end=moment(feed[clock])+timedelta(hours=6)
-        for p in feed.get(key,[])[:4]:
+        for p in feed.get(key,[])[:35 if source=='Defesa Civil SC' else 4]:
             url=urlparse(p.get('url',''))
             hosts=('ciram.epagri.sc.gov.br',) if source=='Epagri/Ciram' else ('defesacivil.sc.gov.br','www.defesacivil.sc.gov.br')
             if url.scheme!='https' or url.hostname not in hosts or url.username or url.password:continue
@@ -174,11 +174,20 @@ def publication_evidence(bulletins, defesa, stamp):
             published=moment(p.get('published_at'))
             if not published or published>now:continue
             start,end=_window(text)
+            inferred_region=None
+            if source=='Defesa Civil SC' and not (start and end):
+                from .defesa_civil_sc import event_window
+                window=event_window(p)
+                if window:
+                    start,end=window['start_at'],window['end_at']
+                    region=re.search(r'para (?:os? municipios?|as? regioes?) (?:de |do |da |dos |das )?(.{1,700}?)(?=nas proximas|durante|[.\n])',normalized(text))
+                    if region and scope(region[1]):inferred_region=scope(region[1])
             blocks=[]
             if start and end and moment(start)<moment(end):
                 # Explicit windows require an explicit regional scope label.
                 region=re.search(r'(?:Regi[oõ]es|Regi[aã]o|Munic[ií]pios|Abrang[eê]ncia)\s*:\s*([^\n.;]{1,220})',text,re.I)
                 if region and scope(region[1]):blocks=[(start,end,text,scope(region[1]))]
+                elif inferred_region:blocks=[(start,end,text,inferred_region)]
             if not blocks and source=='Epagri/Ciram':
                 # Editorial civil dates, never publication time as event time.
                 headers=list(re.finditer(r'\((\d{2})/(\d{2})(?:/(\d{4}))?\)\s*:',text))
@@ -208,7 +217,7 @@ def publication_evidence(bulletins, defesa, stamp):
                              'kind':'scoped_dated_publication_attention_not_verified_disaster'})
                 emitted=True
             if not emitted:pending.append({'source':source,'title':p.get('title'),'url':p['url'],
-                                           'reason':'missing_applicable_window_scope_or_positive_cue'})
+                                           'reason':'expired_event_window' if end and moment(end)<=now else 'missing_applicable_window_scope_or_positive_cue'})
     # Same announcement may be present in multiple categories; do not multiply it.
     unique={(r['source'],r['url'],r['start_at'],r['summary']):r for r in rows}
     bounded=[]
