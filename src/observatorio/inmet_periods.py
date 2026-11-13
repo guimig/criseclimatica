@@ -15,6 +15,7 @@ WEATHER = re.compile(r'(?:ceu claro|claro|poucas nuvens|muitas nuvens|parcialmen
 HAZARDS = (('trovoadas', r'\btrovoadas?\b'),
            ('tempestade', r'\b(?:tempestades?|temporais|temporal)\b'),
            ('granizo', r'\bgranizo\b'),
+           ('vento forte/intenso', r'\b(?:ventos?|rajadas)\b.{0,35}\b(?:fortes?|intensos?)\b'),
            ('chuva forte/intensa', r'\b(?:chuva|chuvas|pancadas de chuva)\b.{0,35}\b(?:fortes?|intensas?)\b'))
 
 
@@ -64,6 +65,7 @@ def assess(context, stamp):
                         phenomena.append(name); break
             if not re.search(r'\b(?:sem|nao)\b', wind) and re.search(r'\b(?:fortes?|intensos?)\b', wind):
                 phenomena.append('vento forte/intenso')
+            phenomena=list(dict.fromkeys(phenomena))
             hazard = bool(phenomena)
             rows.append({'source': day['source'], 'location_id': 'araquari', 'day': day['day'], 'period': label,
                          'summary': period.get('summary'), 'wind_intensity_text': period.get('wind_intensity_text'),

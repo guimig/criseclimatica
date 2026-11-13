@@ -107,6 +107,12 @@ class SourceEvidenceTests(unittest.TestCase):
                     'Regiões: Litoral Norte. Tempestade nas próximas horas.',text.replace('Chuva intensa','Sem tempestade')):
             self.assertEqual(publication_evidence(bulletin(bad),{},STAMP)[0],[])
 
+    def test_editorial_wind_and_explicit_exclusion_are_respected(self):
+        text='Início: 13/11/2026 às 06h00\nFim: 13/11/2026 às 18h00\nRegiões: Litoral Norte\nVento forte.'
+        self.assertEqual(len(publication_evidence(bulletin(text),{},STAMP)[0]),1)
+        excluded=text.replace('Regiões: Litoral Norte','Regiões: Todo o estado, menos o Litoral Norte')
+        self.assertEqual(publication_evidence(bulletin(excluded),{},STAMP)[0],[])
+
     def test_other_region_positive_text_cannot_leak_into_local_publication(self):
         text='Início: 13/11/2026 às 06h00\nFim: 13/11/2026 às 18h00\nRegiões: Litoral Norte\nTempo estável no Litoral Norte. Tempestade no Oeste.'
         self.assertEqual(publication_evidence(bulletin(text),{},STAMP)[0],[])

@@ -152,7 +152,7 @@ def regional_inmet_rain(feed, point, stamp):
 
 def scope(text):
     text=normalized(text)
-    if re.search(r'\b(?:exceto|excecao|nao inclui)\b',text):return None
+    if re.search(r'\b(?:exceto|excecao|menos|nao inclui)\b',text):return None
     if re.search(r'\baraquari\b',text):return 'municipality_explicit'
     if re.search(r'litoral norte|norte catarinense|faixa leste do estado|todo o estado|todas as regio|\bem sc\b|em santa catarina',text):
         return 'regional_reference_not_municipal_confirmation'
@@ -194,7 +194,7 @@ def publication_evidence(bulletins, defesa, stamp):
                 if moment(b)<=now or moment(a)>=now+timedelta(hours=24):continue
                 folded=normalized(text)
                 phenomena=[]
-                for clause in re.split(r'[.;\n]',folded):
+                for clause in re.split(r'[.;\n]|\bmas\b|\bporem\b',folded):
                     if re.search(r'\b(?:oeste|sul|planalto)\b|vale do itajai|florianopolis',clause) and not scope(clause):continue
                     if re.search(r'\b(?:sem|nao|descartad[oa])\b',clause):continue
                     phenomena += [name for name,pattern in HAZARDS if re.search(pattern,clause)]
