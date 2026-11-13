@@ -163,8 +163,9 @@ def merge_archive(previous, comparison):
             publications[p['saved_at']] = p
     rows = []
     for record in comparison['records']:
-        # Retain complete future rainfall intervals only; no retrospective reconstruction.
-        hourly = [r for r in record['hourly'] if now+timedelta(hours=1) <= moment(r['time']) <= now+timedelta(hours=72)]
+        # Keep the current forecast point for wind/temperature recovery as well
+        # as future rainfall endpoints. These rows never become observations.
+        hourly = [r for r in record['hourly'] if now.replace(minute=0, second=0, microsecond=0) <= moment(r['time']) <= now+timedelta(hours=72)]
         if hourly:
             rows.append({**record, 'hourly': hourly})
     publications[comparison['generated_at']] = {'saved_at': comparison['generated_at'], 'records': rows, 'cptec': comparison['cptec'], 'inmet': comparison.get('inmet')}

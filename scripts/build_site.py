@@ -405,7 +405,7 @@ def build(
     dashboard['forecast_comparison'] = comparison
     synthesis, multisource_history, selected_detail = build_multisource(dashboard,
         next(r for r in analysis['locations'] if r['location_id'] == 'araquari'), campus,
-        cemaden_sensors, comparison, inmet_forecast, epagri_bulletins, stamp, previous_multisource)
+        cemaden_sensors, comparison, inmet_forecast, epagri_bulletins, stamp, previous_multisource, forecast_archive=previous_model_archive)
     synthesis['unit_inference'] = cemaden_sensors.get('unit_inference', [])
     dashboard['synthesis'] = synthesis
     dashboard['forecast'] = synthesis['selected_forecast']

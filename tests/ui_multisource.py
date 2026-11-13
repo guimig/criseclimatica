@@ -6,6 +6,7 @@ from copy import deepcopy
 from ui_dashboard import fixture, server, OUTPUT
 from ui_details import datasets
 from ui_forecasts import comparison_fixture
+from observatorio.forecast_comparison import merge_archive
 from observatorio.risk_classification import classify
 from observatorio.multisource import build, STATIONS
 from observatorio.dashboard import gauge_distribution
@@ -42,6 +43,17 @@ def main():
     calm=deepcopy(original);calm.update(synthesis=calm_synth,forecast=calm_synth['selected_forecast'],forecast_series=calm_detail['hourly'])
     calm['risk_classification']=classify(calm,calm_detail,stamp);calm_synth['risk_classification']=calm['risk_classification']
     assert calm['risk_classification']['level']=='verde'
+    qualitative=deepcopy(calm)
+    qs,_,qd=build(qualitative,primary,calm_c,{}, {'records':[]},comp['inmet'],{},stamp)
+    qualitative.update(synthesis=qs,forecast=qs['selected_forecast'],forecast_series=qd['hourly'])
+    qualitative['risk_classification']=classify(qualitative,qd,stamp);qs['risk_classification']=qualitative['risk_classification']
+    assert qualitative['risk_classification']['level']=='verde'
+    recovered=deepcopy(calm)
+    rs,_,rd=build(recovered,primary,calm_c,{}, {'records':[]},comp['inmet'],{},stamp,
+                  forecast_archive=merge_archive(None,calm_comp))
+    recovered.update(synthesis=rs,forecast=rs['selected_forecast'],forecast_series=rd['hourly'])
+    recovered['risk_classification']=classify(recovered,rd,stamp);rs['risk_classification']=recovered['risk_classification']
+    assert recovered['risk_classification']['level']=='verde'
     with sync_playwright() as p,server() as url:
         browser=p.chromium.launch(headless=True, executable_path=os.environ.get("WEATHER_BROWSER_PATH"))
         for width in (320,390,1440):
@@ -84,6 +96,21 @@ def main():
             assert page.locator('#level-card').get_attribute('data-risk')=='verde'
             assert 'acompanhamento das condições' not in page.locator('#level-card').inner_text().lower()
             page.screenshot(path=str(OUTPUT/f'clear-normality-{width}.png'),full_page=True)
+            dash.clear();dash.update(deepcopy(qualitative))
+            page.goto(url);page.get_by_role('heading',name='Normalidade',exact=True).wait_for()
+            assert 'previsão por turnos' in page.locator('#level-kind').inner_text()
+            assert page.locator('#forecast-value').inner_text()=='—'
+            assert page.locator('#forecast-brief').is_visible()
+            page.locator('#level-explain').click();assert page.locator('#detail-dialog').is_visible()
+            assert 'qualitativa' in page.locator('#dialog-content').inner_text()
+            page.keyboard.press('Escape')
+            page.goto(url+'dados.html');page.locator('#weather-synthesis-detail').get_by_role('heading',name='Normalidade',exact=True).wait_for()
+            assert 'INMET diário/por turno' in page.locator('#weather-synthesis-detail').inner_text()
+            dash.clear();dash.update(deepcopy(recovered))
+            page.goto(url);page.get_by_role('heading',name='Normalidade',exact=True).wait_for()
+            assert 'consulta anterior' in page.locator('#forecast-source').inner_text()
+            assert page.locator('#forecast-value').inner_text()!='—'
+            assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
             assert not errors,errors;context.close()
         browser.close()
     print('Multisource browser checks passed: home/details, mobile/desktop, INMET, equal stations, fallback and themes.')

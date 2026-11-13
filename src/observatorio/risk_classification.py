@@ -9,16 +9,16 @@ from zoneinfo import ZoneInfo
 from .analysis import fresh, hourly_bins, iso, moment
 from .protocol import qualitative_match, LEVELS
 
-VERSION = 'araquari-risk-v2'
+VERSION = 'araquari-risk-v3'
 ORDER = {level['id']: i for i, level in enumerate(LEVELS)}
 NAMES = {level['id']: level['name'] for level in LEVELS}
 VARIABLES = {'rain_1h_mm': 'Chuva em 1 h', 'rain_24h_mm': 'Chuva em 24 h',
              'wind_kmh': 'Vento', 'gust_kmh': 'Rajadas'}
 
 RULES = {
-    'verde': 'Chuva local de 1 h e 24 h, previsão completa de chuva/vento/rajadas e consulta atual de avisos; nenhuma evidência de atenção.',
+    'verde': 'Chuva local de 1 h e 24 h e consulta atual de avisos; previsão horária completa ou cobertura qualitativa INMET de 24 h com medições locais de vento/rajadas para os campos substituídos; nenhum sinal de atenção.',
     'azul': 'Aviso aplicável com evento previsto para sete dias ou mais.',
-    'amarelo': 'Faixa auxiliar de chuva/vento atingida ou aviso aplicável; aviso municipal positivo com prazo ainda não conciliado também exige atenção.',
+    'amarelo': 'Faixa auxiliar atingida, aviso aplicável ou previsão municipal INMET com trovoadas, tempestade, granizo, chuva forte/intensa ou vento forte/intenso; validade municipal pendente também exige atenção.',
     'laranja': 'Aviso com indicação explícita de risco alto/alta probabilidade ou medição e previsão compatíveis nas faixas intermediárias/superiores.',
     'vermelho': 'Aviso válido com indicação explícita de perigo concreto, tempestade severa iminente ou ameaça à vida; não resulta de um pico numérico isolado.',
     'roxo': 'Exige verificação de danos, desastre prolongado ou decreto aplicável. Não é atribuído automaticamente por esta versão.',
@@ -127,6 +127,16 @@ def classify(dashboard, detail, stamp):
         add(n['supports_level'], f"Epagri/Ciram: {n.get('title') or 'aviso para a região'}.",
             'qualitative_epagri_evidence', expiry, [n])
 
+    from .inmet_periods import assess as assess_inmet_periods
+    qualitative = assess_inmet_periods(synthesis.get('forecast_context', {}), stamp)
+    for row in qualitative['periods']:
+        if row['hazard']:
+            label = {'manha': 'manhã', 'tarde': 'tarde', 'noite': 'noite', 'dia': 'dia'}[row['period']]
+            short_date = datetime.strptime(row['day'], '%Y-%m-%d').strftime('%d/%m')
+            phenomena = ', '.join(row['phenomena'][:3])
+            add('amarelo', f"INMET: previsão de {phenomena} ({short_date}, {label}).",
+                'inmet_qualitative_forecast_attention', [row['valid_until']], [row])
+
     # Green requires positive coverage, not merely an empty warning list.
     for variable in ('rain_1h_mm', 'rain_24h_mm'):
         refs = [r for r in synthesis['observations'] if r['variable'] == variable and r.get('threshold_eligible', True)
@@ -135,7 +145,23 @@ def classify(dashboard, detail, stamp):
                              'valid_until': max((r['valid_until'] for r in refs), default=None)})
     for field, label in (('precipitation_mm', 'Chuva prevista'), ('wind_kmh', 'Vento previsto'), ('gust_kmh', 'Rajadas previstas')):
         r = forecast.get('sources_by_variable', {}).get(field, {})
-        requirements.append({'id': field, 'label': label, 'available': r.get('status') == 'available', 'valid_until': r.get('valid_until')})
+        hourly = r.get('status') == 'available' and moment(r.get('valid_until')) and now < moment(r['valid_until'])
+        q = qualitative['coverage']['rain' if field == 'precipitation_mm' else 'wind']
+        # Textual wind cannot replace a gust maximum. The qualitative route
+        # additionally requires a real current local measurement of that field.
+        observations = [o for o in synthesis['observations'] if o['variable'] == field
+                        and o.get('scope') == 'araquari' and moment(o.get('valid_until'))
+                        and moment(o.get('end_at')) and moment(o['end_at']) <= now < moment(o['valid_until'])]
+        alternative = q['available'] and (field == 'precipitation_mm' or bool(observations))
+        expires = r.get('valid_until') if hourly else q['valid_until'] if alternative else None
+        if alternative and not hourly and observations:
+            expires = iso(min(moment(expires), max(moment(o['valid_until']) for o in observations)))
+        if alternative and not hourly:
+            label = {'precipitation_mm': 'Chuva prevista por período', 'wind_kmh': 'Vento qualitativo e observado',
+                     'gust_kmh': 'Vento qualitativo e rajadas observadas'}[field]
+        requirements.append({'id': field, 'label': label, 'available': bool(hourly or alternative), 'valid_until': expires,
+                             'resolution': 'hourly_quantitative' if hourly else 'qualitative_daily_or_period' if alternative else None,
+                             'evidence': [r] if hourly else q['evidence']+observations if alternative else []})
     requirements.append({'id': 'warnings', 'label': 'Consulta de avisos', 'available': bool(warning_sources),
                          'valid_until': max((r['valid_until'] for r in warning_sources), default=None)})
     pending_epagri = [n for n in base.get('evidence', []) if n.get('status') == 'needs_territorial_or_temporal_check'
@@ -143,15 +169,18 @@ def classify(dashboard, detail, stamp):
     requirements.append({'id': 'epagri_pending', 'label': 'Abrangência e validade dos avisos', 'available': not pending_epagri,
                          'valid_until': iso(now+timedelta(hours=8)) if not pending_epagri else None})
     if all(r['available'] and moment(r['valid_until']) and now < moment(r['valid_until']) for r in requirements) and not candidates:
-        add('verde', 'Chuva e vento abaixo das faixas de atenção.', 'complete_monitored_coverage',
+        add('verde', 'Sem sinais de atenção nas referências monitoradas.', 'qualitative_monitored_coverage' if any(r.get('resolution') == 'qualitative_daily_or_period' for r in requirements) else 'complete_monitored_coverage',
             [r['valid_until'] for r in requirements], requirements)
     product = {'schema_version': 1, 'method_version': VERSION, 'generated_at': stamp,
                'kind': 'consultative_risk_level_not_official_decision', 'official_level': None,
                'candidates': sorted(candidates, key=lambda c: ORDER[c['level']], reverse=True),
-               'requirements': requirements, 'warning_sources': warning_sources,
+               'requirements': requirements, 'warning_sources': warning_sources, 'qualitative_forecast': qualitative,
+               'coverage': {'forecast_resolution': 'mixed_or_qualitative' if any(r.get('resolution') == 'qualitative_daily_or_period' for r in requirements) else 'hourly' if all(r.get('available') for r in requirements if r['id'] in ('precipitation_mm', 'wind_kmh', 'gust_kmh')) else 'incomplete',
+                            'retained_hourly_variables': [k for k, r in forecast.get('sources_by_variable', {}).items() if r.get('retained_previous')]},
                'levels': [{'id': k, 'name': NAMES[k], 'criterion': RULES[k]} for k in ORDER],
                'limitations': ['Calamidade exige evidências verificadas de impacto ou decreto; não é inferida dos sensores.',
-                              'Faixas numéricas são referências auxiliares do aplicativo, não limites definidos pela portaria.']}
+                              'Faixas numéricas são referências auxiliares do aplicativo, não limites definidos pela portaria.',
+                              'Previsão diária/por turno é qualitativa; não comprova chuva ou rajadas abaixo de limites numéricos.']}
     product.update(evaluate(product, stamp))
     return product
 

@@ -106,13 +106,13 @@ class ComparisonTests(unittest.TestCase):
         self.assertEqual(request.call_count,2)
         request.reset_mock();collect(LOCATION,STAMP,fixture=True);request.assert_not_called()
 
-    def test_archive_idempotent_future_only_and_fail_closed(self):
+    def test_archive_idempotent_current_forecast_hour_and_fail_closed(self):
         c=summarize(detail(),[source()],{},STAMP)
         a=merge_archive(None,c);b=merge_archive(a,c)
         self.assertEqual(a,b)
         self.assertEqual(len(a['publications']),1)
         for r in a['publications'][0]['records']:
-            self.assertTrue(all(datetime.fromisoformat(p['time'].replace('Z','+00:00'))-timedelta(hours=1)>datetime.fromisoformat(STAMP.replace('Z','+00:00')) for p in r['hourly']))
+            self.assertTrue(all(datetime.fromisoformat(p['time'].replace('Z','+00:00'))>=datetime.fromisoformat(STAMP.replace('Z','+00:00')).replace(minute=0,second=0,microsecond=0) for p in r['hourly']))
         with self.assertRaises(ValueError):merge_archive({'kind':'wrong'},c)
         a['publications'][0]['saved_at']='2026-10-01T00:00:00Z'
         self.assertEqual(len(merge_archive(a,c)['publications']),1)
