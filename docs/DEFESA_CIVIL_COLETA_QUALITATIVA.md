@@ -24,7 +24,7 @@ O portal oficial respondeu normalmente ao teste; isso não comprova disponibilid
 6. Menções municipais são buscadas no texto completo e por palavras inteiras. Referência a Litoral Norte ou contexto estadual pode aparecer na página detalhada, identificada como **contexto regional, sem confirmação de abrangência municipal**.
 7. O conteúdo completo aparece recolhido em **Ler texto da fonte**, com link para o artigo oficial. Nenhum bloco permanente foi adicionado à inicial.
 
-O acesso alternativo `?rest_route=/wp/v2/posts` também respondeu no diagnóstico, mas não foi adicionado como consulta redundante: o JSON principal funcionou com o prazo corrigido. Ambos dependem do mesmo portal e não constituem infraestrutura independente. O feed `/alerta/feed/` retornou um RSS sem itens na consulta; a integração mantém os feeds das categorias, que não devem ser confundidos com o feed de uma página.
+O acesso alternativo `?rest_route=/wp/v2/posts` também respondeu no teste externo ao GitHub, mas não foi adicionado como consulta redundante: ambos dependem do mesmo portal e falharam no runner, conforme a verificação abaixo. O feed `/alerta/feed/` retornou um RSS sem itens na consulta; a integração mantém os feeds das categorias, que não devem ser confundidos com o feed de uma página.
 
 ## Prazo do alerta e validade da publicação
 
@@ -37,6 +37,31 @@ A validação do artefato recalcula essa janela a partir do título, texto e pub
 Foi reproduzido um alerta de 12/11 às 19h24 para Araquari e outros municípios, com duração de duas horas e publicação às 19h28. A janela termina às 21h24 do próprio dia 12; ele pode ser consultado como histórico, mas não elevar o risco do dia 13. Esse exemplo demonstra por que a recuperação dos textos não autoriza tratar todas as publicações retornadas como alertas ativos.
 
 ## Verificação e limites
+
+### Impedimento operacional confirmado no GitHub Actions
+
+A publicação do PR #54 passou nos testes e no deploy, mas **a fonte permaneceu indisponível em produção**. Aumentar o timeout corrigiu uma limitação observada no ambiente de diagnóstico; não resolveu a conexão do GitHub com o portal.
+
+No runner Ubuntu do workflow de qualidade, execução `43463813198`, em 13/11/2026 às 16h35 UTC:
+
+| Sondagem | Resultado |
+| --- | --- |
+| JSON com apenas um link no domínio `www` | Timeout em 12,31 s |
+| Mesmo JSON sem `www` | Timeout em 12,56 s |
+| API via `?rest_route=` | Timeout em 12,32 s |
+| `curl --ipv4`, domínio `www` | DNS respondeu; conexão TCP não concluída em 6 s; nenhum HTTP/TLS |
+| `curl --ipv6`, domínio `www` | Nenhum endereço resolvido para essa família |
+| Feed federal `https://idapfile.mdr.gov.br/idap/api/rss/cap` | HTTP 200 em 1,13 s, leitura de apenas 1 kB |
+
+O coletor completo também terminou sem publicações nesse runner. A execução de publicação `43462520278` gerou `status: unavailable`. Isso situa a falha antes da extração dos textos e, no teste IPv4, antes do HTTP. Não comprova a causa administrativa da restrição: bloqueio de IP/faixa, firewall e roteamento são hipóteses, não fatos demonstrados. Também não prova disponibilidade completa do feed federal.
+
+### Encaminhamentos para recuperar a coleta automática
+
+1. **Preferência: acesso oficial do runner.** Apresentar à operação do portal os horários e resultados acima e solicitar verificação do acesso HTTPS originado do GitHub Actions. Se houver necessidade de liberação por IP fixo, usar executor controlado com saída fixa; os runners hospedados não oferecem esse controle neste projeto.
+2. **Alternativa: coletor em executor controlado com acesso comprovado ao portal.** Manter a mesma normalização, limites, validação e relógios originais. Publicar o artefato por credencial restrita, sem segredos no navegador. Isso exige disponibilizar infraestrutura e testar a rede antes de migrar; não foi implantado nesta correção.
+3. **Canal oficial independente: avaliar CAP/IDAP federal.** O registro da autoridade no WMO aponta esse feed, mas a resposta é nacional e muito volumosa. O teste externo excedeu 16 MB antes de terminar. Uma integração precisa confirmar emissor estadual (`senderName`, não apenas `sender` nacional), município/área, validade e referências de atualização/cancelamento, além de obter resposta completa com custo controlado. Não foi incorporado como fallback nem pode ser considerado equivalente às publicações editoriais do portal.
+
+Repetir requisições ao mesmo domínio ou ampliar indefinidamente o timeout não constitui contingência de rede. Enquanto o acesso não for restabelecido, a fonte deve continuar identificada como indisponível/desatualizada; as demais fontes permanecem independentes. Ausência de coleta não é ausência de alerta. As sondagens temporárias não foram mantidas em cada CI para não acrescentar consultas e demora à rotina.
 
 O coletor corrigido foi executado contra o portal oficial: recuperou **20 publicações com texto completo**, em cerca de **8,3 s**, incluindo duas com menção a Araquari, sem diagnósticos de falha. Esse é um teste real de conectividade e extração, separado dos testes sintéticos. Não afirma que existiam alertas locais vigentes.
 
