@@ -23,7 +23,7 @@ Um dia com horas ausentes, valores conflitantes no mesmo instante ou modelo sem 
 
 Isso é comparação contextual: extremos de amostras horárias podem diferir dos extremos diários previstos. A janela do dia corrente inclui horas já decorridas da série de modelo, que continuam sendo estimativas, não observações. Não são calculados erro de previsão, média entre fontes, voto, probabilidade, confiança ou preferência por desempenho local.
 
-O INMET não fornece, no retorno verificado, quantidade prevista de chuva em mm ou rajadas em km/h. “Possibilidade de chuva isolada” e “ventos fracos” permanecem textos. Não há conversão em porcentagem, volume ou velocidade. O produto não é passado aos motores de classificação e síntese normativa.
+O INMET não fornece, no retorno verificado, quantidade prevista de chuva em mm ou rajadas em km/h. “Possibilidade de chuva isolada” e “ventos fracos” permanecem textos. Não há conversão em porcentagem, volume ou velocidade. Desde 13/11/2026, a previsão municipal participa da **classificação consultiva v3** pela camada qualitativa, com vocabulário, cobertura, validade e medições exigidas documentados em [CLASSIFICACAO_CONSULTIVA.md](CLASSIFICACAO_CONSULTIVA.md#participação-qualitativa-do-inmet). O produto bruto não altera a correspondência normativa anterior nem fornece limiares numéricos da norma.
 
 ### Origem, duplicidade e atualização
 
@@ -52,6 +52,6 @@ O RSS foi adiado porque compartilha o servidor com o JSON e o item inspecionado 
 
 ## Testes e reversão
 
-`tests/test_inmet_municipal_forecast.py` cobre município errado, estruturas por turno/dia, ausência e conflitos, horários de Brasília, dia incompleto, recuperação sem renovação artificial, fingerprint, tentativas limitadas e avisos recuperados. Os contratos JavaScript verificam validade, dados malformados e isolamento da classificação. Os testes Chromium de comparação cobrem inicial/detalhes, turnos, temas e 320–1440 px.
+`tests/test_inmet_municipal_forecast.py` cobre município errado, estruturas por turno/dia, ausência e conflitos, horários de Brasília, dia incompleto, recuperação sem renovação artificial, fingerprint, tentativas limitadas e avisos recuperados. Os contratos JavaScript verificam validade, dados malformados e preservação da separação entre dados brutos, análise consultiva e decisão institucional. Os testes Chromium de comparação cobrem inicial/detalhes, turnos, temas e 320–1440 px.
 
 A validação do artefato confere a igualdade entre a previsão municipal isolada e sua cópia na comparação, identidade da publicação, esquema e proibição de inferência numérica de chuva/rajadas. Não há migração, autenticação nova, mudança no agendamento ou escrita em serviços do INMET. A reversão pode ser feita revertendo o commit desta integração.

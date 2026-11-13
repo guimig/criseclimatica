@@ -8,7 +8,7 @@ A inicial apresenta o nível consultivo, três comparações entre observado e p
 
 ## Interpretação multifontes
 
-A síntese local usa as quatro estações de Araquari com pesos iguais nas variáveis comparáveis. INMET participa da previsão diária/por turno da inicial; previsões horárias podem ser substituídas por variável quando houver outro produto completo. Epagri/Ciram e INMET têm igual relevância meteorológica; a correspondência normativa continua separada da situação meteorológica. Unidades inferidas são identificadas com evidências e limitações. Veja [método atual, cobertura, unidades e critérios](docs/INTERPRETACAO_MULTIFONTES.md).
+A síntese local usa as quatro estações de Araquari com pesos iguais nas variáveis comparáveis. INMET participa da previsão diária/por turno da inicial; previsões horárias podem ser substituídas por variável quando houver outro produto completo, inclusive de coleta anterior dentro da validade original. A previsão INMET diária/por turno também participa da classificação consultiva, com requisitos próprios de cobertura e medições, sem conversões numéricas de textos. Epagri/Ciram e INMET têm igual relevância meteorológica; a correspondência normativa continua separada da situação meteorológica. Unidades inferidas são identificadas com evidências e limitações. Veja [método atual, cobertura, unidades e critérios](docs/INTERPRETACAO_MULTIFONTES.md).
 
 ## Painel de acompanhamento de Araquari
 
@@ -123,4 +123,4 @@ A inicial e Dados e fontes → Medições incluem observações da estação do 
 
 ### Previsão municipal do INMET
 
-A comparação de fontes inclui o produto municipal do INMET para Araquari, com dias/turnos, temperaturas e textos originais. A comparação usa o mesmo dia civil de Brasília, sem média ou mudança na classificação. Avisos JSON têm uma nova tentativa limitada e preservação identificada de avisos anteriores ainda válidos. [Método e recuperação](docs/INMET_PREVISAO_E_RECUPERACAO.md).
+A comparação de fontes inclui o produto municipal do INMET para Araquari, com dias/turnos, temperaturas e textos originais. A comparação usa o mesmo dia civil de Brasília, sem média entre fontes. A classificação consultiva interpreta separadamente os textos por período, conforme os [critérios v3](docs/CLASSIFICACAO_CONSULTIVA.md). Avisos JSON têm uma nova tentativa limitada e preservação identificada de avisos anteriores ainda válidos. [Método e recuperação](docs/INMET_PREVISAO_E_RECUPERACAO.md).

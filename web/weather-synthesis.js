@@ -16,7 +16,7 @@
   const riskNames={verde:'Normalidade',azul:'Preparação',amarelo:'Atenção',laranja:'Alerta',vermelho:'Alerta máximo',roxo:'Calamidade'};
   function riskLevel(product,now=Date.now()){
     const neutral={color:'neutral',active:null,title:'Sem classificação',kind:'Dados parciais',reason:'Faltam referências atuais para definir o nível.'};
-    if(!product||product.method_version!=='araquari-risk-v2'||product.kind!=='consultative_risk_level_not_official_decision'||product.official_level!==null||!Array.isArray(product.candidates))return neutral;
+    if(!product||!['araquari-risk-v2','araquari-risk-v3'].includes(product.method_version)||product.kind!=='consultative_risk_level_not_official_decision'||product.official_level!==null||!Array.isArray(product.candidates))return neutral;
     if(Date.parse(product.generated_at)>now+600000)return neutral;
     const order=Object.keys(riskNames);
     const candidates=product.candidates.filter(c=>c&&order.includes(c.level)&&c.level!=='roxo'&&typeof c.reason==='string'&&Array.isArray(c.evidence)&&c.evidence.length&&live(c,now)).sort((a,b)=>order.indexOf(b.level)-order.indexOf(a.level));
@@ -37,7 +37,7 @@
       const candidates=data.risk_classification.candidates||[];
       for(const c of candidates)box.append(element('p','small',`${riskNames[c.level]} · ${c.reason} · válida até ${date(c.valid_until)}${live(c,now)?'':' · vencida'}.`));
       box.append(element('h4','','Cobertura necessária para normalidade'));
-      for(const r of data.risk_classification.requirements||[])box.append(element('p','small',`${r.label}: ${r.available&&live(r,now)?'disponível':'ausente ou vencida'}.`));
+      for(const r of data.risk_classification.requirements||[])box.append(element('p','small',`${r.label}: ${r.available&&live(r,now)?'disponível':'ausente ou vencida'}${r.resolution==='qualitative_daily_or_period'?' · INMET diário/por turno':''}${r.evidence?.some(e=>e.retained_previous)?' · consulta anterior válida':''}${r.valid_until?' · até '+date(r.valid_until):''}.`));
       box.append(element('h4','','Critérios por nível'));
       for(const level of data.risk_classification.levels||[])box.append(element('p','small',`${level.name}: ${level.criterion}`));
       const link=element('a','','Critérios completos e limites do algoritmo ↗');link.href='https://github.com/guimig/criseclimatica/blob/main/docs/CLASSIFICACAO_CONSULTIVA.md';link.target='_blank';link.rel='noopener noreferrer';box.append(link);target.append(box);
@@ -50,7 +50,7 @@
       if(stat){box.append(element('p','',`${detailed||name==='rain'?(fieldNames[field]||'Temperatura')+': ':''}${number(stat.median)} ${stat.unit}${stat.count>1?' · mediana':''}`),element('p','small',`${stat.count} ${stat.count>1?'estações':'estação'} · maior: ${number(stat.max)} ${stat.unit}`));}
       else box.append(element('p','small','Sem medição local comparável e atual.'));
       const forecastFields={rain:['precipitation_mm'],wind:['wind_kmh','gust_kmh'],temperature:['temperature_c']}[name];
-      const products=[...new Set(forecastFields.map(f=>data.selected_forecast?.sources_by_variable?.[f]).filter(r=>live(r,now)).map(r=>r.name+(r.fallback?' · substituição ativa':'')))];
+      const products=[...new Set(forecastFields.map(f=>data.selected_forecast?.sources_by_variable?.[f]).filter(r=>live(r,now)).map(r=>r.name+(r.retained_previous?' · consulta anterior válida':r.fallback?' · substituição ativa':'')))];
       if(detailed||!products.length)box.append(element('p','small',products.length?'Previsão horária: '+products.join('; '):'Sem previsão horária completa para esta variável.'));
       if(detailed&&stat){box.append(element('p','small',`Média: ${number(stat.mean)} ${stat.unit} · intervalo: ${number(stat.min)}–${number(stat.max)} ${stat.unit}. Pesos iguais por estação.`));for(const r of stat.members)box.append(element('p','small',`${r.name}: ${number(r.value)} ${r.unit} · ${date(r.end_at)}${r.method.includes('approximation')?' · intervalo aproximado em 5 min':''}`));}
       if(detailed)for(const other of fields.filter(f=>f!==field)){

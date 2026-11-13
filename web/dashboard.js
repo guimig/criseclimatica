@@ -137,7 +137,7 @@ function renderSummary() {
   el('publication-status').textContent=panel.fetchError?'Falha ao atualizar. Nova tentativa automática.':panel.incompleteHistory?'Histórico temporariamente indisponível.':data?'Coleta atrasada.':'Não foi possível carregar os dados.';
   el('level-dot').className='level-dot '+presentation.color;el('level-card').dataset.risk=presentation.color;
   el('level-title').textContent=riskNames[presentation.color]||presentation.title;
-  el('level-kind').textContent=presentation.color==='neutral'?'Dados parciais':'Consultivo';
+  el('level-kind').textContent=presentation.color==='neutral'?'Dados parciais':data?.risk_classification?.coverage?.forecast_resolution==='mixed_or_qualitative'?'Consultivo · previsão por turnos':'Consultivo';
   el('level-reason').textContent=data?.risk_classification?presentation.reason:!data?'Consultando os dados.':presentation.color==='verde'?'Chuva e vento abaixo das faixas de atenção.':presentation.reason.split('. ')[0]+'.';
   for(const item of document.querySelectorAll('[data-risk-level]')){
     const active=item.dataset.riskLevel===(presentation.active||presentation.color);item.classList.toggle('is-active',active);
@@ -356,7 +356,8 @@ function renderChart() {
   el('chart-heading').textContent='Observações e previsão';
   el('recent-summary').hidden=panel.observedVariable!=='temperature_c';
   el('observed-heading').textContent=rain?`Chuva medida · ${panel.rainWindow} h`:'Observado · '+variable.toLowerCase();
-  if(el('forecast-source'))el('forecast-source').textContent=data?.forecast?.sources_by_variable?.[panel.variable]?.id==='best_match'?'Previsão horária':data?.forecast?.sources_by_variable?.[panel.variable]?.name||'Previsão horária';
+  const forecastSource=data?.forecast?.sources_by_variable?.[panel.variable];
+  if(el('forecast-source'))el('forecast-source').textContent=(forecastSource?.id==='best_match'?'Previsão horária':forecastSource?.name||'Previsão horária')+(forecastSource?.retained_previous?' · consulta anterior':'');
   el('forecast-heading').textContent=forecastRain?'Chuva prevista · por hora':panel.variable==='temperature_c'?'Temperatura prevista':'Vento e rajadas previstos';
   el('chart-period').textContent='Horários de Brasília';
   const base=Number.isFinite(Date.parse(data?.forecast?.start_at))?Date.parse(data.forecast.start_at):Math.floor(anchor/3600000)*3600000;

@@ -1,4 +1,4 @@
-"""INMET municipal daily/period forecasts, complementary and never risk inputs."""
+"""INMET municipal daily/period data; qualitative risk interpretation is separate."""
 from __future__ import annotations
 
 from copy import deepcopy
@@ -43,7 +43,8 @@ def unavailable(stamp, status="unavailable"):
             "source_url": PORTAL, "api_url": URL, "risk_criteria": False, "status": status,
             "retrieved_at": None, "last_attempt_at": stamp, "issued_at": None,
             "timezone": "America/Sao_Paulo", "days": [], "daily_comparison": [],
-            "numeric_rain_or_gust_inferred": False}
+            "numeric_rain_or_gust_inferred": False,
+            "consultative_role": "qualitative_daily_or_period_evidence"}
 
 
 def normalize(payload, stamp):

@@ -147,17 +147,34 @@ def statistics(rows, variable, stamp):
             'period_note': 'Same nominal interval; endpoints within 30 min. Counter-derived intervals retain 5 min uncertainty.'}
 
 
-def select_forecast(comparison, stamp):
+def select_forecast(comparison, stamp, archive=None):
     """Select a complete product per variable; never splice hourly sources."""
     now = moment(stamp); start = now.replace(minute=0, second=0, microsecond=0)
     selections, combined = {}, {}
-    records = comparison.get('records', [])
+    records = list(comparison.get('records', []))
+    # Current complete products take precedence. Recovery uses a whole original
+    # run, newest publication first; failures remain visible in comparison.
+    if archive:
+        from .forecast_comparison import ARCHIVE_KIND
+        if (archive.get('kind') != ARCHIVE_KIND or archive.get('schema_version') != 1
+                or archive.get('location_id') != 'araquari'):
+            raise ValueError('Invalid recovery archive')
+        publications = [p for p in archive.get('publications', [])
+                        if moment(p.get('saved_at')) and now-timedelta(hours=8) < moment(p['saved_at']) <= now]
+        for publication in sorted(publications, key=lambda p: p['saved_at'], reverse=True):
+            for record in publication.get('records', []):
+                if record.get('location_id', 'araquari') != 'araquari': continue
+                collected = moment(record.get('collected_at'))
+                if not collected or collected > moment(publication['saved_at']): continue
+                records.append({**record, 'retained_previous': True, 'archive_saved_at': publication['saved_at']})
     for field in ('precipitation_mm', 'wind_kmh', 'gust_kmh', 'temperature_c'):
         slots = [start+timedelta(hours=i) for i in (range(1, 25) if field == 'precipitation_mm' else range(24))]
         candidates = []
         for record in records:
             if record.get('status') != 'available' or not fresh(record.get('collected_at'), now, 8): continue
             if record.get('reference_at') and not fresh(record['reference_at'], now, 8): continue
+            expiry = min(moment(record['collected_at']), moment(record.get('reference_at')) or moment(record['collected_at']))+timedelta(hours=8)
+            if now >= expiry: continue
             bins = hourly_bins(record.get('hourly', []), field)
             if not all(t in bins for t in slots): continue
             candidates.append((record, bins))
@@ -169,6 +186,8 @@ def select_forecast(comparison, stamp):
             'provider': record.get('provider', 'Open-Meteo'), 'collected_at': record['collected_at'],
             'valid_until': iso(min(moment(record['collected_at']), moment(record.get('reference_at')) or moment(record['collected_at']))+timedelta(hours=8)),
             'reference_at': record.get('reference_at'),
+            'retained_previous': record.get('retained_previous', False),
+            'archive_saved_at': record.get('archive_saved_at'),
             'fallback': record['id'] != 'best_match', 'reason': 'first_fresh_complete_product_not_skill_ranking',
             'requested_point': record.get('requested_point'), 'grid_point': record.get('grid_point')}
         for t, value in bins.items():
@@ -179,7 +198,7 @@ def select_forecast(comparison, stamp):
               'hourly': [r for _, r in sorted(combined.items())]}
     result = forecast_analysis(detail, now) if available else forecast_analysis({}, now)
     result['sources_by_variable'] = selections
-    if selections['precipitation_mm'].get('id') != selections['gust_kmh'].get('id'):
+    if any(selections['precipitation_mm'].get(k) != selections['gust_kmh'].get(k) for k in ('id', 'collected_at', 'reference_at')):
         result['rain_wind_overlap'] = None
     return result, detail
 
@@ -190,7 +209,7 @@ def forecast_context(comparison, inmet, bulletins, stamp):
     if inmet.get('status') in ('available', 'cached') and fresh(inmet.get('retrieved_at'), now, 6) and moment(inmet.get('valid_until')) and now < moment(inmet['valid_until']):
         for day in inmet.get('days', []):
             if today <= day['day']:
-                days.append({'source': 'INMET', 'day': day['day'], 'minimum_c': day.get('minimum_c'), 'maximum_c': day.get('maximum_c'),
+                days.append({'source': 'INMET', 'location_id': 'araquari', 'day': day['day'], 'minimum_c': day.get('minimum_c'), 'maximum_c': day.get('maximum_c'),
                              'periods': day.get('periods', []), 'valid_until': inmet['valid_until'], 'collected_at': inmet['retrieved_at'],
                              'cached': inmet['status'] == 'cached', 'role': 'daily_and_period_synthesis'})
     cptec = comparison.get('cptec', {})
@@ -235,7 +254,7 @@ def notices(dashboard, stamp):
     return sorted(rows, key=lambda n: (n['start_at'], n['source'], n['id'] or ''))
 
 
-def build(dashboard, primary, campus, sensors, comparison, inmet, bulletins, stamp, previous=None):
+def build(dashboard, primary, campus, sensors, comparison, inmet, bulletins, stamp, previous=None, forecast_archive=None):
     observations, rejected = local_observations(primary, campus, sensors, stamp)
     observations = [r for r in observations if moment(r["end_at"]) <= moment(stamp)]
     history = merge_history(previous, observations, campus, stamp)
@@ -245,7 +264,7 @@ def build(dashboard, primary, campus, sensors, comparison, inmet, bulletins, sta
     history = merge_history(history, observations, campus, stamp)
     variables = ('rain_1h_mm', 'rain_24h_mm', 'rain_daily_mm', 'rain_intensity_mmh', 'wind_kmh', 'gust_kmh', 'temperature_c', 'humidity_pct', 'pressure_hpa')
     stats = {k: statistics(observations, k, stamp) for k in variables}
-    forecast, detail = select_forecast(comparison, stamp)
+    forecast, detail = select_forecast(comparison, stamp, forecast_archive)
     advisory = notices(dashboard, stamp)
     signals = []
     for r in observations:
