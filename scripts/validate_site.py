@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from observatorio.inmet_forecast import validate_product as validate_inmet_forecast
 from observatorio.alerts import retain_valid_notices
 from observatorio.risk_classification import validate_product as validate_classification
+from observatorio.defesa_civil_sc import event_window as defesa_event_window
 from observatorio.multisource import validate_product as validate_multisource
 from observatorio.campus_station import validate_product as validate_campus
 
@@ -363,6 +364,8 @@ def validate(output: Path, *, fixture: bool = False) -> None:
                 address.scheme != "https" or address.hostname not in ("www.defesacivil.sc.gov.br", "defesacivil.sc.gov.br") or
                 address.username or address.password):
             raise ValueError("Civil defense publication cannot claim a verified active alert")
+        if post.get("event_window") is not None and post["event_window"] != defesa_event_window(post):
+            raise ValueError("Civil defense event window differs from its original title/duration")
     if archive.get("schema_version") != 1 or archive.get("kind") != "inmet_annual_zip_delayed_station_measurements_not_real_time" or archive.get("status") not in (
             "available", "cached", "stale", "unavailable", "no_nearby_stations", "fixture_mode"):
         raise ValueError("INMET annual delayed archive has invalid source schema")

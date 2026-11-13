@@ -13,6 +13,8 @@ import json
 import re
 import socket
 import ssl
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from email.utils import parsedate_to_datetime
@@ -25,7 +27,7 @@ from urllib.request import Request, urlopen
 from xml.etree import ElementTree as ET
 
 BASE = "https://www.defesacivil.sc.gov.br"
-WP_API = BASE + "/wp-json/wp/v2/posts?per_page=35&_fields=date,date_gmt,link,title,excerpt"
+WP_API = BASE + "/wp-json/wp/v2/posts?per_page=20&_fields=date,date_gmt,link,title,excerpt,content"
 FEEDS = {
     "alerta_publicado": BASE + "/categoria/alerta/feed/",
     "aviso_publicado": BASE + "/categoria/aviso/feed/",
@@ -35,7 +37,9 @@ PORTAL = BASE + "/boletins-do-tempo/"
 ALERTAS = BASE + "/alerta/"
 MUNICIPAL = "https://araquari.atende.net/subportal/secretaria-de-seguranca-publica-e-defesa-civil"
 KIND = "defesa_civil_sc_publications_not_verified_active_alerts"
-MAX_BYTES = 450_000
+MAX_BYTES = 750_000
+REQUEST_TIMEOUT = 20
+COLLECT_BUDGET_SECONDS = 70
 MAX_PAGE_BYTES = 1_300_000
 
 
@@ -84,8 +88,12 @@ def _date(raw: str, *, rss: bool) -> datetime:
 
 def _classify_title(title: str) -> str:
     u = _fold(title).upper()
-    if re.match(r"^(ALERTA|ATENCAO|OBSERVACAO)\s*[–-]", u):
+    if re.match(r"^(ALERTA|ATENCAO|OBSERVACAO)\s*[–—-]", u):
         return "alerta_publicado"
+    if u.startswith("MONITORAMENTO METEOROLOGICO"):
+        return "monitoramento_publicado"
+    if u.startswith(("OBSERVACAO METEOROLOGICA", "ALERTA METEOROLOGICO")):
+        return "aviso_publicado"
     if any(s in u for s in ("ATENCAO HIDROMETEOROLOGICA", "OBSERVACAO MARITIMA", "AVISO METEOROLOGICO", "AVISO HIDROMETEOROLOGICO")):
         return "aviso_publicado"
     if any(s in u for s in ("PREVISAO PARA OS PROXIMOS", "PREVISAO DO TEMPO", "NOTA METEOROLOGICA")):
@@ -102,13 +110,65 @@ def _row(title: str, summary: str, link: str, dt: datetime, category: str, locat
         return None
     haystack = _fold(title + " " + summary)
     # Explicit reference only. Missing mention != no risk; an excerpt may be incomplete.
-    mentioned = [loc["id"] for loc in locations if _fold(loc["name"]) in haystack]
+    mentioned = [loc["id"] for loc in locations if re.search(r"\b"+re.escape(_fold(loc["name"]))+r"\b",haystack)]
     return {
         "title": title, "summary": summary, "url": link, "published_at": dt.isoformat(timespec="seconds").replace("+00:00", "Z"),
         "category": category, "mentioned_location_ids": mentioned,
         "geography_status": "explicit_mention_in_title_or_excerpt" if mentioned else "not_determined_from_excerpt",
         "validity_status": "not_verified_from_publication_date",
     }
+
+
+
+class _BodyPlain(_Plain):
+    def handle_starttag(self,tag,attrs):
+        super().handle_starttag(tag,attrs)
+        if tag in ('p','div','br','li','h2','h3','h4'):self.parts.append('\n')
+    def handle_endtag(self,tag):
+        super().handle_endtag(tag)
+        if tag in ('p','div','li','h2','h3','h4'):self.parts.append('\n')
+
+
+def _body_text(raw):
+    parser=_BodyPlain();parser.feed(raw if isinstance(raw,str) else '')
+    return re.sub(r'[ \t]+',' ',html.unescape(''.join(parser.parts))).strip()[:12000]
+
+
+def event_window(post):
+    """Explicit alert title clock plus explicit duration; never pubDate alone."""
+    title=_fold(post.get('title',''));text=_fold(post.get('assessment_text') or post.get('summary',''))
+    match=re.match(r'^(?:alerta|atencao|observacao)\s*[–—-]\s*(\d{2})/(\d{2})\s+(\d{1,2})[:h](\d{2})',title)
+    hours={int(h) for h in re.findall(r'nas proximas\s+(\d{1,2})\s*horas?',title+' '+text)}
+    if not match or len(hours)!=1 or not 1<=next(iter(hours))<=24:return None
+    try:
+        published=_date(post.get('published_at'),rss=False)
+        local=published.astimezone(ZoneInfo('America/Sao_Paulo'))
+        day,month,hour,minute=map(int,match.groups());year=local.year
+        if local.month==1 and month==12:year-=1
+        if local.month==12 and month==1:year+=1
+        start=datetime(year,month,day,hour,minute,tzinfo=ZoneInfo('America/Sao_Paulo')).astimezone(timezone.utc)
+    except (CivilDefenseError,ValueError,TypeError):return None
+    if not -timedelta(minutes=10)<=published-start<=timedelta(hours=6):return None
+    end=start+timedelta(hours=next(iter(hours)))
+    return {'start_at':start.isoformat(timespec='seconds').replace('+00:00','Z'),
+            'end_at':end.isoformat(timespec='seconds').replace('+00:00','Z'),
+            'basis':'explicit_title_clock_and_reported_duration','duration_hours':next(iter(hours))}
+
+
+def _enrich(row,body,locations,origin):
+    if body:
+        row.update(assessment_text=body,text_origin=origin)
+        combined=_fold(row['title']+' '+body)
+        row['mentioned_location_ids']=[loc['id'] for loc in locations
+            if re.search(r'\b'+re.escape(_fold(loc['name']))+r'\b',combined)]
+        if row['mentioned_location_ids']:row['geography_status']='explicit_mention_in_full_text'
+        regions=[]
+        if re.search(r'\blitoral norte\b',combined):regions.append('litoral_norte')
+        if re.search(r'em santa catarina|todo o estado|todas as regioes|maior parte de santa catarina',combined):regions.append('state_context_not_municipal_confirmation')
+        row['regional_references']=regions
+    window=event_window(row)
+    if window:row['event_window']=window
+    return row
 
 
 def parse_wp_json(raw: bytes, locations: list[dict], now: datetime) -> list[dict]:
@@ -133,7 +193,8 @@ def parse_wp_json(raw: bytes, locations: list[dict], now: datetime) -> list[dict
             # date_gmt is UTC. WordPress `date` is the local site timezone;
             # interpreting it as UTC silently shifts warning publication time.
             if post.get("date_gmt"):
-                dt = _date(str(post["date_gmt"]) + "Z", rss=False)
+                raw_date=str(post["date_gmt"])
+                dt = _date(raw_date if raw_date.endswith(("Z","+00:00")) else raw_date+"Z", rss=False)
             else:
                 local = datetime.fromisoformat(str(post.get("date") or ""))
                 dt = (local if local.tzinfo else local.replace(tzinfo=ZoneInfo("America/Sao_Paulo"))).astimezone(timezone.utc)
@@ -144,7 +205,9 @@ def parse_wp_json(raw: bytes, locations: list[dict], now: datetime) -> list[dict
             continue
         item = _row(title, summary, link, dt, category, locations, now)
         if item:
-            results.append(item)
+            raw_body=post.get('content',{})
+            body=_body_text(raw_body.get('rendered') if isinstance(raw_body,dict) else raw_body)
+            results.append(_enrich(item,body,locations,'wordpress_content'))
     return results
 
 
@@ -168,7 +231,8 @@ def parse_rss(raw: bytes, category: str, locations: list[dict], now: datetime) -
             continue
         row = _row(_text(item.findtext("title"), 180), _text(item.findtext("description"), 380), link, dt, category, locations, now)
         if row:
-            results.append(row)
+            content=item.findtext('{http://purl.org/rss/1.0/modules/content/}encoded') or ''
+            results.append(_enrich(row,_body_text(content),locations,'rss_full_content'))
     return results
 
 
@@ -236,7 +300,7 @@ def parse_public_page(raw: bytes, locations: list[dict], now: datetime) -> list[
     return results
 
 
-def _download(url: str, *, timeout: int = 8, limit: int = MAX_BYTES) -> bytes:
+def _download(url: str, *, timeout: int = REQUEST_TIMEOUT, limit: int = MAX_BYTES) -> bytes:
     request = Request(url, headers={"Accept": "application/json,application/rss+xml,application/xml;q=0.9", "User-Agent": "criseclimatica-observatorio/0.3 (public meteorological bulletin catalog)"})
     try:
         with urlopen(request, timeout=timeout) as response:
@@ -268,6 +332,7 @@ def unavailable(checked_at: str, *, status: str = "unavailable") -> dict:
         "publications": [],
         "notice": "Publicacoes oficiais nao equivalem a alertas vigentes. Consulte sempre os canais da Defesa Civil.",
         "retrieval_method": "none", "last_successful_check": None,
+        "request_timeout_seconds":REQUEST_TIMEOUT,"collection_budget_seconds":COLLECT_BUDGET_SECONDS,
     }
 
 
@@ -297,6 +362,11 @@ def collect(locations: list[dict], checked_at: str, *, fixture: dict | None = No
             previous: dict | None = None) -> dict:
     """Publications are best-effort; a source failure never proves no active alert."""
     now = _date(checked_at, rss=False)
+    deadline=time.monotonic()+COLLECT_BUDGET_SECONDS
+    def download(url,*,limit=MAX_BYTES):
+        remaining=deadline-time.monotonic()
+        if remaining<=0:raise CivilDefenseError('Public bulletin unavailable: collection_budget')
+        return _download(url,timeout=min(REQUEST_TIMEOUT,remaining),limit=limit)
     records: list[dict] = []
     fetched_feeds = 0
     status = "unavailable"
@@ -317,37 +387,41 @@ def collect(locations: list[dict], checked_at: str, *, fixture: dict | None = No
         retrieval_method = "synthetic_fixture"
     else:
         try:
-            records = parse_wp_json(_download(WP_API), locations, now)
+            records = parse_wp_json(download(WP_API), locations, now)
             fetched_feeds = 1
             status = "available"
             retrieval_method = "wordpress_json"
         except (CivilDefenseError, ValueError) as exc:
             errors.append(f"wp:{type(exc).__name__}:{str(exc)[:45]}")
         if not records:
-            rss_ok = 0
-            for category, url in FEEDS.items():
-                try:
-                    records += parse_rss(_download(url), category, locations, now)
-                    rss_ok += 1
-                except (CivilDefenseError, ValueError) as exc:
-                    errors.append(f"rss:{category}:{type(exc).__name__}:{str(exc)[:45]}")
+            def read_feed(item):
+                category,url=item
+                try:return parse_rss(download(url),category,locations,now),None
+                except (CivilDefenseError,ValueError) as exc:
+                    return [],f"rss:{category}:{type(exc).__name__}:{str(exc)[:45]}"
+            with ThreadPoolExecutor(max_workers=3) as pool:
+                feed_results=list(pool.map(read_feed,FEEDS.items()))
+            rss_ok=0
+            for rows,error in feed_results:
+                if error:errors.append(error)
+                else:rss_ok+=1;records+=rows
             fetched_feeds += rss_ok
             if rss_ok:
                 status = "available" if rss_ok == len(FEEDS) else "partial"
                 retrieval_method = "official_category_rss"
         if not records:
-            # Only use the public listing, no authentication bypass or browser challenges.
-            try:
-                records = parse_public_page(_download(PORTAL, limit=MAX_PAGE_BYTES), locations, now)
-                fetched_feeds += 1
-                if records:
-                    status = "partial"
-                    retrieval_method = "official_public_html_titles"
-            except (CivilDefenseError, ValueError) as exc:
-                errors.append(f"listing:{type(exc).__name__}:{str(exc)[:45]}")
+            # The dedicated alert listing precedes the general bulletin portal.
+            for page in (ALERTAS,PORTAL):
+                try:
+                    records=parse_public_page(download(page,limit=MAX_PAGE_BYTES),locations,now)
+                    fetched_feeds+=1
+                    if records:
+                        status='partial';retrieval_method='official_public_html_titles';break
+                except (CivilDefenseError,ValueError) as exc:
+                    errors.append(f"listing:{type(exc).__name__}:{str(exc)[:45]}")
     if status == "unavailable":
         response = unavailable(checked_at)
-        response["source_diagnostics"] = errors[:5]
+        response["source_diagnostics"] = errors[:7]
         prior = _prior_publications(previous, now)
         if prior:
             response["status"] = "stale"
@@ -359,10 +433,10 @@ def collect(locations: list[dict], checked_at: str, *, fixture: dict | None = No
     recent = sorted(by_url.values(), key=lambda x: (x["published_at"], x["url"]), reverse=True)[:35]
     if fixture is None:
         from .publication_text import extract
-        for post in recent[:2]:
+        for post in [p for p in recent if not p.get('assessment_text')][:2]:
             try:
-                body=extract(_download(post['url'],limit=MAX_PAGE_BYTES))
-                if body:post.update(assessment_text=body,text_origin='official_article_body')
+                body=extract(download(post['url'],limit=MAX_PAGE_BYTES))
+                _enrich(post,body,locations,'official_article_body')
             except (CivilDefenseError,UnicodeError,ValueError):
                 post['text_origin']='excerpt_article_unavailable'
     response = unavailable(checked_at, status=status if recent else "no_recent_publications")
@@ -370,5 +444,5 @@ def collect(locations: list[dict], checked_at: str, *, fixture: dict | None = No
     response["retrieval_method"] = retrieval_method
     response["last_successful_check"] = checked_at
     response["feeds_retrieved"] = fetched_feeds
-    response["source_diagnostics"] = errors[:5]
+    response["source_diagnostics"] = errors[:7]
     return response

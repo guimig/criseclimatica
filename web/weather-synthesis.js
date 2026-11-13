@@ -58,7 +58,7 @@
       if(data.publication_evidence?.length||data.pending_publications?.length){const box=group('Boletins e publicações avaliados');
         for(const r of data.publication_evidence||[]){box.append(element('p','small',`${r.source}: ${r.title} · ${live(r,now)?'evidência válida':'vencida'} · ${r.scope==='municipality_explicit'?'Araquari':'referência regional'} · até ${date(r.valid_until)}.`));box.append(element('p','small',r.summary));
           if(/^https:\/\/(?:ciram\.epagri\.sc\.gov\.br|(?:www\.)?defesacivil\.sc\.gov\.br)\//.test(r.url)){const a=element('a','','Ler publicação completa ↗');a.href=r.url;a.target='_blank';a.rel='noopener noreferrer';box.append(a);}}
-        for(const r of data.pending_publications||[])box.append(element('p','small',`${r.source}: ${r.title} · contexto; sem região, período ou indicação positiva suficientes para classificação.`));
+        for(const r of data.pending_publications||[])box.append(element('p','small',`${r.source}: ${r.title} · ${r.reason==='expired_event_window'?'janela do evento encerrada':'contexto; sem região, período ou indicação positiva suficientes para classificação'}.`));
       }
       if(data.sensor_inventory?.length){const box=group('Sensores locais avaliados');for(const r of data.sensor_inventory)box.append(element('p','small',`${data.station_registry.find(s=>s.id===r.station)?.name||r.station} · ${r.name||'Sensor '+r.sensor_id}: ${number(r.value)} ${r.unit||'unidade não confirmada'} · ${r.use==='temperature_observation'?'temperatura na síntese':'contexto; unidade, intervalo ou referência de risco não confirmados'}.`));}
     }

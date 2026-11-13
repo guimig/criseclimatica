@@ -126,3 +126,7 @@ A inicial e Dados e fontes → Medições incluem observações da estação do 
 ### Previsão municipal do INMET
 
 A comparação de fontes inclui o produto municipal do INMET para Araquari, com dias/turnos, temperaturas e textos originais. A comparação usa o mesmo dia civil de Brasília, sem média entre fontes. A classificação consultiva interpreta separadamente os textos por período, conforme os [critérios v4](docs/CLASSIFICACAO_CONSULTIVA.md). Avisos JSON têm uma nova tentativa limitada e preservação identificada de avisos anteriores ainda válidos. [Método e recuperação](docs/INMET_PREVISAO_E_RECUPERACAO.md).
+
+### Defesa Civil SC: textos e disponibilidade
+
+A coleta foi ajustada para a latência observada do portal, passa a obter textos completos e reconhecer títulos atuais, com fallback para `/alerta/`. Alertas encerrados permanecem separados de evidências atuais. Veja [diagnóstico, correções e limites](docs/DEFESA_CIVIL_COLETA_QUALITATIVA.md).
