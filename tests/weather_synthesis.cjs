@@ -2,7 +2,7 @@ const assert=require('node:assert/strict');
 global.window={};global.document={getElementById:()=>null};require('../web/weather-synthesis.js');
 const {riskLevel,currentStats,presentation}=window.WeatherSynthesis;
 const now=Date.now(),stamp=new Date(now).toISOString(),until=new Date(now+3600000).toISOString();
-const product={schema_version:1,method_version:'araquari-risk-v3',kind:'consultative_risk_level_not_official_decision',official_level:null,generated_at:stamp,candidates:[]};
+const product={schema_version:1,method_version:'araquari-risk-v4',kind:'consultative_risk_level_not_official_decision',official_level:null,generated_at:stamp,candidates:[]};
 assert.equal(riskLevel(product,now).active,null);
 for(const [level,name] of Object.entries({verde:'Normalidade',azul:'Preparação',amarelo:'Atenção',laranja:'Alerta',vermelho:'Alerta máximo'})){
  const p={...product,candidates:[{level,reason:'Evidência identificada.',valid_until:until,evidence:[{source:'Fonte'}]}]};

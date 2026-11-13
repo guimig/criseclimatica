@@ -20,7 +20,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from observatorio.assessment_history import merge as merge_assessment_history
 from observatorio.inmet_forecast import collect as collect_inmet_forecast, compare_daily as compare_inmet_daily, unavailable as inmet_forecast_unavailable
 from observatorio.forecast_comparison import collect as collect_models, summarize as compare_forecasts, merge_archive
-from observatorio.risk_classification import classify
+from observatorio.risk_classification import classify, history_snapshot
 from observatorio.multisource import build as build_multisource
 from observatorio.unit_inference import annotate as annotate_units
 from observatorio.dashboard import summarize as summarize_dashboard
@@ -229,7 +229,7 @@ def build(
             if previous_overview and previous_overview.get("assessment_history_published"):
                 raise
             print("Assessment history not yet available; first publication", file=sys.stderr)
-        previous_multisource = fetch_previous_json(previous_url, "data/multisource_history.json", max_bytes=8_000_000)
+        previous_multisource = fetch_previous_json(previous_url, "data/multisource_history.json", max_bytes=16_000_000)
         if previous_multisource is None and previous_overview and previous_overview.get("multisource_history_published"):
             raise RuntimeError("Published multisource history missing; preserving previous publication")
         previous_model_archive = fetch_previous_json(previous_url, "data/model_forecast_history.json", max_bytes=5_000_000)
@@ -405,7 +405,8 @@ def build(
     dashboard['forecast_comparison'] = comparison
     synthesis, multisource_history, selected_detail = build_multisource(dashboard,
         next(r for r in analysis['locations'] if r['location_id'] == 'araquari'), campus,
-        cemaden_sensors, comparison, inmet_forecast, epagri_bulletins, stamp, previous_multisource, forecast_archive=previous_model_archive)
+        cemaden_sensors, comparison, inmet_forecast, epagri_bulletins, stamp, previous_multisource, forecast_archive=previous_model_archive,
+        supplemental={'inmet_rain':rain,'point':primary,'defesa':defesa_sc})
     synthesis['unit_inference'] = cemaden_sensors.get('unit_inference', [])
     dashboard['synthesis'] = synthesis
     dashboard['forecast'] = synthesis['selected_forecast']
@@ -414,7 +415,7 @@ def build(
     classification = classify(dashboard, selected_detail, stamp)
     dashboard['risk_classification'] = classification
     synthesis['risk_classification'] = classification
-    multisource_history['assessments'][-1]['risk_classification'] = classification
+    multisource_history['assessments'][-1]['risk_classification'] = history_snapshot(classification)
     manifest['multisource_history_published'] = True
     manifest['model_comparison_archive_published'] = True
     assessment_history = merge_assessment_history(previous_assessment_history, dashboard, stamp)

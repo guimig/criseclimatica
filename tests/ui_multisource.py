@@ -54,6 +54,18 @@ def main():
     recovered.update(synthesis=rs,forecast=rs['selected_forecast'],forecast_series=rd['hourly'])
     recovered['risk_classification']=classify(recovered,rd,stamp);rs['risk_classification']=recovered['risk_classification']
     assert recovered['risk_classification']['level']=='verde'
+    divergent=deepcopy(calm)
+    storm_comp=deepcopy(calm_comp)
+    for row in storm_comp['records'][-1]['hourly']:row['gust_kmh']=75
+    ss,_,sd=build(divergent,primary,calm_c,{},storm_comp,comp['inmet'],{},stamp)
+    publication={'source':'Epagri/Ciram','title':'Previsão de temporais','url':'https://ciram.epagri.sc.gov.br/index.php/previsao/',
+                 'summary':'Temporais no Litoral Norte.','scope':'regional_reference_not_municipal_confirmation','start_at':stamp,
+                 'end_at':iso(now+timedelta(hours=3)),'valid_until':iso(now+timedelta(hours=3)),
+                 'collected_at':stamp,'phenomena':['tempestade']}
+    ss['publication_evidence']=[publication]
+    divergent.update(synthesis=ss,forecast=ss['selected_forecast'],forecast_series=sd['hourly'])
+    divergent['risk_classification']=classify(divergent,sd,stamp);ss['risk_classification']=divergent['risk_classification']
+    assert divergent['risk_classification']['level']=='amarelo'
     with sync_playwright() as p,server() as url:
         browser=p.chromium.launch(headless=True, executable_path=os.environ.get("WEATHER_BROWSER_PATH"))
         for width in (320,390,1440):
@@ -110,6 +122,18 @@ def main():
             page.goto(url);page.get_by_role('heading',name='Normalidade',exact=True).wait_for()
             assert 'consulta anterior' in page.locator('#forecast-source').inner_text()
             assert page.locator('#forecast-value').inner_text()!='—'
+            assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+            dash.clear();dash.update(deepcopy(divergent))
+            page.goto(url);page.get_by_role('heading',name='Atenção',exact=True).wait_for()
+            assert not page.locator('#epagri-context').evaluate('el=>el.open')
+            assert 'Avisos e previsões' in page.locator('#epagri-notice-summary').inner_text()
+            page.locator('#epagri-notice-summary').click()
+            assert page.get_by_role('link',name='Ler previsão completa ↗').get_attribute('href')==publication['url']
+            page.goto(url+'dados.html');page.locator('#weather-synthesis-detail').get_by_role('heading',name='Atenção',exact=True).wait_for()
+            page.get_by_text('Concordância entre previsões',exact=True).click()
+            assert 'divergência sobre atenção' in page.locator('#weather-synthesis-detail').inner_text()
+            page.get_by_text('Temperaturas diárias por fonte',exact=True).click()
+            assert 'INMET: 16–25 °C' in page.locator('#weather-synthesis-detail').inner_text()
             assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
             assert not errors,errors;context.close()
         browser.close()

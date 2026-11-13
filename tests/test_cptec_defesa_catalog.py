@@ -107,7 +107,7 @@ class TestDefesaCivil(unittest.TestCase):
         self.assertEqual(data["municipal_source"]["integration"], "official_contact_page_not_automatic_warning_feed")
 
     def test_fallback_rss_when_wp_unavailable(self):
-        def fake_download(url):
+        def fake_download(url, **kwargs):
             if url.endswith("/categoria/alerta/feed/"):
                 return RSS
             raise CivilDefenseError("blocked")

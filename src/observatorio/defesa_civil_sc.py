@@ -357,6 +357,14 @@ def collect(locations: list[dict], checked_at: str, *, fixture: dict | None = No
         return response
     by_url = {r["url"]: r for r in sorted(records, key=lambda x: x["published_at"])}
     recent = sorted(by_url.values(), key=lambda x: (x["published_at"], x["url"]), reverse=True)[:35]
+    if fixture is None:
+        from .publication_text import extract
+        for post in recent[:2]:
+            try:
+                body=extract(_download(post['url'],limit=MAX_PAGE_BYTES))
+                if body:post.update(assessment_text=body,text_origin='official_article_body')
+            except (CivilDefenseError,UnicodeError,ValueError):
+                post['text_origin']='excerpt_article_unavailable'
     response = unavailable(checked_at, status=status if recent else "no_recent_publications")
     response["publications"] = recent
     response["retrieval_method"] = retrieval_method
