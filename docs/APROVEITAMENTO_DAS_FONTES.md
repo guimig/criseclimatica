@@ -60,6 +60,10 @@ No caminho qualitativo de Normalidade, uma medição local é preferida. Se falt
 
 A perda de uma fonte deixa disponíveis os demais sinais válidos. Isso não garante classificação em toda combinação de falhas: sem cobertura suficiente, o resultado continua parcial. Em particular, a ausência simultânea de previsão de vento e de evidência equivalente não é ocultada por uma previsão diária de chuva.
 
+## Leitura do histórico publicado
+
+Foi encontrado um bloqueio real na coleta das 11h30 de 13/11/2026: HTTP 503 ao ler `data/multisource_history.json`, antes de consultar as fontes meteorológicas. A recuperação agora tenta até três vezes para falhas de conexão e HTTP 429/500/502/503/504, com pausas de 1 e 2 segundos e chave de cache diferente nas repetições. Dados inválidos ou sintéticos continuam rejeitados. Se todas as tentativas falharem, o build preserva a publicação anterior; não reinicia nem apaga o histórico obrigatório. O relógio de nenhuma fonte é renovado por essas tentativas.
+
 ## Transparência, armazenamento e testes
 
 O estado de conexão e o papel metodológico aparecem separadamente em **Estado das integrações**. Os detalhes apresentam divergência dos modelos, temperaturas diárias por fonte, chuva antecedente, publicações usadas/pendentes e sensores avaliados em seções recolhidas.

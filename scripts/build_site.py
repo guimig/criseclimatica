@@ -8,6 +8,7 @@ import os
 import shutil
 import sys
 import tempfile
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -97,22 +98,32 @@ def fetch_previous_json(base_url: str, path: str, *, max_bytes: int = 3_000_000)
     if not path.startswith("data/") or ".." in path:
         raise ValueError("Invalid previous data path")
     address = urljoin(base_url.rstrip("/") + "/", path)
-    request = Request(address, headers={"Accept": "application/json", "User-Agent": "criseclimatica-history-merge/0.2"})
-    try:
-        with urlopen(request, timeout=12) as response:
-            content = response.read(max_bytes + 1)
-            if len(content) > max_bytes:
-                raise ValueError(f"Previous {path} exceeds safety limit")
-        data = json.loads(content.decode("utf-8"))
-        if not isinstance(data, dict) or data.get("fixture_mode"):
-            raise ValueError("Invalid or synthetic previous data")
-        return data
-    except HTTPError as exc:
-        if exc.code == 404:
-            return None
-        raise RuntimeError(f"Previous {path} not accessible: HTTP {exc.code}") from exc
-    except (URLError, TimeoutError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise RuntimeError(f"Previous {path} unavailable; refusing possible history loss") from exc
+    for attempt in range(3):
+        # Re-read a different CDN key after a transient error; never silently
+        # initialize an empty history when the previous publication is required.
+        target = address if not attempt else address+'?retry='+str(time.monotonic_ns())
+        request = Request(target, headers={"Accept": "application/json", "Cache-Control":"no-cache",
+                                         "User-Agent": "criseclimatica-history-merge/0.3"})
+        try:
+            with urlopen(request, timeout=12) as response:
+                content = response.read(max_bytes + 1)
+                if len(content) > max_bytes:
+                    raise ValueError(f"Previous {path} exceeds safety limit")
+            data = json.loads(content.decode("utf-8"))
+            if not isinstance(data, dict) or data.get("fixture_mode"):
+                raise ValueError("Invalid or synthetic previous data")
+            return data
+        except HTTPError as exc:
+            if exc.code == 404:
+                return None
+            if exc.code not in (429,500,502,503,504) or attempt==2:
+                raise RuntimeError(f"Previous {path} not accessible: HTTP {exc.code}") from exc
+        except (URLError, TimeoutError, OSError) as exc:
+            if attempt==2:
+                raise RuntimeError(f"Previous {path} unavailable; refusing possible history loss") from exc
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise RuntimeError(f"Previous {path} invalid; refusing possible history loss") from exc
+        time.sleep(attempt+1)
 
 
 def station_catalog_for_build(

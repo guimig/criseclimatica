@@ -1,5 +1,8 @@
 """Source failures, different products, geography and positive evidence."""
 import sys
+import io
+from unittest.mock import patch
+from urllib.error import HTTPError
 import unittest
 from copy import deepcopy
 from datetime import timedelta
@@ -177,6 +180,20 @@ class SourceEvidenceTests(unittest.TestCase):
         feed={'status':'available','checked_at':STAMP,'stations':[{'code':'420130701A','readings':[
               {'sensor_id':240,'value':50,'unit':None,'observed_at':STAMP},{'sensor_id':60,'value':22,'unit':'°C','observed_at':STAMP}]}]}
         rows=sensor_inventory(feed,STAMP);self.assertEqual(rows[0]['use'],'context_only');self.assertEqual(rows[1]['use'],'temperature_observation')
+
+    def test_previous_history_recovers_from_503_without_reinitializing(self):
+        sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
+        from build_site import fetch_previous_json
+        error=HTTPError('https://example.org/data/history.json',503,'Unavailable',{},None)
+        with patch('build_site.urlopen',side_effect=[error,io.BytesIO(b'{"records":[1]}')]) as request, patch('build_site.time.sleep') as sleep:
+            self.assertEqual(fetch_previous_json('https://example.org/','data/history.json'),{'records':[1]})
+            self.assertEqual(request.call_count,2);self.assertIn('?retry=',request.call_args.args[0].full_url)
+            sleep.assert_called_once_with(1)
+        with patch('build_site.urlopen',side_effect=error) as request, patch('build_site.time.sleep'):
+            with self.assertRaises(RuntimeError):fetch_previous_json('https://example.org/','data/history.json')
+            self.assertEqual(request.call_count,3)
+        with patch('build_site.urlopen',return_value=io.BytesIO(b'{"fixture_mode":true}')), patch('build_site.time.sleep'):
+            with self.assertRaises(ValueError):fetch_previous_json('https://example.org/','data/history.json')
 
     def test_summary_history_preserves_level_provenance_and_does_not_duplicate_full_context(self):
         d=dashboard();r=classify(d,{},STAMP);summary=history_snapshot(r)
