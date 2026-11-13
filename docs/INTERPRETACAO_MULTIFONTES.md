@@ -1,3 +1,5 @@
+> Método consultivo v4 (13/11/2026): [papel das fontes, divergências, acumulados antecedentes e contingências](APROVEITAMENTO_DAS_FONTES.md). As restrições históricas a CPTEC e boletins abaixo são superadas apenas nos casos explicitamente elegíveis dessa versão.
+
 # Interpretação multifontes de Araquari
 
 > Apresentação e classificação atuais: [Classificação consultiva e inicial objetiva](CLASSIFICACAO_CONSULTIVA.md). A inicial não exibe mais blocos por fonte; a síntese detalhada e os métodos permanecem na página de dados. O texto genérico “Acompanhamento das condições locais” foi substituído pelo nível consultivo calculado.

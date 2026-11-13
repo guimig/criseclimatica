@@ -8,6 +8,7 @@ import os
 import shutil
 import sys
 import tempfile
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -20,7 +21,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from observatorio.assessment_history import merge as merge_assessment_history
 from observatorio.inmet_forecast import collect as collect_inmet_forecast, compare_daily as compare_inmet_daily, unavailable as inmet_forecast_unavailable
 from observatorio.forecast_comparison import collect as collect_models, summarize as compare_forecasts, merge_archive
-from observatorio.risk_classification import classify
+from observatorio.risk_classification import classify, history_snapshot
 from observatorio.multisource import build as build_multisource
 from observatorio.unit_inference import annotate as annotate_units
 from observatorio.dashboard import summarize as summarize_dashboard
@@ -97,22 +98,32 @@ def fetch_previous_json(base_url: str, path: str, *, max_bytes: int = 3_000_000)
     if not path.startswith("data/") or ".." in path:
         raise ValueError("Invalid previous data path")
     address = urljoin(base_url.rstrip("/") + "/", path)
-    request = Request(address, headers={"Accept": "application/json", "User-Agent": "criseclimatica-history-merge/0.2"})
-    try:
-        with urlopen(request, timeout=12) as response:
-            content = response.read(max_bytes + 1)
-            if len(content) > max_bytes:
-                raise ValueError(f"Previous {path} exceeds safety limit")
-        data = json.loads(content.decode("utf-8"))
-        if not isinstance(data, dict) or data.get("fixture_mode"):
-            raise ValueError("Invalid or synthetic previous data")
-        return data
-    except HTTPError as exc:
-        if exc.code == 404:
-            return None
-        raise RuntimeError(f"Previous {path} not accessible: HTTP {exc.code}") from exc
-    except (URLError, TimeoutError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise RuntimeError(f"Previous {path} unavailable; refusing possible history loss") from exc
+    for attempt in range(3):
+        # Re-read a different CDN key after a transient error; never silently
+        # initialize an empty history when the previous publication is required.
+        target = address if not attempt else address+'?retry='+str(time.monotonic_ns())
+        request = Request(target, headers={"Accept": "application/json", "Cache-Control":"no-cache",
+                                         "User-Agent": "criseclimatica-history-merge/0.3"})
+        try:
+            with urlopen(request, timeout=12) as response:
+                content = response.read(max_bytes + 1)
+                if len(content) > max_bytes:
+                    raise ValueError(f"Previous {path} exceeds safety limit")
+            data = json.loads(content.decode("utf-8"))
+            if not isinstance(data, dict) or data.get("fixture_mode"):
+                raise ValueError("Invalid or synthetic previous data")
+            return data
+        except HTTPError as exc:
+            if exc.code == 404:
+                return None
+            if exc.code not in (429,500,502,503,504) or attempt==2:
+                raise RuntimeError(f"Previous {path} not accessible: HTTP {exc.code}") from exc
+        except (URLError, TimeoutError, OSError) as exc:
+            if attempt==2:
+                raise RuntimeError(f"Previous {path} unavailable; refusing possible history loss") from exc
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise RuntimeError(f"Previous {path} invalid; refusing possible history loss") from exc
+        time.sleep(attempt+1)
 
 
 def station_catalog_for_build(
@@ -229,7 +240,7 @@ def build(
             if previous_overview and previous_overview.get("assessment_history_published"):
                 raise
             print("Assessment history not yet available; first publication", file=sys.stderr)
-        previous_multisource = fetch_previous_json(previous_url, "data/multisource_history.json", max_bytes=8_000_000)
+        previous_multisource = fetch_previous_json(previous_url, "data/multisource_history.json", max_bytes=16_000_000)
         if previous_multisource is None and previous_overview and previous_overview.get("multisource_history_published"):
             raise RuntimeError("Published multisource history missing; preserving previous publication")
         previous_model_archive = fetch_previous_json(previous_url, "data/model_forecast_history.json", max_bytes=5_000_000)
@@ -405,7 +416,8 @@ def build(
     dashboard['forecast_comparison'] = comparison
     synthesis, multisource_history, selected_detail = build_multisource(dashboard,
         next(r for r in analysis['locations'] if r['location_id'] == 'araquari'), campus,
-        cemaden_sensors, comparison, inmet_forecast, epagri_bulletins, stamp, previous_multisource, forecast_archive=previous_model_archive)
+        cemaden_sensors, comparison, inmet_forecast, epagri_bulletins, stamp, previous_multisource, forecast_archive=previous_model_archive,
+        supplemental={'inmet_rain':rain,'point':primary,'defesa':defesa_sc})
     synthesis['unit_inference'] = cemaden_sensors.get('unit_inference', [])
     dashboard['synthesis'] = synthesis
     dashboard['forecast'] = synthesis['selected_forecast']
@@ -414,7 +426,7 @@ def build(
     classification = classify(dashboard, selected_detail, stamp)
     dashboard['risk_classification'] = classification
     synthesis['risk_classification'] = classification
-    multisource_history['assessments'][-1]['risk_classification'] = classification
+    multisource_history['assessments'][-1]['risk_classification'] = history_snapshot(classification)
     manifest['multisource_history_published'] = True
     manifest['model_comparison_archive_published'] = True
     assessment_history = merge_assessment_history(previous_assessment_history, dashboard, stamp)

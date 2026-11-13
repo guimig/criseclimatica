@@ -1,6 +1,6 @@
 # Classificação consultiva e inicial objetiva
 
-Método `araquari-risk-v3` (13/11/2026). Referência de categorias: PN 13/2026, art. 6º. Esta é a classificação calculada pelo aplicativo; `official_level` permanece nulo. A decisão institucional sobre atividades não é automatizada.
+Método `araquari-risk-v4` (13/11/2026). As regras adicionais e o papel de cada fonte estão em [Aproveitamento das fontes e contingência](APROVEITAMENTO_DAS_FONTES.md). Referência de categorias: PN 13/2026, art. 6º. Esta é a classificação calculada pelo aplicativo; `official_level` permanece nulo. A decisão institucional sobre atividades não é automatizada.
 
 ## O que aparece na inicial
 
@@ -19,7 +19,7 @@ A inicial mantém somente os avisos positivos em blocos por instituto. Ausência
 | --- | --- |
 | Verde — Normalidade | Cobertura atual de chuva local em 1 h e 24 h; previsão horária completa de 24 h para chuva, vento e rajadas **ou caminho qualitativo INMET descrito abaixo**; consulta atual de ao menos um instituto de avisos; nenhum sinal de atenção ou aviso positivo pendente aplicável. Ausência de aviso, isoladamente, não basta |
 | Azul — Preparação | Aviso com território e janela aplicáveis e evento explicitado para sete dias ou mais. O prazo considera o início do evento, não a coleta |
-| Amarelo — Atenção | Referência quantitativa de chuva/vento atingida; aviso aplicável; previsão municipal INMET com fenômeno de atenção nas próximas 24 h; ou aviso municipal positivo com validade ainda não conciliada. Um intervalo aproximado com chuva elevada pode justificar atenção, mas não uma coincidência severa |
+| Amarelo — Atenção | Referência quantitativa de chuva/vento atingida; aviso aplicável; previsão municipal INMET/CPTEC ou publicação regional datada com fenômeno de atenção nas próximas 24 h; ou aviso municipal positivo com validade ainda não conciliada. Um intervalo aproximado com chuva elevada pode justificar atenção, mas não uma coincidência severa |
 | Laranja — Alerta | Texto de aviso aplicável indica risco alto/alta probabilidade; ou observação e previsão atingem faixas intermediárias/superiores na mesma variável e em períodos compatíveis |
 | Vermelho — Alerta máximo | Texto de aviso válido explicita perigo concreto, tempestade severa iminente ou ameaça à vida. Não é atribuído por um pico numérico isolado |
 | Roxo — Calamidade | A norma exige desastre prolongado, danos/prejuízos ou declaração aplicável. Esta versão não dispõe de verificação automática desses elementos e não produz roxo a partir dos sensores |
@@ -93,7 +93,7 @@ A [descrição oficial do serviço](https://portal.inmet.gov.br/servicos/previs%
 | Céu claro, claro, poucas/muitas nuvens, parcialmente nublado, nublado ou encoberto, inclusive com possibilidade de chuva isolada, chuvisco, névoa ou nevoeiro; vento explicitamente fraco/calmo | Pode fornecer cobertura qualitativa para Normalidade, junto aos demais requisitos abaixo |
 | Texto desconhecido, negado, intensidade ausente ou vento somente moderado/rajadas sem intensidade | Não certifica condições sem atenção e não sustenta Normalidade pelo caminho qualitativo. O original permanece acessível |
 
-O reconhecedor é determinístico, com vocabulário explícito em `inmet_periods.py`, sem IA ou nota de confiança. Não transforma “fracos” em km/h, texto de chuva em mm, nem extremos diários em temperaturas de cada turno. As temperaturas não ganham novos limiares de risco.
+A versão v4 amplia essa interpretação conforme [APROVEITAMENTO_DAS_FONTES.md](APROVEITAMENTO_DAS_FONTES.md), preservando os números INMET e incluindo CPTEC, boletins elegíveis e referências regionais identificadas. O reconhecedor é determinístico, com vocabulário explícito em `inmet_periods.py`, sem IA ou nota de confiança. Não transforma “fracos” em km/h, texto de chuva em mm, nem extremos diários em temperaturas de cada turno. As temperaturas não ganham novos limiares de risco.
 
 ### Normalidade com previsão diária/por turno
 
@@ -108,7 +108,7 @@ Normalidade calculada significa **sem sinais de atenção nas referências monit
 
 A inicial identifica discretamente **Consultivo · previsão por turnos** quando a cobertura usa essa alternativa. O gráfico identifica **consulta anterior** quando usa série recuperada. Os detalhes mostram resolução, prazo e evidências de cada requisito. Não são acrescentados blocos por fonte na inicial. `risk_classification.coverage` informa a resolução e as variáveis horárias recuperadas, separadamente do nível. O botão de explicação e os avisos positivos recolhíveis permanecem ativos.
 
-O campo legado `risk_criteria: false` e o identificador legado do produto bruto INMET permanecem por compatibilidade dos consumidores: o produto bruto não é um critério numérico da norma nem determina nível diretamente. `consultative_role: qualitative_daily_or_period_evidence` explicita seu uso. A interpretação agora ocorre na camada consultiva versionada v3, sem modificar `assessment.official_level` ou a correspondência normativa anterior.
+O campo legado `risk_criteria: false` e o identificador legado do produto bruto INMET permanecem por compatibilidade dos consumidores: o produto bruto não é um critério numérico da norma nem determina nível diretamente. `consultative_role: qualitative_daily_or_period_evidence` explicita seu uso. A interpretação agora ocorre na camada consultiva versionada v3 e ampliada na v4, sem modificar `assessment.official_level` ou a correspondência normativa anterior.
 
 ## Rastreabilidade e histórico
 

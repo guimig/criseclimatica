@@ -16,7 +16,7 @@
   const riskNames={verde:'Normalidade',azul:'Preparação',amarelo:'Atenção',laranja:'Alerta',vermelho:'Alerta máximo',roxo:'Calamidade'};
   function riskLevel(product,now=Date.now()){
     const neutral={color:'neutral',active:null,title:'Sem classificação',kind:'Dados parciais',reason:'Faltam referências atuais para definir o nível.'};
-    if(!product||!['araquari-risk-v2','araquari-risk-v3'].includes(product.method_version)||product.kind!=='consultative_risk_level_not_official_decision'||product.official_level!==null||!Array.isArray(product.candidates))return neutral;
+    if(!product||!['araquari-risk-v2','araquari-risk-v3','araquari-risk-v4'].includes(product.method_version)||product.kind!=='consultative_risk_level_not_official_decision'||product.official_level!==null||!Array.isArray(product.candidates))return neutral;
     if(Date.parse(product.generated_at)>now+600000)return neutral;
     const order=Object.keys(riskNames);
     const candidates=product.candidates.filter(c=>c&&order.includes(c.level)&&c.level!=='roxo'&&typeof c.reason==='string'&&Array.isArray(c.evidence)&&c.evidence.length&&live(c,now)).sort((a,b)=>order.indexOf(b.level)-order.indexOf(a.level));
@@ -37,10 +37,30 @@
       const candidates=data.risk_classification.candidates||[];
       for(const c of candidates)box.append(element('p','small',`${riskNames[c.level]} · ${c.reason} · válida até ${date(c.valid_until)}${live(c,now)?'':' · vencida'}.`));
       box.append(element('h4','','Cobertura necessária para normalidade'));
-      for(const r of data.risk_classification.requirements||[])box.append(element('p','small',`${r.label}: ${r.available&&live(r,now)?'disponível':'ausente ou vencida'}${r.resolution==='qualitative_daily_or_period'?' · INMET diário/por turno':''}${r.evidence?.some(e=>e.retained_previous)?' · consulta anterior válida':''}${r.valid_until?' · até '+date(r.valid_until):''}.`));
+      for(const r of data.risk_classification.requirements||[])box.append(element('p','small',`${r.label}: ${r.available&&live(r,now)?'disponível':'ausente ou vencida'}${r.resolution==='qualitative_daily_or_period'?' · '+[...new Set((r.evidence||[]).filter(e=>e.period).map(e=>e.source))].join('/')+' diário/por turno':''}${r.spatial_scope==='regional_reference'?' · referência regional':''}${r.evidence?.some(e=>e.retained_previous)?' · consulta anterior válida':''}${r.valid_until?' · até '+date(r.valid_until):''}.`));
       box.append(element('h4','','Critérios por nível'));
       for(const level of data.risk_classification.levels||[])box.append(element('p','small',`${level.name}: ${level.criterion}`));
       const link=element('a','','Critérios completos e limites do algoritmo ↗');link.href='https://github.com/guimig/criseclimatica/blob/main/docs/CLASSIFICACAO_CONSULTIVA.md';link.target='_blank';link.rel='noopener noreferrer';box.append(link);target.append(box);
+    }
+    if(detailed){
+      const group=(title)=>{const d=element('details','synthesis-method');d.append(element('summary','',title));target.append(d);return d;};
+      if(data.forecast_ranges?.length){const box=group('Concordância entre previsões');for(const r of data.forecast_ranges){
+        const members=(r.members||[]).filter(m=>live(m,now));if(!members.length)continue;
+        box.append(element('p','small',`${fieldNames[r.variable]||r.variable}: ${number(Math.min(...members.map(m=>m.value)))}–${number(Math.max(...members.map(m=>m.value)))} ${members[0].unit}${r.attention_disagreement?' · divergência sobre atenção':''}.`));
+        for(const m of members)box.append(element('p','small',`${m.source}: ${number(m.value)} ${m.unit}${m.retained_previous?' · consulta anterior válida':''}.`));
+      }box.append(element('p','small','Modelos compartilham o Open-Meteo. A faixa não representa probabilidade; um sinal válido de atenção não é diluído pelos demais.'));}
+      const daily=(data.daily_quantitative||[]).filter(r=>live(r,now));
+      if(daily.length){const box=group('Temperaturas diárias por fonte');for(const r of daily.slice(0,14))box.append(element('p','small',`${r.day.split('-').reverse().join('/')} · ${r.source}: ${number(r.minimum_c)}–${number(r.maximum_c)} °C${r.kind==='extremes_of_24_hourly_samples'?' · extremos de 24 amostras horárias':' · extremos diários informados'}.`));}
+      if(data.antecedent_rain?.windows?.length){const box=group('Chuva antecedente');for(const r of data.antecedent_rain.windows){const members=r.members.filter(m=>live(m,now));if(!members.length)continue;
+        box.append(element('p','small',`${r.hours} h · ${members.length} estações · maior: ${number(Math.max(...members.map(m=>m.value)))} mm.`));
+        for(const m of members)box.append(element('p','small',`${data.station_registry.find(s=>s.id===m.station)?.name||m.station}: ${number(m.value)} mm · ${date(m.end_at)}.`));
+      }box.append(element('p','small','Janelas diferentes permanecem separadas. Não são novos limites da norma.'));}
+      if(data.publication_evidence?.length||data.pending_publications?.length){const box=group('Boletins e publicações avaliados');
+        for(const r of data.publication_evidence||[]){box.append(element('p','small',`${r.source}: ${r.title} · ${live(r,now)?'evidência válida':'vencida'} · ${r.scope==='municipality_explicit'?'Araquari':'referência regional'} · até ${date(r.valid_until)}.`));box.append(element('p','small',r.summary));
+          if(/^https:\/\/(?:ciram\.epagri\.sc\.gov\.br|(?:www\.)?defesacivil\.sc\.gov\.br)\//.test(r.url)){const a=element('a','','Ler publicação completa ↗');a.href=r.url;a.target='_blank';a.rel='noopener noreferrer';box.append(a);}}
+        for(const r of data.pending_publications||[])box.append(element('p','small',`${r.source}: ${r.title} · contexto; sem região, período ou indicação positiva suficientes para classificação.`));
+      }
+      if(data.sensor_inventory?.length){const box=group('Sensores locais avaliados');for(const r of data.sensor_inventory)box.append(element('p','small',`${data.station_registry.find(s=>s.id===r.station)?.name||r.station} · ${r.name||'Sensor '+r.sensor_id}: ${number(r.value)} ${r.unit||'unidade não confirmada'} · ${r.use==='temperature_observation'?'temperatura na síntese':'contexto; unidade, intervalo ou referência de risco não confirmados'}.`));}
     }
     target.append(element(detailed?'h2':'h3','','Observações e previsões'));
     const grid=element('div','synthesis-grid');
@@ -72,7 +92,7 @@
       target.append(element('p','synthesis-daily',`INMET · ${inmet.day.split('-').reverse().join('/')} · mín. ${number(inmet.minimum_c)} °C / máx. ${number(inmet.maximum_c)} °C${inmet.cached?' · consulta anterior':''}. `+descriptions));
     }
     const cp=days.find(r=>r.source==='CPTEC/INPE');
-    if(cp)target.append(element('p','small',`CPTEC/INPE · ${cp.day.split('-').reverse().join('/')} · ${cp.locality||'localidade de referência'}: ${number(cp.minimum_c)}–${number(cp.maximum_c)} °C. Períodos ainda não conciliados com os produtos horários.`));
+    if(cp)target.append(element('p','small',`CPTEC/INPE · ${cp.day.split('-').reverse().join('/')} · ${cp.locality||'localidade de referência'}: ${number(cp.minimum_c)}–${number(cp.maximum_c)} °C. Previsão diária; não é série horária.`));
     const details=element('details','synthesis-method');details.append(element('summary','','Fontes, cobertura e critérios'));
     details.append(element('p','small','Rainha, Porto Grande, Centro e IFC Araquari têm igual importância. Cada variável participa quando há leitura compatível e válida. Chuva diária e acumulado móvel de 24 h permanecem separados.'));
     details.append(element('p','small','Epagri/Ciram e INMET têm igual relevância meteorológica. A norma institucional cita Epagri/Ciram; avisos INMET não são convertidos em níveis institucionais.'));

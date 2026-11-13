@@ -128,7 +128,8 @@ function modelRange(data,field,unit) {
 function dailyForecast(data) {
   const parts=Object.fromEntries(new Intl.DateTimeFormat('en',{timeZone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).map(p=>[p.type,p.value]));
   const today=`${parts.year}-${parts.month}-${parts.day}`;
-  return data?.synthesis?.forecast_context?.days?.find(d=>d.source==='INMET'&&d.day===today&&Date.now()<Date.parse(d.valid_until));
+  const days=data?.synthesis?.forecast_context?.days||[];
+  return ['INMET','CPTEC/INPE'].map(source=>days.find(d=>d.source===source&&d.day===today&&Date.now()<Date.parse(d.valid_until))).find(Boolean);
 }
 function renderSummary() {
   const data=panel.data,current=dashboardCurrent(data),presentation=riskPresentation(data);
@@ -137,7 +138,7 @@ function renderSummary() {
   el('publication-status').textContent=panel.fetchError?'Falha ao atualizar. Nova tentativa automática.':panel.incompleteHistory?'Histórico temporariamente indisponível.':data?'Coleta atrasada.':'Não foi possível carregar os dados.';
   el('level-dot').className='level-dot '+presentation.color;el('level-card').dataset.risk=presentation.color;
   el('level-title').textContent=riskNames[presentation.color]||presentation.title;
-  el('level-kind').textContent=presentation.color==='neutral'?'Dados parciais':data?.risk_classification?.coverage?.forecast_resolution==='mixed_or_qualitative'?'Consultivo · previsão por turnos':'Consultivo';
+  el('level-kind').textContent=presentation.color==='neutral'?'Dados parciais':data?.risk_classification?.coverage?.regional_reference_used?'Consultivo · referência regional':data?.risk_classification?.coverage?.forecast_resolution==='mixed_or_qualitative'?'Consultivo · previsão por turnos':'Consultivo';
   el('level-reason').textContent=data?.risk_classification?presentation.reason:!data?'Consultando os dados.':presentation.color==='verde'?'Chuva e vento abaixo das faixas de atenção.':presentation.reason.split('. ')[0]+'.';
   for(const item of document.querySelectorAll('[data-risk-level]')){
     const active=item.dataset.riskLevel===(presentation.active||presentation.color);item.classList.toggle('is-active',active);
@@ -160,15 +161,15 @@ function renderSummary() {
     updateMetric(name,stats?num(field==='gust_kmh'?stats.max:stats.median)+' '+unit:'—',stats?`${stats.count} ${stats.count===1?'estação':'estações'} · ${compactTime(stats.members[0].end_at)}`:'Sem leitura recente');
   }
   const daily=dailyForecast(data),label=el('temperature-label');if(label)label.textContent='MÁXIMA · PRÓX. 24 H';
-  const tempButton=document.querySelector('[data-focus="temperature_c"]');if(tempButton)tempButton.dataset.daily='false';
+  const tempButton=document.querySelector('[data-focus="temperature_c"]');if(tempButton){tempButton.dataset.daily='false';tempButton.dataset.dailyTarget='#model-comparison';}
   if(!heatValid&&daily&&Number.isFinite(daily.maximum_c)){
-    updateMetric('temperature',num(daily.maximum_c)+' °C','INMET · previsão diária');if(label)label.textContent='MÁXIMA · HOJE';if(tempButton)tempButton.dataset.daily='true';
+    updateMetric('temperature',num(daily.maximum_c)+' °C',daily.source+' · previsão diária');if(label)label.textContent='MÁXIMA · HOJE';if(tempButton){tempButton.dataset.daily='true';tempButton.dataset.dailyTarget=daily.source==='INMET'?'#model-comparison':'#weather-synthesis-detail';}
   }
   const brief=el('forecast-brief');if(brief){
     const hour=Number(new Intl.DateTimeFormat('en',{timeZone,hour:'numeric',hourCycle:'h23'}).format(new Date()));
     const order=hour<12?['manha','tarde','noite','dia']:hour<18?['tarde','noite','dia']:['noite','dia'];
     const period=daily?.periods?.filter(p=>order.includes(p.period)).sort((a,b)=>order.indexOf(a.period)-order.indexOf(b.period))[0];
-    brief.textContent=period?.summary?`Hoje${{manha:' de manhã',tarde:' à tarde',noite:' à noite',dia:''}[period.period]}: ${period.summary.replace(/[.\s]+$/,'').toLocaleLowerCase('pt-BR')}.`:'';
+    brief.textContent=period?.summary?`Hoje${{manha:' de manhã',tarde:' à tarde',noite:' à noite',dia:''}[period.period]}: ${period.summary.replace(/[.\s]+$/,'').toLocaleLowerCase('pt-BR')}${daily.source==='CPTEC/INPE'?' (CPTEC/INPE)':''}.`:'';
     brief.hidden=!brief.textContent;
   }
 }
@@ -456,6 +457,11 @@ function homeNotices(data,now=Date.now()) {
       regions:municipalities.map(m=>m.name||m.location_id).join(', ')+(local?'':' · entorno; Araquari não confirmada'),
       summary:list(n.risks).filter(t=>typeof t==='string').join(' '),retained_previous:n.retained_previous||feed.retained_previous});
   }
+  for(const p of list(data?.synthesis?.publication_evidence)){
+    if(p.source!=='Epagri/Ciram'||!(now<Date.parse(p.valid_until))||!fresh(p.collected_at,6,now))continue;
+    const url=safeLink(p.url);if(!url)continue;
+    add({...p,id:p.url,publication_type:'Previsão editorial',regions:p.scope==='municipality_explicit'?'Araquari':'Referência regional',url});
+  }
   return rows;
 }
 function renderHomeNotices() {
@@ -463,15 +469,16 @@ function renderHomeNotices() {
   for(const [id,source]of [['epagri','Epagri/Ciram'],['inmet','INMET']]){
     const notices=rows.filter(n=>n.source===source),disclosure=el(id+'-context'),body=el(id+'-notices');
     disclosure.hidden=!notices.length;if(!notices.length)disclosure.open=false;
-    el(id+'-notice-summary').textContent=`Avisos · ${source} (${notices.length})`;
+    el(id+'-notice-summary').textContent=`${notices.some(n=>n.publication_type)?'Avisos e previsões':'Avisos'} · ${source} (${notices.length})`;
     body.replaceChildren();
     for(const n of notices){
       const card=node('article','home-notice-item');card.append(node('h3','',n.title));
+      if(n.publication_type)paragraph(card,n.publication_type,'small');
       if(n.severity)paragraph(card,'Severidade: '+n.severity+'.','small');
       paragraph(card,'Abrangência: '+n.regions+'.');paragraph(card,'Período: '+noticePeriod(n)+'.');
       if(n.summary)paragraph(card,String(n.summary).slice(0,650));
       if(n.retained_previous)paragraph(card,'Consulta anterior; atualização da fonte indisponível.','small');
-      card.append(officialLink(n.url,'Ler aviso completo ↗'));body.append(card);
+      card.append(officialLink(n.url,n.publication_type?'Ler previsão completa ↗':'Ler aviso completo ↗'));body.append(card);
     }
   }
 }
@@ -486,7 +493,10 @@ function renderRiskExplanation(force=false) {
   const criterion=levels.find(l=>l.id===presentation.color)?.criterion;
   if(criterion){body.append(node('h3','','Critério utilizado'));paragraph(body,criterion);}
   const currentCandidates=candidates.filter(c=>c.level===presentation.color&&Date.now()<Date.parse(c.valid_until));
-  if(currentCandidates.length){body.append(node('h3','','Evidências atuais'));for(const c of currentCandidates.slice(0,6))paragraph(body,`${c.reason} Referência válida até ${date(c.valid_until)}.`);}
+  if(currentCandidates.length){body.append(node('h3','','Evidências atuais'));const linked=new Set();for(const c of currentCandidates.slice(0,6)){
+    paragraph(body,`${c.reason} Referência válida até ${date(c.valid_until)}.`);
+    for(const e of c.evidence||[])if(e.url&&safeLink(e.url)&&!linked.has(e.url)){linked.add(e.url);body.append(officialLink(e.url,'Ler publicação completa ↗'));}
+  }}
   if(presentation.color==='neutral')for(const r of requirements)if(!r.available||!(Date.now()<Date.parse(r.valid_until)))paragraph(body,r.label+': ausente ou vencida.');
   paragraph(body,'Classificação consultiva. Decisões sobre as atividades cabem à autoridade institucional.','small');
   if(levels.length){const details=node('details','risk-explanation-levels');details.append(node('summary','','Ver os seis níveis'));for(const level of levels){details.append(node('h4','',riskNames[level.id]||level.name));paragraph(details,level.criterion);}body.append(details);}
@@ -523,7 +533,7 @@ async function loadDashboard() {
   finally{if(id===panel.loadId){panel.loading=false;el('refresh').disabled=false;renderSummary();renderRecent();renderChart();}}
 }
 function selectVariable(variable) {panel.variable=variable;if(el('forecast-variable'))el('forecast-variable').value=variable;for(const button of document.querySelectorAll('[data-variable]')){const selected=button.dataset.variable===variable;button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));}renderChart();}
-if(typeof module!=='undefined')module.exports={homeNotices,noticePeriod,reportedWindowExpired,primaryNotice,inmetContextStatus,inmetNotices,fresh,dashboardCurrent,protocolCurrent,forecastCurrent,currentGauges,signalCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale,chartReadingsAt,chartReadingText};
+if(typeof module!=='undefined')module.exports={dailyForecast,homeNotices,noticePeriod,reportedWindowExpired,primaryNotice,inmetContextStatus,inmetNotices,fresh,dashboardCurrent,protocolCurrent,forecastCurrent,currentGauges,signalCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale,chartReadingsAt,chartReadingText};
 if(typeof document!=='undefined'){
   function navigationState(){for(const link of document.querySelectorAll('nav a[href^="#"]')){const active=link.getAttribute('href')===(location.hash||'#main');if(active)link.setAttribute('aria-current','location');else link.removeAttribute('aria-current');}}
   window.addEventListener('hashchange',navigationState);navigationState();
@@ -539,7 +549,7 @@ if(typeof document!=='undefined'){
     renderChart();
     el('observed-heading').scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
   });
-  for(const b of document.querySelectorAll('[data-focus]'))b.addEventListener('click',()=>{if(b.dataset.daily==='true'){location.href='./dados.html#model-comparison';return;}panel.hours=24;el('chart-range').value='24';selectVariable(b.dataset.focus);el('chart-heading').scrollIntoView({block:'center',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});});
+  for(const b of document.querySelectorAll('[data-focus]'))b.addEventListener('click',()=>{if(b.dataset.daily==='true'){location.href='./dados.html'+(b.dataset.dailyTarget||'#model-comparison');return;}panel.hours=24;el('chart-range').value='24';selectVariable(b.dataset.focus);el('chart-heading').scrollIntoView({block:'center',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});});
   for(const b of document.querySelectorAll('[data-observed-variable]'))b.addEventListener('click',()=>{panel.observedVariable=b.dataset.observedVariable;panel.station='all';el('observed-variable').value=panel.observedVariable;renderChart();el('observed-heading').scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});});
   el('forecast-variable')?.addEventListener('change',event=>selectVariable(event.target.value));
   el('observed-variable')?.addEventListener('change',event=>{panel.observedVariable=event.target.value;panel.station='all';renderChart();});

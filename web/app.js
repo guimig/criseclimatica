@@ -182,7 +182,7 @@ function renderSynthesis() {
   const rev = primary.revision;
   if (rev?.status === 'comparable_publications') evidence.append(child('p', '', `Revisão Open-Meteo: publicação anterior de ${datetime(rev.previous_published_at)}. Para o mesmo período de ${datetime(rev.start_at)} a ${datetime(rev.end_at)}, o total passou de ${value(rev.previous_rain_mm, 1)} para ${value(rev.current_rain_mm, 1)} mm (${rev.rain_change_mm > 0 ? '+' : ''}${value(rev.rain_change_mm, 1)} mm). Uma redução prevista não confirma deslocamento seguro. Horário de coleta não é emissão do modelo.`));
   for (const pair of primary.temperature_context?.pairs || []) evidence.append(child('p', '', `Contexto exploratório: Open-Meteo ${value(pair.model_c, 1)} °C (${datetime(pair.model_at)}); METAR ${pair.icao} ${value(pair.observed_c, 1)} °C (${datetime(pair.observed_at)}), a ${value(pair.distance_km, 1)} km e ${pair.gap_minutes} min entre referências. Altitude e protocolos não conciliados; sem cálculo de erro do modelo.`));
-  evidence.append(child('p', 'analysis-foot', 'CPTEC e Open-Meteo: os limites dos dias não estão conciliados. NASA POWER e arquivos INMET têm referências históricas ou atrasadas; boletins Epagri são contexto editorial, e catálogos não comprovam medições. Consulte os painéis de cada produto.'));
+  evidence.append(child('p', 'analysis-foot', 'CPTEC e Open-Meteo: os limites dos dias não estão conciliados. NASA POWER e arquivos INMET têm referências históricas ou atrasadas; boletins Epagri com região e período explícitos podem sustentar atenção; catálogos não comprovam medições. Consulte os painéis de cada produto.'));
   for (const limitation of primary.limitations || []) evidence.append(child('p', 'analysis-foot', limitation));
   evidence.append(child('p', 'analysis-foot', 'Referência atual: PN 13/2026 e PN 14/2026 — ASSINST/REI. Seis níveis qualitativos; avisos Epagri/Ciram são prioritários. Não há tabela normativa de chuva ou vento que determine automaticamente o nível. O fim de um aviso não autoriza retomada de atividades.'));
   target.append(evidence);
@@ -834,6 +834,16 @@ function renderSourceHealth() {
     state.defesa, state.epagriGeo, state.epagriNotices, state.epagriBulletins,
     state.regionalQuality, state.stations];
   const limits = [8, 192, 6, 6, 6, 192, 6, 6, 72, 6, 6, 72, 6, 6, 8, 192];
+  const roles = [
+    'Classificação quantitativa e comparação de modelos.', 'Cadastro de estações; não é medição.',
+    'Avisos na classificação, com região e validade verificadas.', 'Medições e referência regional para vento/rajadas.',
+    'Chuva regional na classificação quando há leitura elegível.', 'Histórico; não substitui medição atual.',
+    'Chuva local na classificação e acumulados antecedentes.', 'Uso conforme variável, unidade e intervalo confirmados.',
+    'Histórico diário em grade; não substitui chuva medida agora.', 'Previsão qualitativa e temperaturas diárias para Araquari.',
+    'Classificação somente com região, período e evidência verificáveis.', 'Cadastro de estações; não é medição.',
+    'Avisos na classificação, com região e validade verificadas.', 'Evidência qualitativa quando região e período são explícitos.',
+    'Inventário calculado; não é outra fonte independente.', 'Cadastro; não comprova observação recente.'
+  ];
   const labels = {
     rate_limited:'Limite da fonte atingido', no_recent_report:'Sem boletim recente',
     available:'Disponível', cached:'Última leitura em cache', stale:'Dados anteriores', partial:'Parcial',
@@ -853,6 +863,7 @@ function renderSourceHealth() {
     const item = child('div', 'source-health-item');
     item.append(child('strong', '', name), child('span', `source-health-status ${['available','cached'].includes(status) ? 'health-ok' : 'health-pending'}`, labels[status] || status));
     if (stamp) item.append(child('small', 'analysis-foot', `Consulta: ${datetime(stamp)}`));
+    item.append(child('small','analysis-foot',roles[index]));
     target.append(item);
   }
 }

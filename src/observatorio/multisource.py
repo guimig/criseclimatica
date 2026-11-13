@@ -254,7 +254,7 @@ def notices(dashboard, stamp):
     return sorted(rows, key=lambda n: (n['start_at'], n['source'], n['id'] or ''))
 
 
-def build(dashboard, primary, campus, sensors, comparison, inmet, bulletins, stamp, previous=None, forecast_archive=None):
+def build(dashboard, primary, campus, sensors, comparison, inmet, bulletins, stamp, previous=None, forecast_archive=None, supplemental=None):
     observations, rejected = local_observations(primary, campus, sensors, stamp)
     observations = [r for r in observations if moment(r["end_at"]) <= moment(stamp)]
     history = merge_history(previous, observations, campus, stamp)
@@ -272,7 +272,7 @@ def build(dashboard, primary, campus, sensors, comparison, inmet, bulletins, sta
         if b is not None and r.get('threshold_eligible', True): signals.append({**r, 'band': b})
     regional = []
     for r in primary.get('recent_observations', []):
-        if r.get('source') != 'NOAA/METAR' or not valid_number(r.get('distance_km'), 0, 25) or not fresh(r.get('observed_at'), moment(stamp), 2): continue
+        if r.get('source') != 'NOAA/METAR' or not valid_number(r.get('distance_km'), 0, 25) or not fresh(r.get('observed_at'), moment(stamp), 2) or moment(r['observed_at'])>moment(stamp): continue
         for variable in ('wind_kmh', 'gust_kmh', 'temperature_c'):
             value = r.get(variable)
             if not valid_number(value, -80 if variable == 'temperature_c' else 0, 65 if variable == 'temperature_c' else 450): continue
@@ -298,16 +298,41 @@ def build(dashboard, primary, campus, sensors, comparison, inmet, bulletins, sta
         pred = [forecast['sources_by_variable'][f] for f in forecast_fields if forecast['sources_by_variable'][f]['status'] == 'available']
         coverage[name] = {'status': 'observed_and_forecast' if obs and pred else 'observations_only' if obs else 'forecast_only' if pred else 'unavailable',
                           'observed_stations': sorted({r['station'] for r in obs}), 'forecast_sources': sorted({s['name'] for s in pred})}
+    from .source_evidence import (cptec_days, model_evidence, antecedent_rain, regional_inmet_rain,
+                                  publication_evidence, sensor_inventory)
+    supplemental = supplemental or {}
+    model_matches=[]
+    model_signals, model_ranges, daily_models = model_evidence(comparison, forecast_archive, stamp,
+        observed_signals=signals, matches=model_matches, selected=forecast)
+    # All usable model evidence participates; the selected product only controls
+    # the compact indicators/chart. Shared infrastructure never becomes votes.
+    existing={(r['source'],r['variable'],r['end_at'],r['value']) for r in signals}
+    signals += [r for r in model_signals if (r['source'],r['variable'],r['end_at'],r['value']) not in existing]
+    regional_rain = regional_inmet_rain(supplemental.get('inmet_rain',{}),supplemental.get('point',{}),stamp)
+    regional += regional_rain
+    signals += regional_rain
+    extra_days = cptec_days(comparison,stamp)
+    context = forecast_context(comparison, inmet, bulletins, stamp)
+    context['days'] = [r for r in context['days'] if r['source']!='CPTEC/INPE']+extra_days
+    publications, pending = publication_evidence(bulletins,supplemental.get('defesa',{}),stamp)
+    daily_numeric = [{'source':r['source'],'day':r['day'],'minimum_c':r.get('minimum_c'),'maximum_c':r.get('maximum_c'),
+                      'valid_until':r['valid_until'],'collected_at':r['collected_at'],'kind':'reported_daily_extremes'}
+                     for r in context['days'] if valid_number(r.get('minimum_c'),-60,65) and valid_number(r.get('maximum_c'),-60,65)]
     result = {'schema_version': 1, 'kind': KIND, 'method_version': VERSION, 'location_id': 'araquari', 'generated_at': stamp,
               'station_registry': [{'id': k, 'name': v, 'weight': 1} for k, v in STATIONS.items()],
               'observations': observations, 'regional_observations': regional, 'statistics': stats, 'rejected': rejected, 'signals': signals,
-              'coverage': coverage, 'notices': advisory, 'forecast_context': forecast_context(comparison, inmet, bulletins, stamp),
+              'coverage': coverage, 'notices': advisory, 'forecast_context': context,
+              'antecedent_rain':antecedent_rain(primary,stamp),'forecast_ranges':model_ranges,'observation_model_matches':model_matches,
+              'daily_quantitative':daily_numeric+daily_models,'publication_evidence':publications,'pending_publications':pending,
+              'sensor_inventory':sensor_inventory(sensors,stamp),
               'selected_forecast': forecast, 'observation_history': [r for r in history['records'] if r['variable'] in ('rain_1h_mm','rain_24h_mm','temperature_c','wind_kmh','gust_kmh')],
               'formal_level': None, 'notice_weighting': 'equal_meteorological_relevance_not_institutional_color_conversion',
               'normative_assessment': deepcopy(dashboard['assessment']), 'institutional_decision_automated': False}
     assessment = {'generated_at': stamp, 'method_version': VERSION, 'coverage': coverage,
                   'selected_forecasts': forecast['sources_by_variable'], 'notices': advisory,
-                  'attention_signals': [r for r in signals if r['band'] > 0], 'rejected': rejected}
+                  'attention_signals': [r for r in signals if r['band'] > 0], 'rejected': rejected,
+                  'publication_evidence':[{k:v for k,v in r.items() if k!='summary'} for r in publications],'forecast_ranges':[{k:v for k,v in r.items() if k!='members'} for r in model_ranges],
+                  'antecedent_rain':result['antecedent_rain']}
     snapshots = {r['generated_at']: r for r in history['assessments']}
     snapshots[stamp] = assessment
     history['assessments'] = sorted(snapshots.values(), key=lambda r: r['generated_at'])[-336:]

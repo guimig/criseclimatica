@@ -330,6 +330,10 @@ assert.equal(elements.get('epagri-context').hidden,true);assert.equal(elements.g
 assert.equal(elements.get('inmet-notices').children.length,0);
 context.noticeInput=noticeData;vm.runInContext('panel.data=noticeInput;renderRiskExplanation(true)',context);
 assert.equal(elements.get('dialog-content').children.at(-1).href,'./dados.html#weather-synthesis-detail');
+const editorial={source:'Epagri/Ciram',title:'Previsão de temporais',url:'https://ciram.epagri.sc.gov.br/index.php/previsao/',collected_at:noticeStamp,valid_until:new Date(noticeClock+3600000).toISOString(),start_at:noticeStamp,end_at:new Date(noticeClock+3600000).toISOString(),scope:'regional_reference_not_municipal_confirmation',summary:'Temporais no Litoral Norte.'};
+assert.equal(homeNotices({synthesis:{publication_evidence:[editorial]}},noticeClock)[0].publication_type,'Previsão editorial');
+assert.equal(homeNotices({synthesis:{publication_evidence:[{...editorial,url:'https://evil.example/'}]}},noticeClock).length,0);
+assert.equal(homeNotices({synthesis:{publication_evidence:[editorial]}},noticeClock+7200000).length,0);
 delete global.location;
 console.log('Home evidence passed: positive/empty/failed/expired, geographic scope, pending time, direct links, deduplication and repeated rendering.');
 
@@ -346,3 +350,12 @@ assert.equal(elements.get('station-coverage').textContent,'1 estação · leitur
 assert.equal(elements.get('observed-source').textContent,'IFC');
 assert.equal(plotNodes('plot','text').find(n=>n.attributes.class==='chart-unit').textContent,'km/h');
 console.log('Chart coverage passed: wind and gust count once per station, actual source attribution and explicit axis units.');
+
+// Daily presentation retains INMET priority and recovers qualified CPTEC data.
+const {dailyForecast}=require('../web/dashboard.js');
+const dailyToday=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+const dailyUntil=new Date(Date.now()+3600000).toISOString();
+const dailyData={synthesis:{forecast_context:{days:[{source:'CPTEC/INPE',day:dailyToday,valid_until:dailyUntil,maximum_c:27},{source:'INMET',day:dailyToday,valid_until:dailyUntil,maximum_c:28}]}}};
+assert.equal(dailyForecast(dailyData).source,'INMET');dailyData.synthesis.forecast_context.days.pop();
+assert.equal(dailyForecast(dailyData).source,'CPTEC/INPE');dailyData.synthesis.forecast_context.days[0].valid_until='2000-01-01T00:00:00Z';
+assert.equal(dailyForecast(dailyData),undefined);

@@ -141,6 +141,8 @@ class TestStaticBuild(unittest.TestCase):
             catalog = {"schema_version": 1, "kind": "station_catalog_metadata_not_measurements", "locations": []}
             with patch("build_site.collect_inmet_forecast", side_effect=lambda stamp, **kwargs: forecast_unavailable(stamp)), \
                  patch("build_site.collect_campus", side_effect=lambda stamp: __import__("observatorio.campus_station", fromlist=["empty"]).empty(stamp)), \
+                 patch("build_site.collect_epagri_bulletins", side_effect=lambda stamp, **kwargs: __import__("observatorio.epagri_bulletins", fromlist=["unavailable"]).unavailable(stamp)), \
+                 patch("build_site.collect_models", side_effect=lambda place, stamp, **kwargs: []), \
                  patch("build_site.OpenMeteoClient", return_value=ForecastStub()), \
                  patch("build_site.fetch_alerts", side_effect=AlertSourceError("service offline")), \
                  patch("build_site.fetch_metars", side_effect=MetarSourceError("service offline")), \

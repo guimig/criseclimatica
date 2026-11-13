@@ -9,16 +9,16 @@ from zoneinfo import ZoneInfo
 from .analysis import fresh, hourly_bins, iso, moment
 from .protocol import qualitative_match, LEVELS
 
-VERSION = 'araquari-risk-v3'
+VERSION = 'araquari-risk-v4'
 ORDER = {level['id']: i for i, level in enumerate(LEVELS)}
 NAMES = {level['id']: level['name'] for level in LEVELS}
 VARIABLES = {'rain_1h_mm': 'Chuva em 1 h', 'rain_24h_mm': 'Chuva em 24 h',
              'wind_kmh': 'Vento', 'gust_kmh': 'Rajadas'}
 
 RULES = {
-    'verde': 'Chuva local de 1 h e 24 h e consulta atual de avisos; previsão horária completa ou cobertura qualitativa INMET de 24 h com medições locais de vento/rajadas para os campos substituídos; nenhum sinal de atenção.',
+    'verde': 'Chuva local de 1 h e 24 h e consulta atual de avisos; previsão horária completa ou cobertura qualitativa de 24 h com medições locais ou referências regionais identificadas de vento/rajadas para os campos substituídos; nenhum sinal de atenção.',
     'azul': 'Aviso aplicável com evento previsto para sete dias ou mais.',
-    'amarelo': 'Faixa auxiliar atingida, aviso aplicável ou previsão municipal INMET com trovoadas, tempestade, granizo, chuva forte/intensa ou vento forte/intenso; validade municipal pendente também exige atenção.',
+    'amarelo': 'Faixa auxiliar atingida, aviso aplicável ou previsão municipal com trovoadas, tempestade, granizo, chuva forte/intensa ou vento forte/intenso; boletim/publicação com região e período explícitos ou acumulado curto que já atinge a referência de 24 h também sustentam atenção.',
     'laranja': 'Aviso com indicação explícita de risco alto/alta probabilidade ou medição e previsão compatíveis nas faixas intermediárias/superiores.',
     'vermelho': 'Aviso válido com indicação explícita de perigo concreto, tempestade severa iminente ou ameaça à vida; não resulta de um pico numérico isolado.',
     'roxo': 'Exige verificação de danos, desastre prolongado ou decreto aplicável. Não é atribuído automaticamente por esta versão.',
@@ -134,8 +134,20 @@ def classify(dashboard, detail, stamp):
             label = {'manha': 'manhã', 'tarde': 'tarde', 'noite': 'noite', 'dia': 'dia'}[row['period']]
             short_date = datetime.strptime(row['day'], '%Y-%m-%d').strftime('%d/%m')
             phenomena = ', '.join(row['phenomena'][:3])
-            add('amarelo', f"INMET: previsão de {phenomena} ({short_date}, {label}).",
-                'inmet_qualitative_forecast_attention', [row['valid_until']], [row])
+            add('amarelo', f"{row['source']}: previsão de {phenomena} ({short_date}, {label}).",
+                'inmet_qualitative_forecast_attention' if row['source']=='INMET' else 'cptec_qualitative_forecast_attention', [row['valid_until']], [row])
+
+    for row in synthesis.get('observation_model_matches', []):
+        add('laranja', f"{VARIABLES[row['variable']]}: medição elevada e previsão compatível no mesmo período.",
+            'compatible_observation_and_additional_model', [row['valid_until']], [row['observation'],row['forecast']])
+    for row in synthesis.get('publication_evidence', []):
+        where = '' if row['scope']=='municipality_explicit' else ' na região'
+        add('amarelo', f"{row['source']}: {', '.join(row['phenomena'][:2])}{where}.",
+            'scoped_dated_publication_attention', [row['valid_until']], [row])
+    for row in synthesis.get('antecedent_rain', {}).get('attention_lower_bounds', []):
+        value = f"{row['value']:g}".replace('.', ',')
+        add('amarelo', f"Chuva observada: {value} mm em {row['hours']} h.",
+            'observed_shorter_window_lower_bound_24h', [row['valid_until']], [row])
 
     # Green requires positive coverage, not merely an empty warning list.
     for variable in ('rain_1h_mm', 'rain_24h_mm'):
@@ -152,6 +164,12 @@ def classify(dashboard, detail, stamp):
         observations = [o for o in synthesis['observations'] if o['variable'] == field
                         and o.get('scope') == 'araquari' and moment(o.get('valid_until'))
                         and moment(o.get('end_at')) and moment(o['end_at']) <= now < moment(o['valid_until'])]
+        if not observations and field in ('wind_kmh','gust_kmh'):
+            observations = [o for o in synthesis.get('regional_observations', []) if o['variable']==field
+                            and o.get('source')=='NOAA/METAR' and 0<=o.get('distance_km',999)<=25
+                            and moment(o.get('end_at')) and moment(o.get('valid_until'))
+                            and moment(o['end_at'])<=now<moment(o['valid_until'])]
+        regional = bool(observations) and all(o.get('scope')=='regional_not_araquari_station' for o in observations)
         alternative = q['available'] and (field == 'precipitation_mm' or bool(observations))
         expires = r.get('valid_until') if hourly else q['valid_until'] if alternative else None
         if alternative and not hourly and observations:
@@ -161,6 +179,7 @@ def classify(dashboard, detail, stamp):
                      'gust_kmh': 'Vento qualitativo e rajadas observadas'}[field]
         requirements.append({'id': field, 'label': label, 'available': bool(hourly or alternative), 'valid_until': expires,
                              'resolution': 'hourly_quantitative' if hourly else 'qualitative_daily_or_period' if alternative else None,
+                             'spatial_scope':'regional_reference' if alternative and not hourly and regional else 'araquari',
                              'evidence': [r] if hourly else q['evidence']+observations if alternative else []})
     requirements.append({'id': 'warnings', 'label': 'Consulta de avisos', 'available': bool(warning_sources),
                          'valid_until': max((r['valid_until'] for r in warning_sources), default=None)})
@@ -174,8 +193,10 @@ def classify(dashboard, detail, stamp):
     product = {'schema_version': 1, 'method_version': VERSION, 'generated_at': stamp,
                'kind': 'consultative_risk_level_not_official_decision', 'official_level': None,
                'candidates': sorted(candidates, key=lambda c: ORDER[c['level']], reverse=True),
+               'quantitative_context': synthesis.get('daily_quantitative', []),
                'requirements': requirements, 'warning_sources': warning_sources, 'qualitative_forecast': qualitative,
                'coverage': {'forecast_resolution': 'mixed_or_qualitative' if any(r.get('resolution') == 'qualitative_daily_or_period' for r in requirements) else 'hourly' if all(r.get('available') for r in requirements if r['id'] in ('precipitation_mm', 'wind_kmh', 'gust_kmh')) else 'incomplete',
+                            'regional_reference_used':any(r.get('spatial_scope')=='regional_reference' for r in requirements),
                             'retained_hourly_variables': [k for k, r in forecast.get('sources_by_variable', {}).items() if r.get('retained_previous')]},
                'levels': [{'id': k, 'name': NAMES[k], 'criterion': RULES[k]} for k in ORDER],
                'limitations': ['Calamidade exige evidências verificadas de impacto ou decreto; não é inferida dos sensores.',
@@ -195,3 +216,19 @@ def validate_product(data):
             raise ValueError('Risk classification must have eligible supporting evidence')
     if evaluate(data, data['generated_at'])['level'] != data['level']:
         raise ValueError('Classification differs from its evidence')
+
+
+def history_snapshot(product):
+    """Bounded audit record; current dashboard keeps complete supporting data."""
+    from copy import deepcopy
+    keys=('generated_at','method_version','level','name','basis','valid_until','kind','official_level','coverage')
+    result={k:deepcopy(product[k]) for k in keys if k in product}
+    result['record_kind']='classification_summary_with_evidence_references'
+    result['candidates']=[]
+    for c in product['candidates']:
+        row={k:deepcopy(c[k]) for k in ('level','reason','basis','valid_until')}
+        row['evidence']=[{k:deepcopy(e[k]) for k in ('source','station','variable','value','unit','start_at','end_at','valid_until',
+                         'url','day','period','phenomena','scope','method','id','available','resolution','spatial_scope') if k in e}
+                         for e in c['evidence']]
+        result['candidates'].append(row)
+    return result

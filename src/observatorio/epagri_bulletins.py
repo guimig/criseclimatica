@@ -103,6 +103,7 @@ def parse_feed(data: bytes, stamp: str) -> list[dict]:
             "published_at": when.isoformat(timespec="seconds").replace("+00:00", "Z"),
             "bulletin_kind": category,
             "summary": description,
+            "assessment_text": _plain(content)[:12000],
             "data_kind": "editorial_regional_forecast_not_station_observation_or_civil_defense_alert",
         }
     return sorted(found.values(), key=lambda x: x["published_at"], reverse=True)[:MAX_BULLETINS]
@@ -133,6 +134,15 @@ def collect(stamp: str, *, previous: dict | None = None, fixture: bytes | None =
         return {**previous, "checked_at": stamp, "status": "cached"}
     try:
         bulletins = parse_feed(fixture if fixture is not None else _fetch(), stamp)
+        if fixture is None:
+            from .epagri_notices import _download, EpagriNoticeError
+            from .publication_text import extract
+            for bulletin in bulletins[:2]:
+                try:
+                    body=extract(_download(bulletin['url']))
+                    if body:bulletin.update(assessment_text=body,text_origin='official_article_body')
+                except (EpagriNoticeError, OSError, ValueError, UnicodeError):
+                    bulletin['text_origin']='feed_text_article_unavailable'
         result = unavailable(stamp)
         result.update({"status": "available" if bulletins else "no_recent_bulletins",
                        "retrieved_at": stamp, "bulletins": bulletins})
