@@ -1,4 +1,9 @@
-# Registro de decisoes de projeto
+# Registro de decisões de projeto
+
+> **Consolidação de 14/11/2026 (estado do código):** a arquitetura continua Python + GitHub Actions + GitHub Pages, com documentos estáticos e JSON gerados sem backend público de gravação. O agendador primário externo é o cron-job.org a cada 30 minutos; o cron GitHub é reserva. A versão vigente da classificação consultiva é `araquari-risk-v4` (não `assessment` anterior), sem emissão de decisão institucional. Os detalhes estão no [índice](INDICE.md), na [arquitetura](ARQUITETURA.md), na [classificação v4](CLASSIFICACAO_CONSULTIVA.md) e no [manual operacional](OPERACAO_E_MANUTENCAO.md).
+>
+> A documentação anterior abaixo registra decisões históricas, incluindo propostas ainda não implantadas. **Não** pressupõe operação da Defesa Civil SC no runner, armazenamento independente, telemetria Epagri ou observação INMET recente sem autorização. Qualquer avanço nesses pontos exige evidência técnica específica e decisão de implantação.
+
 
 > Atualização de 11/11/2026: [Interpretação multifontes](INTERPRETACAO_MULTIFONTES.md) documenta a síntese meteorológica atual, pesos iguais das quatro estações, participação do INMET nas previsões e avisos, substituições e hipóteses de unidades. Restrições anteriores de apresentação não descrevem essa nova camada. A correspondência normativa permanece separada e conserva seus critérios.
 

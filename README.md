@@ -1,5 +1,7 @@
 # Observatório do Tempo e Clima
 
+**Documentação de referência:** [índice temático](docs/INDICE.md) · [arquitetura](docs/ARQUITETURA.md) · [operação e manutenção](docs/OPERACAO_E_MANUTENCAO.md) · [contratos JSON e históricos](docs/CONTRATOS_DADOS_E_HISTORICOS.md) · [roadmap](docs/ROADMAP.md). A documentação técnica foi reconciliada com a `main` em 14/11/2026; relatórios datados descrevem fases anteriores.
+
 Portal meteorológico aberto com prioridade em Araquari e cobertura de vinte municípios de Santa Catarina e Paraná. Python coleta e processa dados no GitHub Actions; GitHub Pages publica HTML, CSS, JavaScript e JSON. Sem banco pago, Google Sheets, backend no navegador ou credenciais públicas.
 
 ## Inicial e classificação atual
@@ -22,7 +24,7 @@ Há distribuição de chuva por estações contemporâneas (mediana com n ≥ 3 
 
 ## Algoritmo dos níveis: documentação completa
 
-Veja [todo o algoritmo da referência dos níveis da norma](docs/ALGORITMO_CLASSIFICACAO_NIVEIS.md): entradas e fontes, municípios e estações elegíveis, janelas temporais, limites de chuva/vento, expressões qualitativas, coincidências, prioridade de integração, completude, validade e cor efetivamente exibida. Inclui inventário datado das estações de Araquari, exemplos e caminhos JSON para auditar cada classificação.
+Veja [o ponto de entrada do algoritmo vigente](docs/ALGORITMO_CLASSIFICACAO_NIVEIS.md) e a [classificação consultiva v4](docs/CLASSIFICACAO_CONSULTIVA.md): entradas e fontes, municípios e estações elegíveis, janelas temporais, limites de chuva/vento, expressões qualitativas, coincidências, prioridade de integração, completude, validade e cor efetivamente exibida. Inclui inventário datado das estações de Araquari, exemplos e caminhos JSON para auditar cada classificação.
 
 A cor da home, o nível consultivo sugerido e o nível formal são coisas distintas. Amarelo pode representar referência técnica sem nível sugerido; verde é descrição de rotina nos dados acompanhados; o caminho numérico não gera vermelho ou roxo automaticamente. O documento registra também as limitações concretas da flag de completude.
 
@@ -129,4 +131,4 @@ A comparação de fontes inclui o produto municipal do INMET para Araquari, com 
 
 ### Defesa Civil SC: textos e disponibilidade
 
-A coleta foi ajustada para a latência observada do portal, passa a obter textos completos e reconhecer títulos atuais, com fallback para `/alerta/`. Alertas encerrados permanecem separados de evidências atuais. Veja [diagnóstico, correções e limites](docs/DEFESA_CIVIL_COLETA_QUALITATIVA.md).
+O coletor foi ajustado para respostas lentas e textos completos, com fallback para `/alerta/`, mas **o portal permaneceu inacessível a partir do runner GitHub investigado em 13/11** (sem conexão TCP/HTTP). O êxito observado fora desse runner não comprova recuperação em produção. Alertas encerrados permanecem separados de evidências atuais. Veja [diagnóstico, correções e limites](docs/DEFESA_CIVIL_COLETA_QUALITATIVA.md).
