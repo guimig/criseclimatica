@@ -1,4 +1,6 @@
-# Inventario inicial de provedores
+# Inventário de provedores — implementação e limites
+
+> **Estado de referência (14/11/2026):** a tabela inicial abaixo é um registro histórico de integração. A classificação de cada fonte deve ser conferida no código, em [Aproveitamento das fontes v4](APROVEITAMENTO_DAS_FONTES.md) e no JSON da publicação consultada. **Integrado em código não significa acessível no runner ou com dados elegíveis.** O coletor Defesa Civil SC está implementado, mas seu portal falhou na conexão a partir do GitHub Actions na verificação de 13/11. [Diagnóstico completo](DEFESA_CIVIL_COLETA_QUALITATIVA.md).
 
 > Atualização de 11/11/2026: [Interpretação multifontes](INTERPRETACAO_MULTIFONTES.md) documenta a síntese meteorológica atual, pesos iguais das quatro estações, participação do INMET nas previsões e avisos, substituições e hipóteses de unidades. Restrições anteriores de apresentação não descrevem essa nova camada. A correspondência normativa permanece separada e conserva seus critérios.
 
@@ -20,7 +22,7 @@
 
 Para cada fonte futura, validar: cobertura, licenca, autenticacao, quota, data de referencia, frequencia de publicacao, formato, qualidade, possibilidade de redistribuicao e politica de indisponibilidade.
 
-**Atenção:** o adaptador de avisos do INMET usa uma interface não garantida; quando indisponível, o sistema não afirma que não há avisos. METAR mede condições nos aeroportos e não substitui rede de pluviômetros. Não há integração pluviométrica, radar ou hidrológica nesta fase. Ver [Avisos e METAR](AVISOS_E_METAR.md).
+**Nota histórica:** os estados de integração listados na tabela inicial são da fase original e podem estar superados. O adaptador de avisos do INMET usa uma interface não garantida; quando indisponível, o sistema não afirma que não há avisos. METAR mede condições nos aeroportos e não substitui rede de pluviômetros. Há integração pluviométrica Cemaden e adaptador INMET recente condicionado a credencial; radar e hidrologia avançada não são tratados como integrados. Ver [Aproveitamento das fontes](APROVEITAMENTO_DAS_FONTES.md). Ver [Avisos e METAR](AVISOS_E_METAR.md).
 
 ## Medições horárias INMET condicionadas a token
 
