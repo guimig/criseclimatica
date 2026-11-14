@@ -1,7 +1,22 @@
-# Arquitetura e armazenamento — estado atual em 08/11/2026
+# Arquitetura e armazenamento — referência consolidada em 14/11/2026
+
+> **Leitura do documento:** as seções datadas de 08–11/11 registram a evolução do sistema. Para a arquitetura em execução, prevalecem os componentes listados abaixo, os [contratos atuais](CONTRATOS_DADOS_E_HISTORICOS.md) e o [manual de operação](OPERACAO_E_MANUTENCAO.md). Trechos antigos sobre o INMET não representam mais a classificação consultiva v4.
 
 > Atualização de 11/11/2026: [Interpretação multifontes](INTERPRETACAO_MULTIFONTES.md) documenta a síntese meteorológica atual, pesos iguais das quatro estações, participação do INMET nas previsões e avisos, substituições e hipóteses de unidades. Restrições anteriores de apresentação não descrevem essa nova camada. A correspondência normativa permanece separada e conserva seus critérios.
 
+
+## Arquitetura atual verificada
+
+`cron-job.org (00/30) → workflow_dispatch → pages.yml → testes → build_site.py → adaptadores Python → síntese multifontes → risk_classification v4 → JSON/HTML/CSS/JS temporários → validate_site.py → artefato Pages → deploy`.
+
+- `schedule` GitHub nos minutos 7 e 37 atua como reserva por idade (25 min); `push` e `workflow_dispatch` forçam coleta.
+- `config/locations.json` define 20 pontos de consulta em SC/PR; a classificação principal é de Araquari.
+- `src/observatorio/risk_classification.py` implementa `araquari-risk-v4`, calculado após a síntese `multisource.py`; `assessment` legado não é o cartão consultivo vigente.
+- A previsão municipal INMET **participa** de evidências qualitativas e guarda extremos diários quantitativos, sem inventar séries horárias. CPTEC e previsões editoriais podem contribuir sob elegibilidade própria. Veja [aproveitamento das fontes](APROVEITAMENTO_DAS_FONTES.md).
+- O coletor Defesa Civil SC está implementado, mas a conectividade ao portal falhou no runner diagnosticado em 13/11; isso não torna as demais fontes indisponíveis.
+- Fonte, instante de medição, instante de coleta, vencimento e identidade de publicação não são intercambiáveis. A saída `dist/data/` é gerada, não uma base versionada em commits.
+
+A visão operacional e os comandos estão em [Operação e manutenção](OPERACAO_E_MANUTENCAO.md), o inventário gerado em [Contratos de dados](CONTRATOS_DADOS_E_HISTORICOS.md), e o [índice](INDICE.md) separa referências atuais de registros históricos.
 
 ## Decisoes consolidadas
 
@@ -104,4 +119,4 @@ A home tenta novamente o histórico observado incompleto da mesma publicação, 
 
 ## INMET municipal e avisos (10/11/2026)
 
-`inmet_forecast.py` coleta a previsão municipal JSON de Araquari, isolada em `inmet_forecast.json` e na comparação de fontes. `forecasts.js` apresenta dias/turnos e extremos das 24 amostras horárias do Open-Meteo do mesmo dia de Brasília. O produto não participa da classificação. A recuperação de avisos mantém status de falha e preserva separadamente apenas avisos anteriores com validade explícita ainda não encerrada. [Detalhes](INMET_PREVISAO_E_RECUPERACAO.md).
+`inmet_forecast.py` coleta a previsão municipal JSON de Araquari, isolada em `inmet_forecast.json` e na comparação de fontes. `forecasts.js` apresenta dias/turnos e extremos das 24 amostras horárias do Open-Meteo do mesmo dia de Brasília. O produto passou a participar qualitativamente da classificação consultiva nas versões v3/v4, quando elegível. A frase anterior deste registro datado não descreve o estado vigente; veja [Classificação consultiva](CLASSIFICACAO_CONSULTIVA.md). A recuperação de avisos mantém status de falha e preserva separadamente apenas avisos anteriores com validade explícita ainda não encerrada. [Detalhes](INMET_PREVISAO_E_RECUPERACAO.md).
