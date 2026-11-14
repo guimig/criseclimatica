@@ -1,4 +1,23 @@
-# Roadmap consolidado — atualização de 08/11/2026
+# Roadmap consolidado — situação de referência em 14/11/2026
+
+> **Leitura:** este arquivo conserva checklists e registros de fases anteriores; o status de CI/cron e integração declarado nessas fases não deve ser extrapolado para hoje. Critérios consultivos atuais: [v4](CLASSIFICACAO_CONSULTIVA.md). Operação: [manual](OPERACAO_E_MANUTENCAO.md).
+
+## Situação reconciliada com o código de 14/11/2026
+
+- [x] Classificador `araquari-risk-v4` e interpretação multifontes com previsão INMET/CPTEC, boletins elegíveis e referências instrumentais, preservando critérios, prazos e evidências.
+- [x] Interface principal e detalhes, com atualização automática de publicações e rejeição de identidade inconsistente dos JSON.
+- [x] Disparo externo cron-job.org a cada 30 min e backup GitHub em 7/37 com corte de idade de 25 min; o workflow de publicação segue em `pages.yml`.
+- [x] Recuperação de históricos publicados com validação e repetição limitada de erros transitórios; falha de histórico obrigatório bloqueia a publicação para evitar perda silenciosa.
+- [x] Conector Defesa Civil SC com extração de texto completo, distinção de monitoramento/alerta e validação limitada de janelas.
+- [ ] **Recuperar a conectividade da Defesa Civil SC no runner de produção**: diagnóstico de 13/11 encontrou falha TCP/HTTP, embora o portal tenha respondido em ambiente de teste separado. Não registrar integração como operacional.
+- [ ] Conferir periodicamente dados publicados e estado de cada fonte, não apenas sucesso do workflow. Um build verde não certifica a entrega de todos os provedores.
+- [ ] Formalizar interpretação das ambiguidades entre PN 13 e PN 14 antes de traduzir regras acadêmicas em comportamento da aplicação.
+- [ ] Implantar backup independente apenas após definir retenção, custo, controle de integridade e recuperação; Pages não é backup.
+- [ ] Validar calibração, unidades, períodos e representatividade de estações antes de promover comparações exploratórias a indicadores científicos.
+
+### Evidência de execução pontual, não garantia futura
+
+Na consulta ao histórico de Actions em 14/11/2026, a execução [43597550787](https://github.com/guimig/criseclimatica/actions/runs/43597550787), iniciada em 13:00 UTC por `workflow_dispatch`, concluiu com sucesso às 13:04 UTC. O resultado confirma aquele workflow, **não** disponibilidade de cada fonte nem ausência de falhas em ciclos futuros.
 
 > Atualização de 11/11/2026: [Interpretação multifontes](INTERPRETACAO_MULTIFONTES.md) documenta a síntese meteorológica atual, pesos iguais das quatro estações, participação do INMET nas previsões e avisos, substituições e hipóteses de unidades. Restrições anteriores de apresentação não descrevem essa nova camada. A correspondência normativa permanece separada e conserva seus critérios.
 
