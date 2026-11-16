@@ -160,9 +160,9 @@ def notice_analysis(feed, slug, forecast, now):
     result = {"status": status, "retrieved_at": retrieved, "retained_previous": retained, "notices": []}
     if status != "available" and not retained:
         return result
+    # Collection freshness is separate from the validity of each official notice.
     if not fresh(retrieved, now, 6):
         result["status"] = "stale"
-        return result
     notice_feed = {"locations": feed.get("retained_locations", [])} if retained else feed
     for notice in local(notice_feed, slug).get("alerts", []):
         start, end = moment(notice.get("start_at")), moment(notice.get("end_at"))
@@ -179,7 +179,8 @@ def notice_analysis(feed, slug, forecast, now):
             "start_at": iso(start) if start else None, "end_at": iso(end) if end else None,
             "temporal_relation": relation, "lifecycle": lifecycle, "kind": "official_notice_not_confirmed_event",
             "url": "https://alertas2.inmet.gov.br/", "risks": notice.get("risks", []),
-            "instructions": notice.get("instructions", []), "ibge_code": local(notice_feed, slug).get("ibge_code"), "retained_previous": retained})
+            "instructions": notice.get("instructions", []), "ibge_code": local(notice_feed, slug).get("ibge_code"),
+            "timezone_basis": notice.get("timezone_basis"), "retained_previous": retained or notice.get("retained_previous", False)})
     return result
 
 
@@ -342,14 +343,14 @@ def summarize(locations, details, cemaden, metars, alerts, cptec, generated_at, 
                        "Acumulados sobrepostos não são somados e não demonstram, sozinhos, intensificação ou impactos locais.")
         else:
             limits.append("Não há acumulados Cemaden locais recentes utilizáveis nesta síntese; isso não significa chuva zero.")
-        if notices["status"] == "available":
-            notice_expirations.append(moment(notices["retrieved_at"])+timedelta(hours=6))
-            if any(n["lifecycle"] != "expired" for n in notices["notices"]):
+        if notices["notices"]:
+            # Do not truncate a notice validity window at the collection refresh threshold.
+            if any(n["lifecycle"] in ("ongoing", "future") for n in notices["notices"]):
                 advise("official_notice", "official_notices.notices", "Pode ser pertinente reforçar o acompanhamento dos avisos oficiais para este município e avaliar ajustes nas atividades conforme a evolução e a validade informada pela fonte.",
                        "A presença na consulta não comprova ocorrência. Suspensão, permanência abrigada e saída são possibilidades distintas, dependentes das condições locais e de deslocamento.")
             for n in notices["notices"]:
                 if n["temporal_relation"] == "unverified_timezone_or_window":
-                    limits.append("O fuso ou a validade de aviso não pôde ser conciliado; coincidência temporal com a previsão não foi afirmada.")
+                    limits.append("A validade de um aviso não pôde ser conciliada; consultar o período original.")
                     break
                 if moment(n.get("end_at")) and moment(n["end_at"]) > now:
                     notice_expirations.append(moment(n["end_at"]))
