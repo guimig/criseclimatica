@@ -57,6 +57,11 @@ com todo o dia 15 incluído.
 Dados de coleta, observações instrumentais e modelos mantêm seus próprios
 limites técnicos de atualidade, sem interferir no encerramento do aviso.
 
+
+### Frequência de conferência Epagri/Ciram
+
+O cache de avisos Epagri/Ciram foi reduzido para menos de 25 minutos, alinhado ao ciclo de geração de dados de aproximadamente 30 minutos. Assim, uma publicação nova ou um cancelamento não depende de um cache antigo de três horas. Essa política determina **quando verificar novamente** a fonte; nunca reduz o período oficial de vigência de um aviso já obtido.
+
 ## Reconhecimento do território de Araquari
 
 A correspondência é dividida em três classes:
