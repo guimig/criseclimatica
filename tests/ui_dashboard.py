@@ -170,7 +170,7 @@ def main():
         assert not page.locator('#inmet-context').is_visible()
         policy['evidence'] = [{'status': 'eligible', 'title': 'Aviso regional de teste',
             'valid_from': data['dashboard.json']['generated_at'], 'valid_until': data['dashboard.json']['valid_until'],
-            'regions_text': 'Litoral Norte', 'url': 'https://ciram.epagri.sc.gov.br/'}]
+            'scope': 'regional_reference_not_municipal_confirmation', 'regions_text': 'Litoral Norte', 'url': 'https://ciram.epagri.sc.gov.br/'}]
         policy['evidence'][0]['summary']='Chuva intensa e rajadas no Litoral Norte.'
         stamp=data['dashboard.json']['generated_at'];until=data['dashboard.json']['valid_until']
         data['dashboard.json']['inmet_context']['notices']=[{'id':'28680','type':'Tempestade','severity':'Perigo potencial','lifecycle':'unverified','start_at':stamp,'end_at':stamp,'window_as_reported':'Período conforme a publicação original','municipalities':[{'location_id':'araquari','name':'Araquari'},{'location_id':'joinville','name':'Joinville','distance_km':15}],'risks':['Chuva de 20 a 30 mm/h e rajadas de 40 a 60 km/h.'],'url':'https://alertas2.inmet.gov.br/'}]
