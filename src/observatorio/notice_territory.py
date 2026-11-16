@@ -17,6 +17,7 @@ def fold(value: object) -> str:
 
 LOCAL = re.compile(r"\baraquari\b|\b4201307\b")
 STATE = re.compile(
+    r"^(?:todas?|todo\s+o\s+territorio)(?:\s*[,.;]|$)|"
     r"\b(?:todas?(?:\s+as)?\s+regioes|todo\s+o\s+estado|estado\s+inteiro|"
     r"toda\s+santa\s+catarina|todo\s+territorio\s+catarinense|"
     r"todas?\s*,\s*especialmente|todas?\s+as?\s+areas)\b"
@@ -73,4 +74,6 @@ def classify(regions: object, *, full_text: object = "") -> tuple[str | None, st
         )
     if AMBIGUOUS.search(text):
         return "territory_needs_review", "ambiguous_regional_reference"
+    if LOCAL.search(fold(full_text)):
+        return "territory_needs_review", "municipality_only_in_body"
     return None, "territory_does_not_include_araquari"
