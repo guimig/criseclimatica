@@ -6,6 +6,7 @@ import sys
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -13,7 +14,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from observatorio.alerts import merge_active_notices, normalize_alerts, retain_valid_notices
 from observatorio.notice_time import normalize_window, lifecycle
 from observatorio.notice_territory import classify as territorial
-from observatorio.epagri_notices import _window
+from observatorio.epagri_notices import _window, collect as collect_epagri, EpagriNoticeError, _explicit_cancellation
 from observatorio.protocol import assess, territorial_scope
 from observatorio.multisource import notices as classified_notices
 
@@ -74,6 +75,10 @@ class NoticeTimeTests(unittest.TestCase):
         self.assertEqual(row["start_at"], "2026-11-15T03:00:00Z")
         self.assertEqual(row["end_at"], "2026-11-16T03:00:00Z")
 
+    def test_epagri_hour_without_minutes(self):
+        self.assertEqual(_window("Início: 15/11/2026 às 8h\nFim: 15/11/2026 às 23h"),
+                         ("2026-11-15T11:00:00Z", "2026-11-16T02:00:00Z"))
+
     def test_epagri_date_only_text(self):
         self.assertEqual(_window("Início: 15/11/2026\nFim: 16/11/2026"),
                          ("2026-11-15T03:00:00Z", "2026-11-17T03:00:00Z"))
@@ -128,12 +133,38 @@ class TerritoryTests(unittest.TestCase):
         scope, reason = territorial("Litoral Norte na sexta-feira, Oeste no sábado")
         self.assertEqual((scope, reason), ("territory_needs_review", "different_regions_by_weekday"))
 
+    def test_common_broad_territory_aliases(self):
+        for name in ("SC", "Santa Catarina", "Litoral", "Litoral de SC", "Todo o litoral"):
+            with self.subTest(name=name):
+                self.assertEqual(territorial(name)[0], "regional_reference_not_municipal_confirmation")
+
     def test_scope_from_protocol(self):
         self.assertEqual(territorial_scope({"regions_text": "Todas, especialmente Litoral"}),
                          "regional_reference_not_municipal_confirmation")
 
 
+class EpagriRetentionTests(unittest.TestCase):
+    def test_stale_official_notice_retained_after_thirteen_hours(self):
+        previous = {**source_notice(), "schema_version": 1}
+        with patch("observatorio.epagri_notices._download", side_effect=EpagriNoticeError("offline")):
+            output = collect_epagri(STAMP, previous=previous)
+        self.assertEqual(output["status"], "stale")
+        self.assertEqual(len(output["notices"]), 1)
+        self.assertTrue(output["notices"][0]["retained_previous"])
+
+    def test_explicit_cancellation_wording(self):
+        self.assertTrue(_explicit_cancellation("Aviso meteorológico cancelado", ""))
+        self.assertFalse(_explicit_cancellation("Aviso meteorológico", "O aviso não foi cancelado."))
+
+
 class ClassificationTests(unittest.TestCase):
+    def test_explicit_epagri_cancellation_is_not_eligible(self):
+        feed = source_notice()
+        feed["notices"][0]["cancelled"] = True
+        report = assess(feed, {}, STAMP)
+        self.assertEqual(report["evidence"][0]["status"], "cancelled")
+        self.assertIsNone(report["suggested_level"])
+
     def test_stale_source_does_not_end_validity(self):
         report = assess(source_notice(), {}, STAMP)
         evidence = report["evidence"][0]

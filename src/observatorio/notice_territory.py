@@ -18,12 +18,15 @@ def fold(value: object) -> str:
 LOCAL = re.compile(r"\baraquari\b|\b4201307\b")
 STATE = re.compile(
     r"^(?:todas?|todo\s+o\s+territorio)(?:\s*[,.;]|$)|"
+    r"^(?:santa\s+catarina|sc)(?:\s*[,.;]|$)|"
     r"\b(?:todas?(?:\s+as)?\s+regioes|todo\s+o\s+estado|estado\s+inteiro|"
     r"toda\s+santa\s+catarina|todo\s+territorio\s+catarinense|"
+    r"todo\s+territorio\s+de\s+sc|sc\s+inteira|"
     r"todas?\s*,\s*especialmente|todas?\s+as?\s+areas)\b"
 )
 COAST = re.compile(
-    r"\blitoral\s+norte\b|\blitoral\s+catarinense\b|"
+    r"^(?:litoral|todo\s+o\s+litoral)(?:\s*[,.;]|$|\s+e\b)|"
+    r"\blitoral\s+(?:norte|catarinense|de\s+santa\s+catarina|de\s+sc|do\s+estado)\b|"
     r"\bcosta\s+(?:norte|catarinense)\b|\bfaixa\s+leste\s+(?:do\s+estado|de\s+sc)\b"
 )
 JOINVILLE = re.compile(
@@ -33,7 +36,8 @@ JOINVILLE = re.compile(
 AMBIGUOUS = re.compile(
     r"\b(?:norte\s+de\s+sc|nordeste\s+catarinense|litoral\s+(?:de\s+sc|do\s+estado)|"
     r"faixa\s+leste|regiao\s+norte|regiao\s+de\s+joinville|"
-    r"leste\s+catarinense)\b"
+    r"leste\s+catarinense|extremo\s+norte|norte\s+do\s+estado|"
+    r"norte\s+de\s+santa\s+catarina|planicie\s+costeira)\b"
 )
 EXCLUSION = re.compile(r"\b(?:exceto|excluind[oa]s?|menos|nao\s+inclui|fora\s+d[ao]s?)\b")
 LOCAL_EXCLUDED = re.compile(
