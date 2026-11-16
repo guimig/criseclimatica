@@ -70,3 +70,8 @@ A disponibilidade das APIs INMET e Aviation Weather Center, e o formato retornad
 - Projetar eventos hidrometeorológicos a partir de séries medidas, com controle de qualidade, sem confundi-los com avisos oficiais.
 - Avaliar maior frequência para consultas de avisos quando as quotas e a estabilidade forem verificadas, sem prometer atualização em tempo real.
 
+
+
+## Nova política de vigência oficial
+
+Nenhum aviso positivo de INMET/Epagri/Ciram expira por idade da coleta ou pela validade da publicação geral do painel. O fim informado pela fonte e cancelamentos/revisões expressos governam sua vigência. Horas sem fuso seguem Brasília; datas sem hora representam o dia integral. Retenção após falhas distingue ausência de reconfirmação de cancelamento. A descrição técnica e as limitações estão em [VALIDADE_E_ABRANGENCIA_AVISOS.md](VALIDADE_E_ABRANGENCIA_AVISOS.md).

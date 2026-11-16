@@ -98,3 +98,8 @@ Os históricos das falhas e investigações anteriores permanecem em `AUDITORIA_
 - [ ] README, [índice](INDICE.md), [contratos](CONTRATOS_DADOS_E_HISTORICOS.md) e [roadmap](ROADMAP.md) atualizados, quando aplicável.
 
 O monitoramento meteorológico é consultivo e não automatiza suspensão de aulas ou decisões das autoridades.
+
+
+## Verificação dos avisos durante indisponibilidade
+
+A coleta de avisos pode falhar sem que o aviso oficial perca vigência. Conferir no painel o horário oficial, o momento da última consulta, se o aviso é de coleta anterior e se houve revisão/cancelamento expresso. O período de vigência não é limitado por seis horas. Se o JSON anterior for inacessível, o sistema não poderá recuperar automaticamente o aviso e o operador deve consultar diretamente a fonte. Regras de testes e reversão: [VALIDADE_E_ABRANGENCIA_AVISOS.md](VALIDADE_E_ABRANGENCIA_AVISOS.md).

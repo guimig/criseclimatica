@@ -101,7 +101,7 @@ def classify(dashboard, detail, stamp):
     # A positive, freshly queried municipal notice with an unverified window
     # prevents green; it supports attention, not a fabricated severe level.
     feed = dashboard.get('inmet_context', {})
-    if feed.get('status') == 'available' and fresh(feed.get('retrieved_at'), now, 6):
+    if feed.get('status') in ('available', 'stale') or feed.get('retained_previous'):
         eligible_ids = {n.get('id') for n in synthesis.get('notices', []) if n['source'] == 'INMET'}
         for n in feed.get('notices', []):
             if n.get('id') in eligible_ids or n.get('lifecycle') == 'expired': continue
@@ -115,13 +115,13 @@ def classify(dashboard, detail, stamp):
             if end and start and start < end and end <= now: continue
             # Date-only source clocks are not shifted to an invented timezone.
             add('amarelo', f"INMET: {n.get('type') or 'aviso para Araquari'}; validade a confirmar.",
-                'positive_notice_pending_time_verification', [iso(moment(feed['retrieved_at'])+timedelta(hours=6))], [n])
+                'positive_notice_pending_time_verification', [iso(now+timedelta(hours=3))], [n])
 
     base = dashboard.get('assessment', {}).get('base_assessment', {})
     for n in base.get('evidence', []):
         if n.get('status') != 'eligible' or not n.get('supports_level'): continue
-        if not fresh(n.get('checked_at'), now, 6): continue
-        expiry=[n.get('valid_until'),iso(moment(n['checked_at'])+timedelta(hours=6))]
+        # Official warning duration controls validity; collection time is metadata.
+        expiry=[n.get('valid_until')]
         if n['supports_level']=='azul' and moment(n.get('valid_from')):
             expiry.append(iso(moment(n['valid_from'])-timedelta(days=7)+timedelta(seconds=1)))
         add(n['supports_level'], f"Epagri/Ciram: {n.get('title') or 'aviso para a região'}.",
@@ -184,7 +184,7 @@ def classify(dashboard, detail, stamp):
     requirements.append({'id': 'warnings', 'label': 'Consulta de avisos', 'available': bool(warning_sources),
                          'valid_until': max((r['valid_until'] for r in warning_sources), default=None)})
     pending_epagri = [n for n in base.get('evidence', []) if n.get('status') == 'needs_territorial_or_temporal_check'
-                      and n.get('scope') != 'not_verified' and fresh(n.get('checked_at'), now, 6)]
+                      and n.get('scope') != 'not_verified']
     requirements.append({'id': 'epagri_pending', 'label': 'Abrangência e validade dos avisos', 'available': not pending_epagri,
                          'valid_until': iso(now+timedelta(hours=8)) if not pending_epagri else None})
     if all(r['available'] and moment(r['valid_until']) and now < moment(r['valid_until']) for r in requirements) and not candidates:

@@ -40,10 +40,12 @@ def _place_refs(feed: dict[str, Any]) -> dict[str, dict[str, Any]]:
                     "type": notice["type"], "severity": notice["severity"],
                     "window_as_reported": notice["window_as_reported"],
                     "municipality_ids": [place["location_id"]],
+                    "retained_previous": bool(notice.get("retained_previous")),
                     **{field:notice.get(field) for field in ("start_at", "end_at", "start_as_reported", "end_as_reported", "validity_hours", "duration_kind")},
                 }
             else:
                 existing["municipality_ids"].append(place["location_id"])
+                existing["retained_previous"] = existing["retained_previous"] and bool(notice.get("retained_previous"))
                 if notice["revision"] > existing["revision"]:
                     for field in ("revision", "type", "severity", "window_as_reported", "start_at", "end_at", "start_as_reported", "end_as_reported", "validity_hours", "duration_kind"):
                         existing[field] = notice.get(field)
@@ -86,6 +88,11 @@ def merge_notice_archive(previous: dict[str, Any] | None, alerts: dict[str, Any]
     if status == "available":
         for old in records.values():
             old["present_in_latest_successful_feed"] = False
+        cancelled = set(alerts.get("cancelled_ids", []))
+        for old in records.values():
+            if old["id"] in cancelled:
+                old["cancelled_explicitly"] = True
+                old["cancelled_at"] = stamp
         current = _place_refs(alerts)
         for key, observed in current.items():
             if key in records:
@@ -93,11 +100,14 @@ def merge_notice_archive(previous: dict[str, Any] | None, alerts: dict[str, Any]
                 if observed["revision"] >= row["revision"]:
                     for field in ("revision", "type", "severity", "window_as_reported", "municipality_ids", "start_at", "end_at", "start_as_reported", "end_as_reported", "validity_hours", "duration_kind"):
                         row[field] = observed[field]
-                row["last_seen_at"] = stamp
-                row["present_in_latest_successful_feed"] = True
+                row.pop("cancelled_at", None)
+                row["cancelled_explicitly"] = False
+                if not observed["retained_previous"]:
+                    row["last_seen_at"] = stamp
+                row["present_in_latest_successful_feed"] = not observed["retained_previous"]
             else:
                 records[key] = {**observed, "first_seen_at": stamp, "last_seen_at": stamp,
-                                "present_in_latest_successful_feed": True}
+                                "present_in_latest_successful_feed": not observed["retained_previous"], "cancelled_explicitly": False}
     # A network failure cannot prove a notice ended, so leave previous visibility intact.
     if len(records) > MAX_RECORDS:
         raise ValueError("Notice archive exceeded safe record limit")

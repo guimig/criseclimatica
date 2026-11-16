@@ -51,3 +51,8 @@ Após publicação, conferir quantos municípios têm sobreposição real e quan
 Fontes: [IBGE — códigos municipais](https://www.ibge.gov.br/explica/codigos-dos-municipios.php), [Open-Meteo — API](https://open-meteo.com/en/docs), [PED — parâmetros de consulta](https://sws.cemaden.gov.br/PED/api/ui/swagger.json), [NOAA/AWC](https://aviationweather.gov/data/api/).
 
 Reversão: revert do PR e nova publicação pelo workflow existente, preservando históricos. O armazenamento, os segredos e os limites de autenticação anteriores permanecem.
+
+
+## Abrangência textual de avisos meteorológicos
+
+O alinhamento de estações não constitui abrangência automática de avisos oficiais. Para avisos Epagri/Ciram, o reconhecimento conservador de Araquari considera município, códigos, regiões estaduais/costeiras, exclusões explícitas e ambiguidades com áreas distintas por dia; cidades vizinhas sozinhas não comprovam inclusão. Consulte [VALIDADE_E_ABRANGENCIA_AVISOS.md](VALIDADE_E_ABRANGENCIA_AVISOS.md).

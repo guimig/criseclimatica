@@ -11,7 +11,7 @@ Método `araquari-risk-v4` (13/11/2026). As regras adicionais e o papel de cada 
 5. Botão **Entenda a classificação de riscos**: abre uma explicação do nível atual, das evidências e dos seis níveis, sem sair da inicial.
 6. Avisos positivos Epagri/Ciram e INMET em blocos recolhidos por padrão, com título, abrangência, período, resumo e acesso ao anúncio completo.
 
-A inicial mantém somente os avisos positivos em blocos por instituto. Ausência de avisos, falhas de consulta e estados negativos são detalhados em **Dados e fontes**, juntamente com estações, métodos, histórico e comparação de modelos. Os avisos do entorno são identificados sem afirmar inclusão municipal de Araquari; janelas não conciliadas aparecem como **validade a confirmar**, sem declaração de vigência. Avisos encerrados ou consultas vencidas não permanecem na inicial. Avisos preservados de consulta anterior só aparecem com janela verificada ainda válida e indicação da origem anterior. Abrir ou fechar um bloco não altera a classificação. Os indicadores levam aos gráficos correspondentes. Uma temperatura diária INMET usada por falta de série horária é identificada como diária e leva à comparação detalhada.
+A inicial mantém somente os avisos positivos em blocos por instituto. Ausência de avisos, falhas de consulta e estados negativos são detalhados em **Dados e fontes**, juntamente com estações, métodos, histórico e comparação de modelos. Os avisos do entorno são identificados sem afirmar inclusão municipal de Araquari; janelas não conciliadas aparecem como **validade a confirmar**, sem declaração de vigência. Avisos encerrados não permanecem na inicial. Avisos com período oficial ainda vigente permanecem visíveis mesmo quando a consulta da fonte envelhece; a falta de reconfirmação é indicada sem reduzir a vigência. Abrir ou fechar um bloco não altera a classificação. Os indicadores levam aos gráficos correspondentes. Uma temperatura diária INMET usada por falta de série horária é identificada como diária e leva à comparação detalhada.
 
 ## Critérios dos níveis
 
@@ -57,7 +57,7 @@ Leituras IFC com intervalo original de vento ainda não verificado não sustenta
 
 Foi reproduzido o caso da captura: a consulta INMET retornava aviso de tempestade para Araquari com início e fim normalizados iguais, enquanto o texto da fonte apresentava horários separados. Esse aviso não podia ser chamado de vigente com janela verificada; tampouco deveria desaparecer da interpretação e permitir um texto genérico de tranquilidade.
 
-O algoritmo atribui **Atenção**, com a frase **INMET: Tempestade; validade a confirmar.** A classificação depende da consulta positiva recente e da abrangência municipal, sem inventar fuso, horários ou severidade maior. Avisos com data final informada anterior ao dia local são excluídos desse caminho, evitando atenção permanente por registro antigo. Uma consulta falha não é apresentada como consulta positiva nova.
+O algoritmo atribui **Atenção**, com a frase **INMET: Tempestade; validade a confirmar.** A classificação depende da consulta positiva recente e da abrangência municipal, assumindo Brasília apenas quando não houver fuso explícito, sem inventar datas ou severidade maior. Avisos com data final informada anterior ao dia local são excluídos desse caminho, evitando atenção permanente por registro antigo. Uma consulta falha não é apresentada como consulta positiva nova.
 
 ## Atualidade e precedência
 
@@ -68,7 +68,7 @@ Cada candidato conserva evidências, origem e vencimento. A apresentação escol
 - Campos IFC: até 90 minutos, conforme o produto instrumental.
 - METAR elegível: até duas horas.
 - Previsão horária: até oito horas, limitada também pelo relógio original da referência.
-- Consulta de avisos: até seis horas, limitada pelo fim do aviso quando conhecido.
+- **Vigência de avisos oficiais:** exclusivamente o intervalo comunicado pela fonte (ou revisão/cancelamento explícito), sem redução pelo prazo de consulta. Os limites de atualização de medições, previsões e requisitos para normalidade são independentes.
 - Azul: também limitado pelo instante em que a antecedência deixa de ser sete dias.
 
 Falta de uma fonte não elimina os candidatos sustentados pelas outras. Fonte sem dados ou leitura vencida não vira zero. A normalidade exige cobertura explícita, enquanto um sinal positivo válido pode sustentar atenção com cobertura parcial.
@@ -123,3 +123,8 @@ O histórico de episódios passa a registrar a classificação e a versão novas
 Testes em `test_forecast_contingency.py` reproduzem falha total dos modelos horários, recuperação sem renovação de prazo, prioridade da coleta atual, integridade de rodadas, expiração exata, INMET diário/por turno, textos desconhecidos, falta de medição/consulta e atenção qualitativa. Os demais testes cobrem normalidade com cobertura e sua expiração, ausência de dados, estações com pesos iguais, extremos, avisos com janela válida/pendente, empate/precedência, preparação, coincidência severa e proibição de calamidade por números. O cenário da captura é reproduzido com os dados publicados. Testes Chromium verificam a inicial reduzida, detalhes, gráficos, temas, 320–1440 px e passagem entre Atenção e Normalidade.
 
 Reversão por revert do commit. Não há migração de banco nem escrita nos serviços meteorológicos. Coletores, atualização de 30 minutos, arquivos de origem e publicação atômica foram preservados.
+
+
+## Regra de validade dos avisos (2026-11-15)
+
+O prazo de seis horas de atualização **não** encerra avisos oficiais. Os conectores retêm registros com janela oficial vigente mesmo quando a fonte não responde, e o painel diferencia o período do aviso da confirmação de atualização. Avisos INMET sem fuso explícito são interpretados como horário de Brasília; dias sem horário abrangem 24 horas. A correspondência de Araquari exige identificação municipal ou regional sustentada, com triagem específica das ambiguidades. Consulte [VALIDADE_E_ABRANGENCIA_AVISOS.md](VALIDADE_E_ABRANGENCIA_AVISOS.md).

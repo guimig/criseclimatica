@@ -308,7 +308,7 @@ global.location={href:'https://guimig.github.io/criseclimatica/',origin:'https:/
 const {homeNotices,noticePeriod}=require('../web/dashboard.js');
 const noticeClock=Date.parse('2026-11-06T20:30:00Z'),noticeStamp='2026-11-06T20:00:00Z';
 const positiveNotice={id:'28680',type:'Tempestade',lifecycle:'unverified',window_as_reported:'06/11/2026 20:00 — 07/11/2026 23:59',start_at:noticeStamp,end_at:noticeStamp,municipalities:[{location_id:'araquari',name:'Araquari'}],risks:['Chuva e vento.'],url:'https://alertas2.inmet.gov.br/'};
-const noticeData={inmet_context:{status:'available',retrieved_at:noticeStamp,notices:[positiveNotice]},source_status:[{source:'Epagri/Ciram · avisos',status:'available',reference_at:noticeStamp}],assessment:{evidence:[{status:'eligible',title:'Chuva intensa',regions_text:'Litoral Norte',checked_at:noticeStamp,valid_from:noticeStamp,valid_until:'2026-11-07T20:00:00Z',summary:'Previsão de temporais.',url:'https://ciram.epagri.sc.gov.br/aviso/'}]}};
+const noticeData={inmet_context:{status:'available',retrieved_at:noticeStamp,notices:[positiveNotice]},source_status:[{source:'Epagri/Ciram · avisos',status:'available',reference_at:noticeStamp}],assessment:{evidence:[{status:'eligible',scope:'regional_reference_not_municipal_confirmation',title:'Chuva intensa',regions_text:'Litoral Norte',checked_at:noticeStamp,valid_from:noticeStamp,valid_until:'2026-11-07T20:00:00Z',summary:'Previsão de temporais.',url:'https://ciram.epagri.sc.gov.br/aviso/'}]}};
 assert.deepEqual(homeNotices(null,noticeClock),[]);
 assert.deepEqual(homeNotices({inmet_context:{status:'available',retrieved_at:noticeStamp,notices:[]}},noticeClock),[]);
 const found=homeNotices(noticeData,noticeClock);assert.equal(found.length,2);
@@ -321,7 +321,7 @@ assert.equal(homeNotices(withNotice({...nearbyNotice,municipalities:[{name:'Dist
 assert.equal(homeNotices(withNotice({...positiveNotice,lifecycle:'expired'}),noticeClock).length,0);
 assert.equal(homeNotices(withNotice({...positiveNotice,window_as_reported:'01/11/2026 — 02/11/2026'}),noticeClock).length,0);
 assert.equal(homeNotices({...noticeData,inmet_context:{status:'unavailable'},assessment:{}},noticeClock).length,0);
-assert.equal(homeNotices(noticeData,noticeClock+7*3600000).length,0);
+assert.deepEqual(homeNotices(noticeData,noticeClock+7*3600000).map(n=>n.source),['Epagri/Ciram']); // Warning still within official window.
 assert.equal(homeNotices({...noticeData,assessment:{evidence:[{...noticeData.assessment.evidence[0],scope:'not_verified',regions_text:'Oeste'}]},inmet_context:{}},noticeClock).length,0);
 assert.equal(homeNotices({...noticeData,inmet_context:{...noticeData.inmet_context,retained_previous:true,status:'unavailable'},assessment:{}},noticeClock).length,0);
 assert.equal(homeNotices({...noticeData,assessment:{},inmet_context:{...noticeData.inmet_context,notices:[positiveNotice,positiveNotice]}},noticeClock).length,1);
@@ -359,3 +359,30 @@ const dailyData={synthesis:{forecast_context:{days:[{source:'CPTEC/INPE',day:dai
 assert.equal(dailyForecast(dailyData).source,'INMET');dailyData.synthesis.forecast_context.days.pop();
 assert.equal(dailyForecast(dailyData).source,'CPTEC/INPE');dailyData.synthesis.forecast_context.days[0].valid_until='2000-01-01T00:00:00Z';
 assert.equal(dailyForecast(dailyData),undefined);
+
+
+// Official warnings outlive data freshness; old unknown windows do not.
+{
+  const at=Date.parse('2026-11-15T21:00:00Z');
+  const end='2026-11-16T02:00:00Z';
+  const earlier='2026-11-15T08:00:00Z';
+  const liveRecord={id:'2026',type:'Tempestade',start_at:'2026-11-15T11:00:00Z',end_at:end,
+    municipalities:[{location_id:'araquari',name:'Araquari'}],lifecycle:'ongoing'};
+  const oldFeed={inmet_context:{status:'available',retrieved_at:earlier,notices:[liveRecord,{id:'unknown',lifecycle:'unverified'}]}};
+  assert.deepEqual(inmetNotices(oldFeed,at).map(n=>n.id),['2026']);
+  assert.equal(inmetNotices(oldFeed,Date.parse(end)).length,0);
+  const staleDashboard={generated_at:earlier,valid_until:'2026-11-15T11:00:00Z',
+    risk_classification:{candidates:[{basis:'applicable_official_notice',level:'amarelo',valid_until:end}]},
+    assessment:{base_assessment:{valid_until:end,evidence:[{status:'eligible',supports_level:'amarelo',valid_until:end}]}},
+    inmet_context:oldFeed.inmet_context};
+  assert.equal(riskPresentation(staleDashboard,at).color,'amarelo');
+  assert.equal(riskPresentation(staleDashboard,Date.parse(end)).color,'neutral');
+  global.location={href:'https://guimig.github.io/criseclimatica/',origin:'https://guimig.github.io'};
+  const epagri={assessment:{evidence:[{status:'eligible',scope:'regional_reference_not_municipal_confirmation',
+    title:'Temporais',regions_text:'Todas, especialmente Litoral',checked_at:earlier,
+    valid_from:'2026-11-15T11:00:00Z',valid_until:end,url:'https://ciram.epagri.sc.gov.br/aviso/'}]}};
+  assert.equal(homeNotices(epagri,at).length,1);
+  assert.equal(homeNotices(epagri,Date.parse(end)).length,0);
+  delete global.location;
+}
+console.log('Official-warning validity survived stale publication; precise end remained binding.');

@@ -1,3 +1,5 @@
+> **Política de vigência dos avisos (INMET e Epagri/Ciram):** o período oficial prevalece sobre qualquer prazo interno de atualização. Horários sem fuso adotam Brasília, datas sem hora abrangem o dia inteiro e avisos vigentes são conservados em falhas de coleta. Consulte [VALIDADE_E_ABRANGENCIA_AVISOS.md](docs/VALIDADE_E_ABRANGENCIA_AVISOS.md).
+
 # Observatório do Tempo e Clima
 
 **Documentação de referência:** [índice temático](docs/INDICE.md) · [arquitetura](docs/ARQUITETURA.md) · [operação e manutenção](docs/OPERACAO_E_MANUTENCAO.md) · [contratos JSON e históricos](docs/CONTRATOS_DADOS_E_HISTORICOS.md) · [roadmap](docs/ROADMAP.md). A documentação técnica foi reconciliada com a `main` em 14/11/2026; relatórios datados descrevem fases anteriores.

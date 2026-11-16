@@ -46,3 +46,6 @@ As cópias das Portarias Normativas nº 13 e 14/2026 em \`web/references/\` e os
 3. Documente fonte, unidade, referência temporal, validade, abrangência e comportamento na falha; não equipare ausência de leitura a zero.
 4. Atualize os documentos de referência e este índice; preserve relatórios datados com uma nota de supersessão, em vez de apagar a investigação.
 5. Abra PR com apenas documentação, verifique links relativos e registre o SHA revisado. Não mescle documentação com mudança funcional sem necessidade.
+
+
+- [Validade e abrangência dos avisos oficiais](VALIDADE_E_ABRANGENCIA_AVISOS.md) — vigência integral, fuso de Brasília, dias completos, Araquari e testes.
