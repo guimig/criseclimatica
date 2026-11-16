@@ -29,16 +29,17 @@ function currentGauges(data,now=Date.now()) {
 }
 function currentPrimaryAssessment(data,now) {
   const base=data?.assessment?.base_assessment;
-  if(!base||now<Date.parse(base.valid_until))return base;
+  if(!base)return base;
   const source=data.source_status?.find(s=>s.source==='Epagri/Ciram · avisos');
   const sourceReady=['available','cached','no_recent_notices'].includes(source?.status)&&fresh(source.reference_at,6,now);
-  const evidence=(base.evidence||[]).map(e=>({...e,status:e.status==='eligible'&&(!sourceReady||!(now<Date.parse(e.valid_until)))?'expired':e.status}));
+  const evidence=(base.evidence||[]).map(e=>({...e,status:e.status==='eligible'&&!(now<Date.parse(e.valid_until))?'expired':e.status}));
   const order={azul:1,amarelo:2,laranja:3,vermelho:4};
   const supported=evidence.filter(e=>e.status==='eligible'&&order[e.supports_level]).sort((a,b)=>order[b.supports_level]-order[a.supports_level]);
-  return {...base,valid_until:data.valid_until,evidence,suggested_level:supported[0]?.supports_level||null,
+  const pendingUntil=evidence.filter(e=>e.status==='eligible').map(e=>Date.parse(e.valid_until)).filter(Number.isFinite);
+  return {...base,valid_until:new Date(Math.max(Date.parse(data.valid_until)||0,...pendingUntil,now+1000)).toISOString(),evidence,suggested_level:supported[0]?.supports_level||null,
     status:supported.length?'suggested_for_review':evidence.some(e=>e.status==='eligible')?'official_advisory_under_review':'insufficient_evidence',
     primary_coverage_expired:!sourceReady,
-    reason:sourceReady?'Avisos reavaliados pelos prazos individuais; publicações encerradas não sustentam o nível atual.':'A consulta Epagri/Ciram perdeu validade; as outras referências são avaliadas separadamente.'};
+    reason:sourceReady?'Avisos reavaliados pelos prazos individuais.':'Avisos preservados até o término oficial; a situação de revisão/cancelamento pode não estar reconfirmada.'};
 }
 function signalCurrent(signal,data,now=Date.now()) {
   if(!dashboardCurrent(data,now))return false;
@@ -106,7 +107,21 @@ function riskPresentation(data,now=Date.now()) {
   if(!data)return {color:'neutral',active:null,title:panel.fetchError?'Dados indisponíveis':'Consultando dados',kind:'Carregamento da publicação',reason:'Ainda não foi possível carregar uma publicação verificável. O painel tenta novamente automaticamente; consulte as fontes oficiais enquanto aguarda.'};
   const weather=data.risk_classification&&typeof WeatherSynthesis!=='undefined'?WeatherSynthesis.riskLevel(data.risk_classification,now):null;
   if(weather)return weather;
-  if(!dashboardCurrent(data,now))return {color:'neutral',active:null,title:'Atualização necessária',kind:'Dados desatualizados',reason:'A última atualização perdeu validade. Consulte as fontes oficiais enquanto aguarda novos dados.'};
+  if(!dashboardCurrent(data,now)){
+    const active=(data.risk_classification?.candidates||[]).filter(c=>['applicable_official_notice','qualitative_epagri_evidence'].includes(c.basis)&&now<Date.parse(c.valid_until));
+    const base=currentPrimaryAssessment(data,now);
+    for(const e of base?.evidence||[])if(e.status==='eligible'&&now<Date.parse(e.valid_until)&&e.supports_level)
+      active.push({level:e.supports_level,valid_until:e.valid_until,basis:'qualitative_epagri_evidence'});
+    const rank={verde:0,azul:1,amarelo:2,laranja:3,vermelho:4,roxo:5};
+    active.sort((a,b)=>(rank[b.level]??-1)-(rank[a.level]??-1));
+    if(active.length&&rank[active[0].level]>=1)return {color:active[0].level,active:active[0].level,
+      title:riskNames[active[0].level],kind:'Aviso oficial vigente · consulta não reconfirmada',
+      reason:'O aviso permanece em seu período oficial. A atualização das demais medições ou a existência de revisão/cancelamento ainda não foram confirmadas.'};
+    const local=(data.inmet_context?.notices||[]).some(n=>n.municipalities?.some(m=>m.location_id==='araquari')&&now<Date.parse(n.end_at));
+    if(local)return {color:'amarelo',active:null,title:'Aviso oficial vigente para Araquari',
+      kind:'Aviso preservado · consulta não reconfirmada',reason:'A validade do aviso INMET não depende da atualização dos demais dados. Confira a fonte oficial para revisões.'};
+    return {color:'neutral',active:null,title:'Atualização necessária',kind:'Dados desatualizados',reason:'A última atualização perdeu validade. Consulte as fontes oficiais enquanto aguarda novos dados.'};
+  }
   const policy=effectiveAssessment(data,now),objective=policy?.numeric_support;
   if(!policy||!(now<Date.parse(policy.valid_until)))return {color:'neutral',active:null,title:'Dados insuficientes para classificar',kind:'Leitura parcial',reason:'Não há referências válidas suficientes para distinguir normalidade de uma situação de atenção.'};
   const signals=(objective?.signals||[]).filter(s=>s.band>0).sort((a,b)=>Number(a.period_proxy)-Number(b.period_proxy)||b.band-a.band);
@@ -396,18 +411,18 @@ function duration(hours) {return Number.isFinite(hours)?num(hours,1)+' h':'não 
 function historyLabel(entry) {return riskNames[entry.state]||{routine:'Sem sinais nas fontes monitoradas',partial:'Dados incompletos',technical_attention:'Sinais de atenção',official_context:'Aviso meteorológico registrado',heightened:'Acompanhamento de alerta'}[entry.state]||entry.label||'Registro de acompanhamento';}
 function paragraph(host,text,cls='') {host.append(node('p',cls,text));}
 function primaryNotice(data,now=Date.now()) {
-  if(!dashboardCurrent(data,now))return null;
-  return (effectiveAssessment(data,now)?.evidence||[]).find(n=>n.status==='eligible'&&now<Date.parse(n.valid_until))||null;
+  return (currentPrimaryAssessment(data,now)?.evidence||[]).find(n=>n.status==='eligible'&&now<Date.parse(n.valid_until))||null;
 }
 function inmetNotices(data,now=Date.now()) {
   const feed=data?.inmet_context||data?.complementary_notices;
-  if((feed?.status!=='available'&&!feed?.retained_previous)||!fresh(feed.retrieved_at,6,now))return [];
+  if(feed?.status!=='available'&&!feed?.retained_previous)return [];
   return (feed.notices||[]).filter(n=>n.lifecycle!=='expired'&&(!n.end_at||now<Date.parse(n.end_at))&&(!feed.retained_previous||(Number.isFinite(Date.parse(n.start_at))&&Number.isFinite(Date.parse(n.end_at))&&Date.parse(n.start_at)<Date.parse(n.end_at))));
 }
 function inmetContextStatus(data,now=Date.now()) {
   const feed=data?.inmet_context||data?.complementary_notices;
   if(feed?.retained_previous&&inmetNotices(data,now).length)return {title:'Avisos INMET · consulta anterior',description:'A consulta atual falhou. Os avisos abaixo foram preservados com seus horários originais e prazo informado ainda não encerrado; revisão ou cancelamento não confirmados.'};
   if(!data)return {title:'Consultando avisos INMET',description:'Aguardando a consulta de Araquari e entorno.'};
+  if(feed?.retrieved_at&&!fresh(feed.retrieved_at,6,now)&&inmetNotices(data,now).length)return {title:'Avisos INMET · consulta anterior',description:'Avisos preservados até o fim oficial; revisões/cancelamentos ainda não reconfirmados.'};
   if(feed?.retrieved_at&&!fresh(feed.retrieved_at,6,now))return {title:'Consulta INMET desatualizada',description:'Não foi possível confirmar a situação atual dos avisos. Consulte o portal oficial.'};
   if(feed?.status!=='available'||!fresh(feed.retrieved_at,6,now))return {title:'Consulta INMET indisponível',description:'Não foi possível verificar os avisos de Araquari e entorno nesta publicação. Indisponibilidade não significa ausência de avisos.'};
   const count=inmetNotices(data,now).length;
@@ -434,16 +449,16 @@ function homeNotices(data,now=Date.now()) {
   for(const n of list(data?.assessment?.base_assessment?.evidence||data?.assessment?.evidence)){
     if(!n||typeof n!=='object')continue;
     const regions=String(n.regions_text||'');
-    const scoped=['municipality_explicit','regional_reference_not_municipal_confirmation'].includes(n.scope)||(!n.scope&&!/exceto|exceção|menos|não inclui/i.test(regions)&&/Araquari|Litoral Norte|todas as regi|todo o estado/i.test(regions));
+    const scoped=['municipality_explicit','regional_reference_not_municipal_confirmation','territory_needs_review'].includes(n.scope);
     const checked=n.checked_at||source?.reference_at;
-    if(!scoped||!['eligible','needs_territorial_or_temporal_check'].includes(n.status)||!fresh(checked,6,now))continue;
+    if(!scoped||!['eligible','needs_territorial_or_temporal_check'].includes(n.status))continue;
     if(Number.isFinite(Date.parse(n.valid_until))&&now>=Date.parse(n.valid_until))continue;
     const url=safeLink(n.url);if(!url)continue;
     add({...n,source:'Epagri/Ciram',title:n.title||'Aviso meteorológico',url,regions:regions||'Araquari e região',start_at:n.valid_from,end_at:n.valid_until,
       summary:n.summary||'',retained_previous:source?.status==='unavailable'});
   }
   const feed=data?.inmet_context||data?.complementary_notices;
-  if((feed?.status==='available'||feed?.retained_previous)&&fresh(feed.retrieved_at,6,now))for(const n of list(feed.notices)){
+  if(feed?.status==='available'||feed?.retained_previous)for(const n of list(feed.notices)){
     if(!n||typeof n!=='object')continue;
     const start=Date.parse(n.start_at),end=Date.parse(n.end_at),timed=Number.isFinite(start)&&Number.isFinite(end)&&start<end;
     if(n.lifecycle==='expired'||reportedWindowExpired(n.window_as_reported,now)||(timed&&end<=now)||(feed.retained_previous&&!timed))continue;
@@ -477,6 +492,7 @@ function renderHomeNotices() {
       if(n.severity)paragraph(card,'Severidade: '+n.severity+'.','small');
       paragraph(card,'Abrangência: '+n.regions+'.');paragraph(card,'Período: '+noticePeriod(n)+'.');
       if(n.summary)paragraph(card,String(n.summary).slice(0,650));
+    if(n.scope==='territory_needs_review')paragraph(card,'Possível abrangência territorial: conferir o texto oficial.','small');
       if(n.retained_previous)paragraph(card,'Consulta anterior; atualização da fonte indisponível.','small');
       card.append(officialLink(n.url,n.publication_type?'Ler previsão completa ↗':'Ler aviso completo ↗'));body.append(card);
     }
