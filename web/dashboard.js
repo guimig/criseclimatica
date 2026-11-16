@@ -28,7 +28,7 @@ function currentGauges(data,now=Date.now()) {
     latest_at:stations.map(s=>s.observed_at).sort().at(-1)};
 }
 function currentPrimaryAssessment(data,now) {
-  const base=data?.assessment?.base_assessment||data?.assessment;
+  const base=data?.assessment?.base_assessment;
   if(!base||now<Date.parse(base.valid_until))return base;
   const source=data.source_status?.find(s=>s.source==='Epagri/Ciram · avisos');
   const sourceReady=['available','cached','no_recent_notices'].includes(source?.status)&&fresh(source.reference_at,6,now);
@@ -411,7 +411,7 @@ function duration(hours) {return Number.isFinite(hours)?num(hours,1)+' h':'não 
 function historyLabel(entry) {return riskNames[entry.state]||{routine:'Sem sinais nas fontes monitoradas',partial:'Dados incompletos',technical_attention:'Sinais de atenção',official_context:'Aviso meteorológico registrado',heightened:'Acompanhamento de alerta'}[entry.state]||entry.label||'Registro de acompanhamento';}
 function paragraph(host,text,cls='') {host.append(node('p',cls,text));}
 function primaryNotice(data,now=Date.now()) {
-  return (currentPrimaryAssessment(data,now)?.evidence||[]).find(n=>n.status==='eligible'&&now<Date.parse(n.valid_until))||null;
+  return ((currentPrimaryAssessment(data,now)||data?.assessment)?.evidence||[]).find(n=>n.status==='eligible'&&now<Date.parse(n.valid_until))||null;
 }
 function inmetNotices(data,now=Date.now()) {
   const feed=data?.inmet_context||data?.complementary_notices;
