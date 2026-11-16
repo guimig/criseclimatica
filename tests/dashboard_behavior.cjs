@@ -321,7 +321,7 @@ assert.equal(homeNotices(withNotice({...nearbyNotice,municipalities:[{name:'Dist
 assert.equal(homeNotices(withNotice({...positiveNotice,lifecycle:'expired'}),noticeClock).length,0);
 assert.equal(homeNotices(withNotice({...positiveNotice,window_as_reported:'01/11/2026 — 02/11/2026'}),noticeClock).length,0);
 assert.equal(homeNotices({...noticeData,inmet_context:{status:'unavailable'},assessment:{}},noticeClock).length,0);
-assert.equal(homeNotices(noticeData,noticeClock+7*3600000).length,0);
+assert.deepEqual(homeNotices(noticeData,noticeClock+7*3600000).map(n=>n.source),['Epagri/Ciram']); // Warning still within official window.
 assert.equal(homeNotices({...noticeData,assessment:{evidence:[{...noticeData.assessment.evidence[0],scope:'not_verified',regions_text:'Oeste'}]},inmet_context:{}},noticeClock).length,0);
 assert.equal(homeNotices({...noticeData,inmet_context:{...noticeData.inmet_context,retained_previous:true,status:'unavailable'},assessment:{}},noticeClock).length,0);
 assert.equal(homeNotices({...noticeData,assessment:{},inmet_context:{...noticeData.inmet_context,notices:[positiveNotice,positiveNotice]}},noticeClock).length,1);
