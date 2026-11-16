@@ -12,6 +12,7 @@ from datetime import timedelta
 from urllib.parse import urlparse
 
 from .analysis import fresh, iso, moment
+from .notice_territory import classify as classify_territory
 
 LEVELS = [
     {"id":"verde", "name":"Normalidade", "criterion":"Condições meteorológicas normais.",
@@ -48,14 +49,7 @@ def safe_official_url(value):
 
 
 def territorial_scope(notice):
-    regions = fold(notice.get('regions_text') or '')
-    if re.search(r'\b(exceto|excecao|menos|nao inclui)\b', regions):
-        return None
-    if re.search(r'\baraquari\b', regions):
-        return 'municipality_explicit'
-    if any(term in regions for term in ('litoral norte','todas as regio','todo o estado')):
-        return 'regional_reference_not_municipal_confirmation'
-    return None
+    return classify_territory(notice.get("regions_text"), full_text=notice.get("assessment_text"))[0]
 
 
 def _applicable_clause(text, match):
@@ -65,7 +59,7 @@ def _applicable_clause(text, match):
     clause = text[left:min(positions) if positions else len(text)]
     if re.search(r'exceto|excecao|menos (?:o )?litoral norte', clause):
         return False
-    local = re.search(r'araquari|litoral norte|todas as regio|todo o estado', clause)
+    local = re.search(r'araquari|litoral norte|todas as regio|todo o estado|todas, especialmente|litoral catarinense|amunesc|norte catarinense', clause)
     other = re.search(r'\boeste\b|\bsul\b|planalto|vale do itajai|florianopolis', clause)
     return not other or bool(local)
 
@@ -102,25 +96,27 @@ def assess(epagri, analysis, checked_at):
               "evidence":[], "pending":[], "primary_source":"Epagri/Ciram",
               "valid_until":iso(now+timedelta(hours=3)), "rule_version":"pn13-14-2026-v1",
               "mapping_kind":"exploratory_qualitative_correspondence_not_official_classification"}
-    if epagri.get('kind') != 'epagri_ciram_official_advisories_not_civil_defense_alerts' or epagri.get('status') not in ('available','cached','no_recent_notices') or not fresh(epagri.get('retrieved_at'),now,6):
+    if epagri.get('kind') != 'epagri_ciram_official_advisories_not_civil_defense_alerts' or not isinstance(epagri.get('notices'), list) or epagri.get('status') not in ('available','cached','stale','no_recent_notices'):
         result['pending'].append('Avisos prioritários Epagri/Ciram indisponíveis ou desatualizados; conferir o canal oficial.')
     else:
-        expirations = [now+timedelta(hours=3), moment(epagri['retrieved_at'])+timedelta(hours=6)]
+        expirations = []
         candidates = []
-        for n in epagri.get('notices', [])[:8]:
+        for n in epagri.get('notices', [])[:32]:
             if not isinstance(n,dict) or n.get('notice_kind') != 'epagri_meteorological_advisory_not_civil_defense_alert' or not safe_official_url(n.get('url')):
                 continue
             scope = territorial_scope(n)
             start,end = moment(n.get('valid_from')),moment(n.get('valid_until'))
-            active = bool(start and end and start < end and end > now and start <= now+timedelta(days=14))
+            active = bool(start and end and start < end and end > now)
+            scope_note = classify_territory(n.get('regions_text'), full_text=n.get('assessment_text'))[1]
             entry = {"source":"Epagri/Ciram", "title":n.get('title'), "url":n['url'],
-                     "scope":scope or 'not_verified', "regions_text":n.get('regions_text'),
+                     "scope":scope or 'not_verified', "scope_reason":scope_note, "regions_text":n.get('regions_text'),
                      "summary":str(n.get("summary") or n.get("assessment_text") or "")[:600],
                      "valid_from":n.get('valid_from'), "valid_until":n.get('valid_until'),
                      "published_at":n.get('published_at'), "checked_at":epagri.get('retrieved_at'),
-                     "status":'eligible' if scope and active else 'expired' if end and end<=now else 'needs_territorial_or_temporal_check',
+                     "retained_previous":bool(n.get("retained_previous")) or epagri.get("status")=="stale",
+                     "status":'eligible' if scope in ("municipality_explicit", "regional_reference_not_municipal_confirmation") and active else 'expired' if end and end<=now else 'needs_territorial_or_temporal_check',
                      "supports_level":None,"matched_cue":None}
-            if scope and active:
+            if entry['status'] == 'eligible':
                 lead = max(0,(start-now).total_seconds()/86400)
                 text = str(n.get('assessment_text') or n.get('summary') or '')
                 level,cue = qualitative_match(text,lead)
@@ -139,7 +135,7 @@ def assess(epagri, analysis, checked_at):
             result.update(status='official_advisory_under_review',reason='Há aviso prioritário aplicável à região, mas o texto disponível não sustenta um nível específico com os critérios qualitativos da norma.')
         else:
             result['pending'].append('Ausência de aviso aplicável não comprova normalidade; não se atribui verde automaticamente.')
-        result['valid_until'] = iso(min(expirations))
+        result['valid_until'] = iso(min(expirations)) if expirations else iso(now+timedelta(hours=3))
     result['pending'].append('Nível formal e decisões sobre atividades dependem da autoridade competente; não são determinados por este painel.')
     result['pending'].append('Danos locais, ameaça concreta e decretos não são verificados automaticamente; o nível roxo requer verificação externa.')
     return result
