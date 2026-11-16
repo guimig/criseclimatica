@@ -205,9 +205,10 @@ def regional_notice_context(analysis, details, stamp):
         if distance is None or distance > 40:
             continue
         feed = place.get('official_notices', {})
-        if (feed.get('status') != 'available' and not feed.get('retained_previous')) or not fresh(feed.get('retrieved_at'), now, 6):
+        if feed.get('status') not in ('available', 'stale') and not feed.get('retained_previous'):
             continue
-        checked.append(feed['retrieved_at'])
+        if feed.get('retrieved_at'):
+            checked.append(feed['retrieved_at'])
         retained_previous |= feed.get('retained_previous') is True
         for notice in feed.get('notices', []):
             end = moment(notice.get('end_at'))
