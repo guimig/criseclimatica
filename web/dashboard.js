@@ -416,7 +416,8 @@ function primaryNotice(data,now=Date.now()) {
 function inmetNotices(data,now=Date.now()) {
   const feed=data?.inmet_context||data?.complementary_notices;
   if(feed?.status!=='available'&&!feed?.retained_previous)return [];
-  return (feed.notices||[]).filter(n=>n.lifecycle!=='expired'&&(!n.end_at||now<Date.parse(n.end_at))&&(!feed.retained_previous||(Number.isFinite(Date.parse(n.start_at))&&Number.isFinite(Date.parse(n.end_at))&&Date.parse(n.start_at)<Date.parse(n.end_at))));
+  const current=fresh(feed.retrieved_at,6,now);
+  return (feed.notices||[]).filter(n=>n.lifecycle!=='expired'&&(!n.end_at||now<Date.parse(n.end_at))&&((Number.isFinite(Date.parse(n.start_at))&&Number.isFinite(Date.parse(n.end_at))&&Date.parse(n.start_at)<Date.parse(n.end_at))||current)&&(!feed.retained_previous||(Number.isFinite(Date.parse(n.start_at))&&Number.isFinite(Date.parse(n.end_at))&&Date.parse(n.start_at)<Date.parse(n.end_at))));
 }
 function inmetContextStatus(data,now=Date.now()) {
   const feed=data?.inmet_context||data?.complementary_notices;
