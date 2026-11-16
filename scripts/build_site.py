@@ -29,7 +29,7 @@ from observatorio.analysis import summarize as summarize_analysis, forecast_snap
 from observatorio.territorial_alignment import summarize as summarize_alignment
 from observatorio.coverage import summarize as summarize_coverage
 from observatorio.config import load_locations  # noqa: E402
-from observatorio.alerts import AlertSourceError, fetch_alerts, normalize_alerts, unavailable_alerts, retain_valid_notices  # noqa: E402
+from observatorio.alerts import AlertSourceError, fetch_alerts, normalize_alerts, unavailable_alerts, retain_valid_notices, merge_active_notices  # noqa: E402
 from observatorio.metar import MetarSourceError, fetch_metars, normalize_metars, unavailable_metars  # noqa: E402
 from observatorio.history import merge_daily_publications  # noqa: E402
 from observatorio.inmet_rain import collect_rain, unavailable as rain_unavailable  # noqa: E402
@@ -308,7 +308,7 @@ def build(
         observations = normalize_metars(metar_raw, locations, stamp)
     else:
         try:
-            alerts = normalize_alerts(fetch_alerts(), locations, stamp)
+            alerts = merge_active_notices(normalize_alerts(fetch_alerts(), locations, stamp), previous_alerts, locations, stamp)
         except (AlertSourceError, OSError, ValueError, TypeError) as exc:
             print(f"INMET notices unavailable: {type(exc).__name__}", file=sys.stderr)
             alerts = retain_valid_notices(previous_alerts, locations, stamp)
