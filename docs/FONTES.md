@@ -77,3 +77,8 @@ e `stale` não equivalem a ausência de risco. Nenhum CAPTCHA, cookie ou login
 - **INMET histórico anual:** https://portal.inmet.gov.br/dadoshistoricos. Além do catálogo automático, a identificação de estação pode vir do cabeçalho de CSV oficial dentro do próprio ZIP, desde que código e coordenadas sejam verificáveis.
 
 Acessibilidade externa comprovada documentalmente não substitui verificação de execução no GitHub Actions.
+
+
+### Vigência e interpretação territorial dos avisos
+
+A data/hora da **consulta** não limita o intervalo oficial de um aviso. Os avisos vigentes continuam identificados durante falhas de atualização; horas sem fuso adotam Brasília e datas sem horas cobrem dias completos. A abrangência territorial e exclusões de Araquari seguem regras de classificação conservadora. Veja [VALIDADE_E_ABRANGENCIA_AVISOS.md](VALIDADE_E_ABRANGENCIA_AVISOS.md).
