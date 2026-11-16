@@ -19,6 +19,9 @@ from urllib.request import Request, urlopen
 from xml.etree import ElementTree as ET
 from zoneinfo import ZoneInfo
 
+from .notice_time import normalize_window, moment
+from .notice_territory import classify as territory_classify
+
 ROOT = "https://ciram.epagri.sc.gov.br"
 CATEGORY = ROOT + "/index.php/category/avisos-meteorologicos/"
 RSS = CATEGORY + "feed/"
@@ -26,8 +29,8 @@ KIND = "epagri_ciram_official_advisories_not_civil_defense_alerts"
 TZ = ZoneInfo("America/Sao_Paulo")
 MAX_BYTES = 650_000
 MAX_PAGE_BYTES = 700_000
-MAX_NOTICES = 8
-REGION_PATTERN = re.compile(r"regi[oõ]es\s*:\s*([^\n]{0,220})", re.I)
+MAX_NOTICES = 32
+REGION_PATTERN = re.compile(r"(?:regi[oõ]es?|abrang[eê]ncia|munic[ií]pios)\s*:\s*([^\n]{0,800})", re.I)
 WINDOW_PATTERN = r"{label}\s*:\s*(\d{{2}}/\d{{2}}/\d{{4}})\s*(?:[àa]s|as)?\s*(\d{{1,2}})\s*[h:]\s*(\d{{2}})"
 
 
@@ -100,20 +103,22 @@ def _utc(value: str) -> datetime:
 
 
 def _window(text: str) -> tuple[str | None, str | None]:
-    moments = []
+    """Read explicit Brazilian advisory periods, including full calendar days."""
+    fields = []
     for key in ("In[ií]cio", "Fim"):
-        match = re.search(WINDOW_PATTERN.format(label=key), text, re.I)
+        match = re.search(
+            rf"\b{key}\s*:\s*(\d{{1,2}}/\d{{1,2}}/\d{{4}})"
+            r"(?:\s*(?:[àa]s|as)?\s*(\d{1,2})\s*[h:]\s*(\d{2}))?",
+            text, re.I)
         if not match:
             return None, None
-        day, hour, minute = match.groups()
+        date, hour, minute = match.groups()
         try:
-            dt = datetime.strptime(day, "%d/%m/%Y").replace(hour=int(hour), minute=int(minute), tzinfo=TZ)
+            day = datetime.strptime(date, "%d/%m/%Y").strftime("%Y-%m-%d")
         except ValueError:
             return None, None
-        moments.append(dt.astimezone(timezone.utc))
-    if moments[1] < moments[0] or moments[1] - moments[0] > timedelta(days=14):
-        return None, None
-    return tuple(dt.isoformat(timespec="seconds").replace("+00:00", "Z") for dt in moments)
+        fields.append((day, f"{int(hour):02d}:{minute}" if hour is not None else None))
+    return normalize_window(fields[0][0], fields[0][1], fields[1][0], fields[1][1])[:2]
 
 
 def _region(text: str) -> tuple[str | None, str]:
@@ -121,10 +126,54 @@ def _region(text: str) -> tuple[str | None, str]:
     if not match:
         return None, "not_confirmed"
     line = re.split(r"\n|Previs[aã]o\s*:|Sistema\s*:", match.group(1), maxsplit=1, flags=re.I)[0]
-    line = re.sub(r"\s+", " ", line).strip()[:200]
-    norm = html.unescape(line).lower()
-    region = "mentioned" if any(s in norm for s in ("litoral norte", "todas as regi", "todo o estado")) else "other_regions_or_unclear"
-    return line or None, region
+    line = re.sub(r"\s+", " ", line).strip()[:800]
+    scope, _ = territory_classify(line, full_text=text)
+    return line or None, "mentioned" if scope in ("municipality_explicit", "regional_reference_not_municipal_confirmation") else "other_regions_or_unclear"
+
+
+def _enrich_articles(notices: list[dict], *, fixture: bool) -> list[dict]:
+    """Visit bounded official articles only when feed lacks an explicit interval."""
+    if fixture:
+        return notices
+    attempts = 0
+    for notice in notices:
+        if notice["valid_from"] and notice["valid_until"]:
+            continue
+        if attempts >= 4:
+            break
+        attempts += 1
+        try:
+            page = _plain(_download(notice["url"], max_bytes=MAX_PAGE_BYTES).decode("utf-8"))
+            begins, ends = _window(page)
+            places, coverage = _region(page)
+            if begins and ends:
+                notice.update(valid_from=begins, valid_until=ends,
+                              window_status="explicit_in_official_article")
+            if places:
+                notice.update(regions_text=places, north_coast_scope=coverage)
+            if begins or places:
+                notice["assessment_text"] = page[:6000]
+        except (EpagriNoticeError, UnicodeDecodeError, ValueError):
+            continue
+    return notices
+
+
+def _retain_active(previous: dict | None, now: datetime) -> list[dict]:
+    """Historical time in cache does not invalidate an issued official warning."""
+    if not isinstance(previous, dict) or previous.get("kind") != KIND:
+        return []
+    records = previous.get("notices", [])
+    if not isinstance(records, list) or len(records) > MAX_NOTICES:
+        return []
+    result = []
+    for row in records:
+        if not isinstance(row, dict) or not _safe_url(row.get("url")):
+            continue
+        end = moment(row.get("valid_until"))
+        if end and end > now:
+            result.append({**row, "retained_previous": True,
+                           "verification_status": "not_reconfirmed"})
+    return result
 
 
 def parse_feed(data: bytes, checked_at: str) -> list[dict[str, Any]]:
@@ -197,7 +246,11 @@ def collect(stamp: str, *, previous: dict | None = None, fixture: bytes | None =
             and all(isinstance(n, dict) and "assessment_text" in n for n in previous["notices"])):
         return {**previous, "status": "cached", "checked_at": stamp}
     try:
-        notices = parse_feed(_download(RSS) if fixture is None else fixture, stamp)
+        notices = _enrich_articles(parse_feed(_download(RSS) if fixture is None else fixture, stamp), fixture=fixture is not None)
+        indexed = {n["url"]: n for n in notices}
+        for old in _retain_active(previous, now):
+            indexed.setdefault(old["url"], old)
+        notices = sorted(indexed.values(), key=lambda n: n["published_at"], reverse=True)[:MAX_NOTICES]
         # Do not open unverified article URLs or infer alert validity. Some
         # official feeds expose a complete content:encoded body with dates.
         result = unavailable(stamp)
@@ -206,6 +259,7 @@ def collect(stamp: str, *, previous: dict | None = None, fixture: bytes | None =
         return result
     except (EpagriNoticeError, ValueError) as exc:
         print(f"Epagri/Ciram advisories: {type(exc).__name__}")
-        if valid_previous and timedelta(0) <= age <= timedelta(hours=48):
-            return {**previous, "status": "stale", "checked_at": stamp}
+        active = _retain_active(previous, now)
+        if active:
+            return {**previous, "status": "stale", "checked_at": stamp, "notices": active}
         return unavailable(stamp)
