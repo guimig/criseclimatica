@@ -131,11 +131,11 @@ class HistoryTests(unittest.TestCase):
     def test_invalid_previous_state_is_not_silently_lost(self):
         with self.assertRaises(ValueError):merge({'kind':'other'},dashboard(),STAMP)
 
-    def test_inmet_source_clock_duration_does_not_invent_timezone(self):
+    def test_inmet_clock_without_offset_assumes_brasilia(self):
         raw={'hoje':[{'id_aviso':'1','geocodes':'4201307','data_inicio':'2026-11-07','hora_inicio':'00:00','data_fim':'2026-11-08','hora_fim':'00:00'}]}
         feed=normalize_alerts(raw,[PLACE],STAMP);n=feed['locations'][0]['alerts'][0]
-        self.assertIsNone(n['start_at']);self.assertEqual(n['validity_hours'],24)
-        self.assertEqual(n['duration_kind'],'nominal_source_clock_no_timezone')
+        self.assertEqual(n['start_at'],'2026-11-07T03:00:00Z');self.assertEqual(n['validity_hours'],24)
+        self.assertEqual(n['duration_kind'],'explicit_instants')
         archive=merge_notice_archive(None,feed,now=NOW)
         self.assertEqual(archive['records'][0]['validity_hours'],24)
 
