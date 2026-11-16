@@ -462,7 +462,7 @@ function homeNotices(data,now=Date.now()) {
   if(feed?.status==='available'||feed?.retained_previous)for(const n of list(feed.notices)){
     if(!n||typeof n!=='object')continue;
     const start=Date.parse(n.start_at),end=Date.parse(n.end_at),timed=Number.isFinite(start)&&Number.isFinite(end)&&start<end;
-    if(n.lifecycle==='expired'||reportedWindowExpired(n.window_as_reported,now)||(timed&&end<=now)||(feed.retained_previous&&!timed))continue;
+    if(n.lifecycle==='expired'||reportedWindowExpired(n.window_as_reported,now)||(timed&&end<=now)||(!fresh(feed.retrieved_at,6,now)&&!timed)||(feed.retained_previous&&!timed))continue;
     const municipalities=list(n.municipalities).filter(m=>m&&(m.location_id==='araquari'||(Number.isFinite(m.distance_km)&&m.distance_km>=0&&m.distance_km<=40)));
     if(!Array.isArray(n.municipalities)&&n.ibge_code==='4201307')municipalities.push({location_id:'araquari',name:'Araquari'});
     if(!municipalities.length)continue;
