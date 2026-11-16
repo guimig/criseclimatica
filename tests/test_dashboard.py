@@ -79,9 +79,10 @@ class ProtocolTests(unittest.TestCase):
             with self.subTest(override=override):
                 self.assertIsNone(assess(feed([notice(**override)]),{},STAMP)['suggested_level'])
 
-    def test_stale_expired_and_unsafe_sources_cannot_support_level(self):
-        for f in (feed(status='stale'),feed(retrieved_at='2026-11-06T10:00:00Z'),
-                  feed([notice(valid_until='2026-11-06T19:00:00Z')]),
+    def test_official_window_survives_stale_source_but_expired_and_unsafe_do_not(self):
+        for f in (feed(status='stale'), feed(retrieved_at='2026-11-06T10:00:00Z')):
+            self.assertEqual(assess(f,{},STAMP)['suggested_level'], 'amarelo')
+        for f in (feed([notice(valid_until='2026-11-06T19:00:00Z')]),
                   feed([notice(url='https://example.com/')]),feed(kind='editorial_forecast')):
             self.assertIsNone(assess(f,{},STAMP)['suggested_level'])
 
