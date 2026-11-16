@@ -29,7 +29,7 @@ function currentGauges(data,now=Date.now()) {
 }
 function currentPrimaryAssessment(data,now) {
   const base=data?.assessment?.base_assessment||data?.assessment;
-  if(!base)return base;
+  if(!base||now<Date.parse(base.valid_until))return base;
   const source=data.source_status?.find(s=>s.source==='Epagri/Ciram · avisos');
   const sourceReady=['available','cached','no_recent_notices'].includes(source?.status)&&fresh(source.reference_at,6,now);
   const evidence=(base.evidence||[]).map(e=>({...e,status:e.status==='eligible'&&!(now<Date.parse(e.valid_until))?'expired':e.status}));
