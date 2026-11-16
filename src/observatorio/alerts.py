@@ -163,16 +163,13 @@ def normalize_alerts(payload: Any, locations: list[dict[str, Any]], collected_at
             # these labels mean whole Brasília calendar days, not UTC instants.
             from_date = raw.get("data_inicio")
             until_date = raw.get("data_fim")
-            # Both date columns serialized as midnight UTC are calendar labels.
-            # A non-midnight ISO timestamp without a separate clock is an actual instant.
+            # Serialized midnight-UTC date labels without a separate clock mean
+            # a full Brazilian civil day; actual offset timestamps are preserved.
             midnight_label = r"\d{4}-\d{2}-\d{2}T00:00:00(?:\.0+)?Z"
-            if (not raw.get("hora_inicio") and not raw.get("hora_fim")
-                    and isinstance(from_date, str) and isinstance(until_date, str)
-                    and re.fullmatch(midnight_label, from_date)
-                    and re.fullmatch(midnight_label, until_date)):
-                from_date, until_date = from_date[:10], until_date[:10]
-            elif isinstance(from_date, str) and not raw.get("hora_inicio") and re.fullmatch(r"\d{4}-\d{2}-\d{2}", from_date):
+            if isinstance(from_date, str) and not raw.get("hora_inicio") and re.fullmatch(midnight_label, from_date):
                 from_date = from_date[:10]
+            if isinstance(until_date, str) and not raw.get("hora_fim") and re.fullmatch(midnight_label, until_date):
+                until_date = until_date[:10]
             normalized_start, normalized_end, time_basis = normalize_window(
                 from_date, raw.get("hora_inicio"), until_date, raw.get("hora_fim"))
             duration, duration_kind = _duration(normalized_start, normalized_end)
