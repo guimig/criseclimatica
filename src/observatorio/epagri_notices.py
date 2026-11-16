@@ -20,7 +20,7 @@ from xml.etree import ElementTree as ET
 from zoneinfo import ZoneInfo
 
 from .notice_time import normalize_window, moment
-from .notice_territory import classify as territory_classify
+from .notice_territory import classify as territory_classify, fold
 
 ROOT = "https://ciram.epagri.sc.gov.br"
 CATEGORY = ROOT + "/index.php/category/avisos-meteorologicos/"
@@ -161,6 +161,8 @@ def _enrich_articles(notices: list[dict], *, fixture: bool) -> list[dict]:
                 notice.update(regions_text=places, north_coast_scope=coverage)
             if begins or places:
                 notice["assessment_text"] = page[:6000]
+            if _explicit_cancellation(notice["title"], page):
+                notice["cancelled"] = True
         except (EpagriNoticeError, UnicodeDecodeError, ValueError):
             continue
     return notices
@@ -175,13 +177,25 @@ def _retain_active(previous: dict | None, now: datetime) -> list[dict]:
         return []
     result = []
     for row in records:
-        if not isinstance(row, dict) or not _safe_url(row.get("url")):
+        if not isinstance(row, dict) or row.get("cancelled") or not _safe_url(row.get("url")):
             continue
         end = moment(row.get("valid_until"))
         if end and end > now:
             result.append({**row, "retained_previous": True,
                            "verification_status": "not_reconfirmed"})
     return result
+
+
+def _explicit_cancellation(title: str, text: str) -> bool:
+    """Only explicit cancellation phrases; never infer cancellation from RSS omission."""
+    for fragment in (title, text[:300]):
+        value = fold(fragment)
+        if re.search(r"\b(?:aviso|alerta)\b.{0,80}\b(?:cancelad[oa]|encerrad[oa])\b", value):
+            if not re.search(r"\bnao\s+(?:foi\s+)?(?:cancelad[oa]|encerrad[oa])\b", value):
+                return True
+        if re.search(r"\bcancelamento\s+d[oa]\s+(?:aviso|alerta)\b", value):
+            return True
+    return False
 
 
 def parse_feed(data: bytes, checked_at: str) -> list[dict[str, Any]]:
@@ -226,6 +240,7 @@ def parse_feed(data: bytes, checked_at: str) -> list[dict[str, Any]]:
             "summary": re.sub(r"\s+", " ", full_text).strip()[:600],
             "assessment_text": full_text[:6000],
             "notice_kind": "epagri_meteorological_advisory_not_civil_defense_alert",
+            "cancelled": _explicit_cancellation(title, full_text),
         }
     return sorted(result.values(), key=lambda x: x["published_at"], reverse=True)[:MAX_NOTICES]
 

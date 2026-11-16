@@ -86,6 +86,11 @@ def merge_notice_archive(previous: dict[str, Any] | None, alerts: dict[str, Any]
     if status == "available":
         for old in records.values():
             old["present_in_latest_successful_feed"] = False
+        cancelled = set(alerts.get("cancelled_ids", []))
+        for old in records.values():
+            if old["id"] in cancelled:
+                old["cancelled_explicitly"] = True
+                old["cancelled_at"] = stamp
         current = _place_refs(alerts)
         for key, observed in current.items():
             if key in records:
@@ -93,11 +98,13 @@ def merge_notice_archive(previous: dict[str, Any] | None, alerts: dict[str, Any]
                 if observed["revision"] >= row["revision"]:
                     for field in ("revision", "type", "severity", "window_as_reported", "municipality_ids", "start_at", "end_at", "start_as_reported", "end_as_reported", "validity_hours", "duration_kind"):
                         row[field] = observed[field]
+                row.pop("cancelled_at", None)
+                row["cancelled_explicitly"] = False
                 row["last_seen_at"] = stamp
                 row["present_in_latest_successful_feed"] = True
             else:
                 records[key] = {**observed, "first_seen_at": stamp, "last_seen_at": stamp,
-                                "present_in_latest_successful_feed": True}
+                                "present_in_latest_successful_feed": True, "cancelled_explicitly": False}
     # A network failure cannot prove a notice ended, so leave previous visibility intact.
     if len(records) > MAX_RECORDS:
         raise ValueError("Notice archive exceeded safe record limit")

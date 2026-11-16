@@ -127,7 +127,8 @@ def normalize_alerts(payload: Any, locations: list[dict[str, Any]], collected_at
             notice_id = _text(str(raw.get("id_aviso") or raw.get("id") or ""), 50)
             if not notice_id or not re.fullmatch(r"[a-zA-Z0-9_-]+", notice_id):
                 continue
-            if raw.get("encerrado") is True:
+            closed = raw.get("encerrado")
+            if closed is True or str(closed).casefold() in ("true", "1", "sim") or raw.get("cancelado") is True:
                 cancelled_ids.add(notice_id)
                 continue
             codes = _codes(raw.get("geocodes"))
@@ -139,6 +140,10 @@ def normalize_alerts(payload: Any, locations: list[dict[str, Any]], collected_at
                 by_id[notice_id] = (seq, raw, (previous[2] if previous else set()) | {block_name})
             else:
                 previous[2].add(block_name)
+
+    # Cancellation in either API block overrides older active data.
+    for closed_id in cancelled_ids:
+        by_id.pop(closed_id, None)
 
     regional_ids: set[str] = set()
     result_places = []

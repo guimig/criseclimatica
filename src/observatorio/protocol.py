@@ -114,7 +114,7 @@ def assess(epagri, analysis, checked_at):
                      "valid_from":n.get('valid_from'), "valid_until":n.get('valid_until'),
                      "published_at":n.get('published_at'), "checked_at":epagri.get('retrieved_at'),
                      "retained_previous":bool(n.get("retained_previous")) or epagri.get("status")=="stale",
-                     "status":'eligible' if scope in ("municipality_explicit", "regional_reference_not_municipal_confirmation") and active else 'expired' if end and end<=now else 'needs_territorial_or_temporal_check',
+                     "status":'cancelled' if n.get("cancelled") is True else 'eligible' if scope in ("municipality_explicit", "regional_reference_not_municipal_confirmation") and active else 'expired' if end and end<=now else 'needs_territorial_or_temporal_check',
                      "supports_level":None,"matched_cue":None}
             if entry['status'] == 'eligible':
                 lead = max(0,(start-now).total_seconds()/86400)
