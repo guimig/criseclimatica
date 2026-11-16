@@ -135,12 +135,12 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(r['status'],'no_valid_recent_readings')
         self.assertFalse(r['stations'])
 
-    def test_notice_without_explicit_timezone_does_not_claim_overlap(self):
+    def test_notice_without_explicit_timezone_uses_brasilia(self):
         raw={'hoje':[{'id_aviso':'1','descricao':'Chuvas intensas','geocodes':'4201307',
                       'data_inicio':'2026-11-06','hora_inicio':'12:00','data_fim':'2026-11-07','hora_fim':'12:00'}]}
         alerts=normalize_alerts(raw,[PLACE],STAMP)
         r=notice_analysis(alerts,'araquari',forecast_analysis(detail(),NOW),NOW)
-        self.assertEqual(r['notices'][0]['temporal_relation'],'unverified_timezone_or_window')
+        self.assertEqual(r['notices'][0]['temporal_relation'],'overlaps_forecast')
 
     def test_notice_with_offsets_can_match_window(self):
         alerts=feed(locations=[{'location_id':'araquari','alerts':[{'id':'1','type':'Vento',
@@ -151,7 +151,8 @@ class EvidenceTests(unittest.TestCase):
     def test_warning_is_used_without_model_agreement(self):
         alerts=feed(locations=[{'location_id':'araquari','alerts':[{'id':'1','type':'Tempestade'}]}])
         r=synthesis(details={},alerts=alerts)['locations'][0]
-        self.assertIn('official_notice',{s['id'] for s in r['suggestions']})
+        # A publication without any official dates cannot establish a live window.
+        self.assertNotIn('official_notice',{s['id'] for s in r['suggestions']})
         self.assertNotIn('rain_timing',{s['id'] for s in r['suggestions']})
 
     def test_expired_verified_notice_does_not_support_suggestion(self):
