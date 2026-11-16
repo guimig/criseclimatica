@@ -308,7 +308,7 @@ global.location={href:'https://guimig.github.io/criseclimatica/',origin:'https:/
 const {homeNotices,noticePeriod}=require('../web/dashboard.js');
 const noticeClock=Date.parse('2026-11-06T20:30:00Z'),noticeStamp='2026-11-06T20:00:00Z';
 const positiveNotice={id:'28680',type:'Tempestade',lifecycle:'unverified',window_as_reported:'06/11/2026 20:00 — 07/11/2026 23:59',start_at:noticeStamp,end_at:noticeStamp,municipalities:[{location_id:'araquari',name:'Araquari'}],risks:['Chuva e vento.'],url:'https://alertas2.inmet.gov.br/'};
-const noticeData={inmet_context:{status:'available',retrieved_at:noticeStamp,notices:[positiveNotice]},source_status:[{source:'Epagri/Ciram · avisos',status:'available',reference_at:noticeStamp}],assessment:{evidence:[{status:'eligible',title:'Chuva intensa',regions_text:'Litoral Norte',checked_at:noticeStamp,valid_from:noticeStamp,valid_until:'2026-11-07T20:00:00Z',summary:'Previsão de temporais.',url:'https://ciram.epagri.sc.gov.br/aviso/'}]}};
+const noticeData={inmet_context:{status:'available',retrieved_at:noticeStamp,notices:[positiveNotice]},source_status:[{source:'Epagri/Ciram · avisos',status:'available',reference_at:noticeStamp}],assessment:{evidence:[{status:'eligible',scope:'regional_reference_not_municipal_confirmation',title:'Chuva intensa',regions_text:'Litoral Norte',checked_at:noticeStamp,valid_from:noticeStamp,valid_until:'2026-11-07T20:00:00Z',summary:'Previsão de temporais.',url:'https://ciram.epagri.sc.gov.br/aviso/'}]}};
 assert.deepEqual(homeNotices(null,noticeClock),[]);
 assert.deepEqual(homeNotices({inmet_context:{status:'available',retrieved_at:noticeStamp,notices:[]}},noticeClock),[]);
 const found=homeNotices(noticeData,noticeClock);assert.equal(found.length,2);
