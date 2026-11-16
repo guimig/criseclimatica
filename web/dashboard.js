@@ -28,7 +28,7 @@ function currentGauges(data,now=Date.now()) {
     latest_at:stations.map(s=>s.observed_at).sort().at(-1)};
 }
 function currentPrimaryAssessment(data,now) {
-  const base=data?.assessment?.base_assessment;
+  const base=data?.assessment?.base_assessment||data?.assessment;
   if(!base)return base;
   const source=data.source_status?.find(s=>s.source==='Epagri/Ciram · avisos');
   const sourceReady=['available','cached','no_recent_notices'].includes(source?.status)&&fresh(source.reference_at,6,now);
@@ -105,8 +105,6 @@ function signalBrief(signal,data) {
 }
 function riskPresentation(data,now=Date.now()) {
   if(!data)return {color:'neutral',active:null,title:panel.fetchError?'Dados indisponíveis':'Consultando dados',kind:'Carregamento da publicação',reason:'Ainda não foi possível carregar uma publicação verificável. O painel tenta novamente automaticamente; consulte as fontes oficiais enquanto aguarda.'};
-  const weather=data.risk_classification&&typeof WeatherSynthesis!=='undefined'?WeatherSynthesis.riskLevel(data.risk_classification,now):null;
-  if(weather)return weather;
   if(!dashboardCurrent(data,now)){
     const active=(data.risk_classification?.candidates||[]).filter(c=>['applicable_official_notice','qualitative_epagri_evidence'].includes(c.basis)&&now<Date.parse(c.valid_until));
     const base=currentPrimaryAssessment(data,now);
@@ -122,6 +120,8 @@ function riskPresentation(data,now=Date.now()) {
       kind:'Aviso preservado · consulta não reconfirmada',reason:'A validade do aviso INMET não depende da atualização dos demais dados. Confira a fonte oficial para revisões.'};
     return {color:'neutral',active:null,title:'Atualização necessária',kind:'Dados desatualizados',reason:'A última atualização perdeu validade. Consulte as fontes oficiais enquanto aguarda novos dados.'};
   }
+  const weather=data.risk_classification&&typeof WeatherSynthesis!=='undefined'?WeatherSynthesis.riskLevel(data.risk_classification,now):null;
+  if(weather)return weather;
   const policy=effectiveAssessment(data,now),objective=policy?.numeric_support;
   if(!policy||!(now<Date.parse(policy.valid_until)))return {color:'neutral',active:null,title:'Dados insuficientes para classificar',kind:'Leitura parcial',reason:'Não há referências válidas suficientes para distinguir normalidade de uma situação de atenção.'};
   const signals=(objective?.signals||[]).filter(s=>s.band>0).sort((a,b)=>Number(a.period_proxy)-Number(b.period_proxy)||b.band-a.band);
