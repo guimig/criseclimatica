@@ -265,7 +265,9 @@ def collect(stamp: str, *, previous: dict | None = None, fixture: bytes | None =
             age = now - _utc(previous["retrieved_at"])
         except EpagriNoticeError:
             valid_previous = False
-    if (fixture is None and valid_previous and timedelta(0) <= age < timedelta(hours=3)
+    # Keep RSS refresh close to the 30-minute publication schedule; a 3h cache
+    # could delay a newly issued or cancelled official warning.
+    if (fixture is None and valid_previous and timedelta(0) <= age < timedelta(minutes=25)
             and all(isinstance(n, dict) and "assessment_text" in n for n in previous["notices"])):
         return {**previous, "status": "cached", "checked_at": stamp}
     try:
