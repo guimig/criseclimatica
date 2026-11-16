@@ -17,6 +17,7 @@ from observatorio.notice_territory import classify as territorial
 from observatorio.epagri_notices import _window, collect as collect_epagri, EpagriNoticeError, _explicit_cancellation
 from observatorio.protocol import assess, territorial_scope
 from observatorio.multisource import notices as classified_notices
+from observatorio.notice_archive import merge_notice_archive
 
 NOW = datetime(2026, 11, 15, 21, 0, tzinfo=timezone.utc)
 STAMP = NOW.isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -97,6 +98,17 @@ class NoticeRetentionTests(unittest.TestCase):
         merged = merge_active_notices(current, old, [PLACE], STAMP)
         self.assertTrue(merged["locations"][0]["alerts"][0]["retained_previous"])
         self.assertEqual(merged["locations"][0]["alerts"][0]["end_at"], "2026-11-16T02:00:00Z")
+
+    def test_retained_is_not_misrepresented_as_reconfirmed(self):
+        old = normalize_alerts(payload(), [PLACE], "2026-11-15T08:00:00Z")
+        prior_archive = merge_notice_archive(None, old, now=NOW)
+        self.assertTrue(prior_archive["records"][0]["present_in_latest_successful_feed"])
+        current = normalize_alerts({"hoje": [], "futuro": []}, [PLACE], STAMP)
+        merged = merge_active_notices(current, old, [PLACE], STAMP)
+        recovered = merge_notice_archive(prior_archive, merged, now=NOW)
+        self.assertFalse(recovered["records"][0]["present_in_latest_successful_feed"])
+        self.assertEqual(recovered["records"][0]["last_seen_at"],
+                         prior_archive["records"][0]["last_seen_at"])
 
     def test_explicit_cancellation_overrides_previous(self):
         old = normalize_alerts(payload(), [PLACE], "2026-11-15T08:00:00Z")
