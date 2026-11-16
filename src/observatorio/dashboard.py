@@ -212,6 +212,9 @@ def regional_notice_context(analysis, details, stamp):
         retained_previous |= feed.get('retained_previous') is True
         for notice in feed.get('notices', []):
             end = moment(notice.get('end_at'))
+            start = moment(notice.get('start_at'))
+            if not fresh(feed.get('retrieved_at'), now, 6) and not (start and end and start < end):
+                continue
             if not notice.get('id') or notice.get('lifecycle') == 'expired' or (end and end <= now):
                 continue
             entry = notices.setdefault(notice['id'], {**notice, 'municipalities': []})
