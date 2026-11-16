@@ -154,8 +154,16 @@ def normalize_alerts(payload: Any, locations: list[dict[str, Any]], collected_at
             regional_ids.add(identifier)
             start = _reported_time(raw.get("data_inicio"), raw.get("hora_inicio"))
             end = _reported_time(raw.get("data_fim"), raw.get("hora_fim"))
+            # INMET serializes date labels with midnight UTC; without an hour
+            # these labels mean whole Brasília calendar days, not UTC instants.
+            from_date = raw.get("data_inicio")
+            until_date = raw.get("data_fim")
+            if not raw.get("hora_inicio") and isinstance(from_date, str):
+                from_date = from_date[:10]
+            if not raw.get("hora_fim") and isinstance(until_date, str):
+                until_date = until_date[:10]
             normalized_start, normalized_end, time_basis = normalize_window(
-                raw.get("data_inicio"), raw.get("hora_inicio"), raw.get("data_fim"), raw.get("hora_fim"))
+                from_date, raw.get("hora_inicio"), until_date, raw.get("hora_fim"))
             duration, duration_kind = _duration(normalized_start, normalized_end)
             matches.append({
                 "id": identifier, "revision": seq, "type": _text(raw.get("descricao"), 140) or "Aviso meteorológico",
