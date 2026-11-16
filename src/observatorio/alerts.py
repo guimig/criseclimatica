@@ -2,7 +2,7 @@
 
 The undocumented INMET JSON endpoint is an opportunistic source; outages must
 never be interpreted as an absence of official warnings.  Dates and separate
-clock fields are deliberately *not* converted into a guessed timezone.
+clock fields without an explicit timezone follow the configured Brasília convention.
 """
 
 from __future__ import annotations
@@ -15,6 +15,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+
+from .notice_time import normalize_window, moment, lifecycle
 
 URL = "https://apiprevmet3.inmet.gov.br/avisos/ativos"
 PUBLIC_PORTAL = "https://alertas2.inmet.gov.br/"
@@ -119,12 +121,14 @@ def normalize_alerts(payload: Any, locations: list[dict[str, Any]], collected_at
         blocks[name] = entries
 
     by_id: dict[str, tuple[int, dict[str, Any], set[str]]] = {}
+    cancelled_ids: set[str] = set()
     for block_name, entries in blocks.items():
         for raw in entries:
             notice_id = _text(str(raw.get("id_aviso") or raw.get("id") or ""), 50)
             if not notice_id or not re.fullmatch(r"[a-zA-Z0-9_-]+", notice_id):
                 continue
             if raw.get("encerrado") is True:
+                cancelled_ids.add(notice_id)
                 continue
             codes = _codes(raw.get("geocodes"))
             if not codes:
@@ -150,12 +154,14 @@ def normalize_alerts(payload: Any, locations: list[dict[str, Any]], collected_at
             regional_ids.add(identifier)
             start = _reported_time(raw.get("data_inicio"), raw.get("hora_inicio"))
             end = _reported_time(raw.get("data_fim"), raw.get("hora_fim"))
-            duration, duration_kind = _duration(start, end)
+            normalized_start, normalized_end, time_basis = normalize_window(
+                raw.get("data_inicio"), raw.get("hora_inicio"), raw.get("data_fim"), raw.get("hora_fim"))
+            duration, duration_kind = _duration(normalized_start, normalized_end)
             matches.append({
                 "id": identifier, "revision": seq, "type": _text(raw.get("descricao"), 140) or "Aviso meteorológico",
                 "severity": _text(raw.get("severidade"), 80) or "Não informada",
                 "window_as_reported": _source_window(raw),
-                "start_at": _explicit_time(start), "end_at": _explicit_time(end),
+                "start_at": normalized_start, "end_at": normalized_end, "timezone_basis": time_basis,
                 "start_as_reported": start, "end_as_reported": end,
                 "validity_hours": duration, "duration_kind": duration_kind,
                 "risks": _lines(raw.get("riscos")),
@@ -169,8 +175,9 @@ def normalize_alerts(payload: Any, locations: list[dict[str, Any]], collected_at
         "schema_version": 1, "kind": KIND, "status": "available",
         "retrieved_at": collected_at,
         "source": {"id": "inmet", "name": "INMET", "url": PUBLIC_PORTAL, "api_url": URL},
-        "time_notice": "Datas e horas apresentadas conforme a fonte; fuso dos campos separados não foi inferido.",
+        "time_notice": "Na ausência de fuso explícito, aplica-se o horário de Brasília; datas sem horas abrangem os dias completos.",
         "regional_distinct_notices": len(regional_ids),
+        "cancelled_ids": sorted(cancelled_ids),
         "locations": result_places,
     }
 
@@ -216,34 +223,69 @@ def fetch_alerts(*, timeout: int = 20, attempts: int = 2) -> dict[str, Any]:
     raise AlertSourceError("INMET notices unavailable")
 
 
-def retain_valid_notices(previous, locations, stamp):
-    """Keep dated positive evidence separately; never turn a failed query into success."""
-    result = unavailable_alerts(locations, stamp)
-    result.update(retained_locations=[], retained_previous=False)
-    if not isinstance(previous, dict) or previous.get("kind") != KIND:
-        return result
-    last = previous.get("retrieved_at") or previous.get("last_success_at")
-    now, collected = _explicit_time(stamp), _explicit_time(last)
-    if not now or not collected:
-        return result
-    now, collected = datetime.fromisoformat(now.replace("Z", "+00:00")), datetime.fromisoformat(collected.replace("Z", "+00:00"))
-    if not timedelta(0) <= now-collected <= timedelta(hours=6):
-        return result
+def _prior_local(previous, place):
     old = previous.get("locations", []) if previous.get("status") == "available" else previous.get("retained_locations", [])
     if not isinstance(old, list) or len(old) > 30:
-        return result
+        return {}
+    return next((r for r in old if isinstance(r, dict)
+                 and r.get("location_id") == place["id"]
+                 and str(r.get("ibge_code")) == str(place["ibge_code"])), {})
+
+
+def _alive_previous(previous, locations, stamp, *, cancelled_ids=()):
+    now = moment(stamp)
+    if now is None or not isinstance(previous, dict) or previous.get("kind") != KIND:
+        return []
+    skipped = set(cancelled_ids)
+    result = []
     for place in locations:
-        local = next((r for r in old if isinstance(r, dict) and r.get("location_id") == place["id"] and str(r.get("ibge_code")) == str(place["ibge_code"])), {})
+        local = _prior_local(previous, place)
         retained = []
         for row in local.get("alerts", [])[:100]:
-            if not isinstance(row, dict):
+            if not isinstance(row, dict) or str(row.get("id")) in skipped:
                 continue
-            start, end = _explicit_time(row.get("start_at")), _explicit_time(row.get("end_at"))
-            if start and end and start < end and datetime.fromisoformat(end.replace("Z", "+00:00")) > now:
+            start, end = moment(row.get("start_at")), moment(row.get("end_at"))
+            if start and end and start < end and end > now:
                 retained.append(deepcopy(row))
         if retained:
-            result["retained_locations"].append({"location_id": place["id"], "ibge_code": str(place["ibge_code"]), "alerts": retained})
-    if result["retained_locations"]:
-        result.update(retained_previous=True, last_success_at=last,
-                      time_notice="Consulta atual falhou. Avisos da consulta anterior com validade explícita ainda não encerrada; sem confirmação de revisão ou cancelamento.")
+            result.append({"location_id": place["id"], "ibge_code": str(place["ibge_code"]), "alerts": retained})
+    return result
+
+
+def merge_active_notices(current, previous, locations, stamp):
+    """Keep issued active warnings absent from new API result, unless explicitly cancelled.
+
+    API omission by itself is not cancellation. Newer revisions win. A recovered
+    record is marked unconfirmed but remains valid through its official endpoint.
+    """
+    if current.get("status") != "available":
+        return current
+    prior = _alive_previous(previous, locations, stamp,
+                            cancelled_ids=current.get("cancelled_ids", []))
+    now = moment(stamp)
+    if now is None:
+        return current
+    for place in current.get("locations", []):
+        old = next((x for x in prior if x["location_id"] == place["location_id"]), {})
+        existing = {n["id"]: n for n in place["alerts"]}
+        for item in old.get("alerts", []):
+            if item["id"] not in existing:
+                item["retained_previous"] = True
+                item["verification_status"] = "not_reconfirmed_in_latest_feed"
+                place["alerts"].append(item)
+        place["alerts"].sort(key=lambda n: (n.get("type", ""), n["id"]))
+    return current
+
+
+def retain_valid_notices(previous, locations, stamp):
+    """Keep valid official warnings after outage, with no arbitrary six-hour cutoff."""
+    result = unavailable_alerts(locations, stamp)
+    result.update(retained_locations=[], retained_previous=False)
+    old = _alive_previous(previous, locations, stamp)
+    if not old:
+        return result
+    result["retained_locations"] = old
+    result.update(retained_previous=True,
+                  last_success_at=(previous.get("retrieved_at") or previous.get("last_success_at")),
+                  time_notice="Consulta atual falhou; avisos previamente emitidos permanecem até o fim oficial. Revisão ou cancelamento não reconfirmados.")
     return result
