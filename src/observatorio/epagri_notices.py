@@ -30,7 +30,7 @@ TZ = ZoneInfo("America/Sao_Paulo")
 MAX_BYTES = 650_000
 MAX_PAGE_BYTES = 700_000
 MAX_NOTICES = 32
-REGION_PATTERN = re.compile(r"(?:regi[oõ]es?|abrang[eê]ncia|munic[ií]pios)\s*:\s*([^\n]{0,800})", re.I)
+REGION_PATTERN = re.compile(r"(?:regi[oõ]es?|abrang[eê]ncia|munic[ií]pios|localidades?|[áa]reas?)\s*:\s*([^\n]{0,800})", re.I)
 WINDOW_PATTERN = r"{label}\s*:\s*(\d{{2}}/\d{{2}}/\d{{4}})\s*(?:[àa]s|as)?\s*(\d{{1,2}})\s*[h:]\s*(\d{{2}})"
 
 
@@ -103,21 +103,29 @@ def _utc(value: str) -> datetime:
 
 
 def _window(text: str) -> tuple[str | None, str | None]:
-    """Read explicit Brazilian advisory periods, including full calendar days."""
+    """Read explicitly published Brazilian dates; optional 8h, 08h30 or 08:30."""
     fields = []
     for key in ("In[ií]cio", "Fim"):
-        match = re.search(
-            rf"\b{key}\s*:\s*(\d{{1,2}}/\d{{1,2}}/\d{{4}})"
-            r"(?:\s*(?:[àa]s|as)?\s*(\d{1,2})\s*[h:]\s*(\d{2}))?",
-            text, re.I)
+        match = re.search(rf"\b{key}\s*:\s*(\d{{1,2}}/\d{{1,2}}/\d{{4}})([^\n]{{0,60}})", text, re.I)
         if not match:
             return None, None
-        date, hour, minute = match.groups()
+        date, suffix = match.groups()
         try:
             day = datetime.strptime(date, "%d/%m/%Y").strftime("%Y-%m-%d")
         except ValueError:
             return None, None
-        fields.append((day, f"{int(hour):02d}:{minute}" if hour is not None else None))
+        suffix = suffix.strip()
+        clock_match = re.search(r"(?:[àa]s?\s*)?(\d{1,2})\s*[h:]\s*(\d{2})?(?:min)?\b", suffix, re.I)
+        if clock_match:
+            hour, minute = clock_match.groups()
+            clock = f"{int(hour):02d}:{minute or '00'}"
+        else:
+            # A date followed by an unparsable time must not become a whole-day
+            # notice by accident.
+            if re.search(r"\b(?:[àa]s|as)\s*\d|\b\d{1,2}\s*[h:]", suffix, re.I):
+                return None, None
+            clock = None
+        fields.append((day, clock))
     return normalize_window(fields[0][0], fields[0][1], fields[1][0], fields[1][1])[:2]
 
 
