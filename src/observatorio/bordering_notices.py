@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import timedelta
 import unicodedata
 from pathlib import Path
 
@@ -81,7 +82,8 @@ def summarize_bordering(feed: dict, places: list[dict], stamp: str) -> dict:
     source_available = feed.get("status") == "available"
     rows = feed.get("bordering_locations" if source_available else "retained_bordering_locations", [])
     registry = {p["id"]: p for p in places}
-    local = next((p for p in feed.get("locations", []) if p.get("location_id") == "araquari"), {})
+    local_rows = feed.get("locations", []) if source_available else feed.get("retained_locations", [])
+    local = next((p for p in local_rows if p.get("location_id") == "araquari"), {})
     local_ids = {n.get("id") for n in local.get("alerts", [])}
     # A retained local alert is still an official notice for Araquari.
     grouped: dict[str, dict] = {}
@@ -94,7 +96,7 @@ def summarize_bordering(feed: dict, places: list[dict], stamp: str) -> dict:
             identifier = n.get("id")
             start, end = moment(n.get("start_at")), moment(n.get("end_at"))
             rank = severity_rank(n.get("severity"))
-            if not isinstance(identifier, str) or identifier in local_ids or not start or not end or not start < end or not now < end or end-start > __import__("datetime").timedelta(days=400) or not rank:
+            if not isinstance(identifier, str) or identifier in local_ids or not start or not end or not start < end or not now < end or end-start > timedelta(days=400) or not rank:
                 continue
             row = grouped.get(identifier)
             if row is None:
