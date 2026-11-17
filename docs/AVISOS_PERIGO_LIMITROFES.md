@@ -25,7 +25,7 @@ O painel sempre explicita que **Araquari não consta da abrangência confirmada 
 
 A integração do bot lê \`dashboard.bordering_notice_context\` **somente quando a publicação estiver consistente**. Não recalcula nível local. Envia uma mensagem **distinta das transições consultivas** para aviso INMET de \`Perigo\` ou \`Grande Perigo\`, apenas quando já vigente, com município, período oficial, situação local e link único para o painel.
 
-Um identificador derivado do ID oficial e do dia de início evita repetição. Elevação de \`Perigo\` para \`Grande Perigo\` pode provocar nova comunicação. \`Perigo Potencial\` não gera envio automático. Primeira execução com dados válidos apenas inicializa uma linha de base silenciosa, sem comunicar retrospectivamente avisos que já estavam em vigor. Anúncios confirmados são persistidos na branch \`bot-state\` do repositório Telegram.
+Uma assinatura estável por **dia e fenômeno** evita repetição entre IDs e municípios diferentes relacionados ao mesmo evento. Elevação de \`Perigo\` para \`Grande Perigo\` pode provocar nova comunicação. \`Perigo Potencial\` não gera envio automático. Primeira execução com dados válidos apenas inicializa uma linha de base silenciosa, sem comunicar retrospectivamente avisos que já estavam em vigor. Anúncios confirmados são persistidos na branch \`bot-state\` do repositório Telegram.
 
 **Ordem de implantação:** publicar e validar primeiro a alteração do observatório. Depois mesclar o PR do bot, executar \`dry_run\` e conferir os logs do cursor inicial. Na primeira rodada válida não haverá notificação de avisos anteriormente existentes. Notificações novas seguirão o fluxo do cron-job.org e do backup do GitHub, sem novo segredo.
 
