@@ -134,3 +134,8 @@ A comparação de fontes inclui o produto municipal do INMET para Araquari, com 
 ### Defesa Civil SC: textos e disponibilidade
 
 O coletor foi ajustado para respostas lentas e textos completos, com fallback para `/alerta/`, mas **o portal permaneceu inacessível a partir do runner GitHub investigado em 13/11** (sem conexão TCP/HTTP). O êxito observado fora desse runner não comprova recuperação em produção. Alertas encerrados permanecem separados de evidências atuais. Veja [diagnóstico, correções e limites](docs/DEFESA_CIVIL_COLETA_QUALITATIVA.md).
+
+
+### Avisos graves nos municípios limítrofes
+
+O painel destaca avisos INMET de **Perigo** e **Grande Perigo** emitidos para municípios com divisa territorial com Araquari, sem convertê-los em aviso municipal nem elevar automaticamente o nível consultivo local. **Perigo Potencial** recebe tratamento secundário. As cidades são selecionadas por código IBGE, independentemente do raio aproximado usado para estações meteorológicas. Veja [Avisos de perigo limítrofes](docs/AVISOS_PERIGO_LIMITROFES.md). O bot Telegram pode comunicar avisos regionais novos em mensagens separadas, após a implantação do observatório.
