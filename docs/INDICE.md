@@ -49,3 +49,5 @@ As cópias das Portarias Normativas nº 13 e 14/2026 em \`web/references/\` e os
 
 
 - [Validade e abrangência dos avisos oficiais](VALIDADE_E_ABRANGENCIA_AVISOS.md) — vigência integral, fuso de Brasília, dias completos, Araquari e testes.
+
+- [Avisos INMET de perigo nos municípios limítrofes](AVISOS_PERIGO_LIMITROFES.md) — seleção territorial, período, destaque, isolamento do risco municipal e Telegram.
