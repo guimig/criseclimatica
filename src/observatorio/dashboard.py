@@ -8,6 +8,7 @@ from .analysis import fresh, hourly_bins, iso, local, moment, valid_number
 from .protocol import assess, reference
 from .objective_analysis import summarize as summarize_objective, integrate
 from .inmet import haversine_km
+from .bordering_notices import summarize_bordering
 
 KIND = 'araquari_weather_dashboard_not_official_decision'
 HISTORY_KIND = 'araquari_point_observation_history_not_climatology'
@@ -226,7 +227,7 @@ def regional_notice_context(analysis, details, stamp):
         'notices': sorted(notices.values(), key=lambda n: (not any(m['location_id'] == 'araquari' for m in n['municipalities']), n['id']))}
 
 
-def summarize(analysis, details, epagri, bulletins, defesa, stamp, previous_history=None, sensors=None):
+def summarize(analysis, details, epagri, bulletins, defesa, stamp, previous_history=None, sensors=None, official_alert_feed=None, bordering_places=None):
     primary=local(analysis,'araquari')
     if not primary:
         raise ValueError('Araquari analysis is required')
@@ -260,7 +261,9 @@ def summarize(analysis, details, epagri, bulletins, defesa, stamp, previous_hist
             'local_status':primary.get('observed_rain',{}).get('status','unavailable'),
             'note':'All valid recent stations returned for Araquari; no three-station cap; not a complete network registry.'},
         'suggestions':primary.get('suggestions',[]),'limitations':primary.get('limitations',[]),
-        'complementary_notices':alerts,'inmet_context':regional_notice_context(analysis,details,stamp),'source_status':source_status,
+        'complementary_notices':alerts,'inmet_context':regional_notice_context(analysis,details,stamp),
+         'bordering_notice_context': summarize_bordering(official_alert_feed, bordering_places, stamp) if official_alert_feed is not None and bordering_places is not None else None,
+         'source_status':source_status,
         'editorial_context':{'status':bulletins.get('status','unavailable'),'bulletins':bulletins.get('bulletins',[])[:4]},
         'decision_automated':False}
     return dashboard,history
