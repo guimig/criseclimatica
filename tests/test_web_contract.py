@@ -14,6 +14,38 @@ class WebContract(unittest.TestCase):
         html_ids = set(re.findall(r'\bid="([^"]+)"', page))
         self.assertFalse(lookup_ids - html_ids, f'Missing HTML ids: {lookup_ids-html_ids}')
 
+    def test_telegram_group_link_on_both_headers(self):
+        from html.parser import HTMLParser
+
+        class HeaderLinks(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.in_header = False
+                self.telegram = []
+
+            def handle_starttag(self, tag, attrs):
+                if tag == 'header':
+                    self.in_header = True
+                if tag == 'a' and self.in_header:
+                    attributes = dict(attrs)
+                    if 'telegram-link' in attributes.get('class', '').split():
+                        self.telegram.append(attributes)
+
+            def handle_endtag(self, tag):
+                if tag == 'header':
+                    self.in_header = False
+
+        for filename in ('index.html', 'dados.html'):
+            with self.subTest(page=filename):
+                parser = HeaderLinks()
+                parser.feed((ROOT / 'web' / filename).read_text(encoding='utf-8'))
+                self.assertEqual(len(parser.telegram), 1)
+                link = parser.telegram[0]
+                self.assertEqual(link.get('href'), 'https://t.me/+8gSPhMQrAUU2NWYx')
+                self.assertEqual(link.get('target'), '_blank')
+                self.assertEqual(set(link.get('rel', '').split()), {'noopener', 'noreferrer'})
+                self.assertIn('Telegram', link.get('aria-label', ''))
+
     def test_both_epagri_datasets_are_read_in_boot_and_rendered_on_selection(self):
         script = (ROOT / 'web/app.js').read_text(encoding='utf-8')
         self.assertIn('data/epagri_geo.json', script)
