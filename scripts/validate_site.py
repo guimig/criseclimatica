@@ -144,12 +144,14 @@ def validate(output: Path, *, fixture: bool = False) -> None:
     border = dashboard.get("bordering_notice_context")
     if not isinstance(border, dict) or border.get("schema_version") != 1 or border.get("kind") != BORDERING_KIND or border.get("checked_at") != overview.get("generated_at") or border.get("effect_on_local_risk") != "none" or border.get("status") not in ("available", "retained_unconfirmed", "unavailable"):
         raise ValueError("Invalid bordering danger context")
-    registry = {r["ibge_code"] for r in load_bordering(output.parent / "config" / "araquari_limitrofes.json")} if (output.parent / "config" / "araquari_limitrofes.json").exists() else {r["ibge_code"] for r in load_bordering(Path(__file__).resolve().parents[1] / "config" / "araquari_limitrofes.json")}
+    registry = {r["ibge_code"] for r in load_bordering(Path(__file__).resolve().parents[1] / "config" / "araquari_limitrofes.json")}
     bordering_rows = border.get("notices")
     if not isinstance(bordering_rows, list) or len(bordering_rows) > 100 or (border["status"] == "unavailable" and bordering_rows):
         raise ValueError("Invalid bordering notice list")
     ids = set()
     for item in bordering_rows:
+        if not isinstance(item, dict):
+            raise ValueError("Invalid bordering notice record")
         start, end = moment(item.get("start_at")), moment(item.get("end_at"))
         if (not isinstance(item, dict) or not isinstance(item.get("id"), str) or item["id"] in ids
                 or severity_rank(item.get("severity")) != item.get("severity_rank")
