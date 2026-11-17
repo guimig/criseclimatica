@@ -31,6 +31,15 @@ def check_compact_header(page,width):
     assert page.locator('.site-brand,.hero-eyebrow').count()==0
     bar=page.locator('.sitebar').bounding_box()
     assert bar['height']<=64, f"Header must fit one compact row at {width}px: {bar}"
+    telegram=page.locator('header .telegram-link')
+    assert telegram.count()==1
+    assert telegram.get_attribute('href')=='https://t.me/+8gSPhMQrAUU2NWYx'
+    assert telegram.get_attribute('target')=='_blank'
+    assert set(telegram.get_attribute('rel').split())=={'noopener','noreferrer'}
+    assert 'Telegram' in telegram.get_attribute('aria-label')
+    assert telegram.bounding_box()['height']>=44
+    assert telegram.bounding_box()['x']+telegram.bounding_box()['width']<=width
+    assert page.locator('header .telegram-link .telegram-label').is_visible()==(width>620)
     links=page.locator('.site-nav a')
     assert links.all_text_contents()==['Painel','Dados e fontes']
     assert page.locator('.site-nav [aria-current="page"]').count()==1
