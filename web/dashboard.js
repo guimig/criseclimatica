@@ -159,6 +159,7 @@ function renderSummary() {
     const active=item.dataset.riskLevel===(presentation.active||presentation.color);item.classList.toggle('is-active',active);
     if(active)item.setAttribute('aria-current','step');else item.removeAttribute('aria-current');
   }
+  renderBorderingAlerts();
   renderHomeNotices();
   if(el('detail-dialog').open)renderRiskExplanation();
   const localStats=typeof WeatherSynthesis!=='undefined'?WeatherSynthesis.currentStats(data?.synthesis,'rain_24h_mm'):null;
@@ -480,6 +481,50 @@ function homeNotices(data,now=Date.now()) {
   }
   return rows;
 }
+
+function borderingNotices(data,now=Date.now()) {
+  const feed=data?.bordering_notice_context;
+  if(feed?.kind!=='inmet_bordering_municipality_warning_context_not_araquari_alert'||!['available','retained_unconfirmed'].includes(feed.status)||!Array.isArray(feed.notices))return [];
+  const seen=new Set(),rows=[];
+  for(const n of feed.notices.slice(0,100)){
+    if(!n||!['perigo','grande perigo','perigo potencial'].includes(String(n.severity||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()))continue;
+    if(n.araquari_included!==false||n.scope!=='bordering_municipalities_only'||typeof n.id!=='string'||seen.has(n.id))continue;
+    const start=Date.parse(n.start_at),end=Date.parse(n.end_at);
+    if(!Number.isFinite(start)||!Number.isFinite(end)||!(start<end)||now>=end)continue;
+    const places=Array.isArray(n.municipalities)?n.municipalities.filter(m=>m&&typeof m.name==='string'&&/^\d{7}$/.test(m.ibge_code||'')&&m.ibge_code!=='4201307').slice(0,16):[];
+    if(!places.length)continue;
+    const url=safeLink(n.url);
+    if(!url||!url.startsWith('https://alertas2.inmet.gov.br/'))continue;
+    seen.add(n.id);
+    rows.push({...n,municipalities:places,verified_current:now>=start,high_severity:n.severity_rank>=2,url,
+      retained_previous:n.retained_previous||feed.status==='retained_unconfirmed'});
+  }
+  return rows.sort((a,b)=>Number(b.high_severity)-Number(a.high_severity)||b.severity_rank-a.severity_rank||Date.parse(a.start_at)-Date.parse(b.start_at));
+}
+function renderBorderingAlerts(now=Date.now()) {
+  const shell=el('bordering-alerts'),body=el('bordering-alerts-content');
+  if(!shell||!body)return;
+  const rows=borderingNotices(panel.data,now);
+  shell.hidden=!rows.length;
+  body.replaceChildren();
+  if(!rows.length)return;
+  const severe=rows.filter(n=>n.high_severity),potential=rows.filter(n=>!n.high_severity);
+  el('bordering-heading').textContent=severe.length?'Perigo no entorno imediato de Araquari':'Atenção ao entorno imediato';
+  shell.dataset.severity=severe.some(n=>n.severity_rank===3)?'grande-perigo':severe.length?'perigo':'potencial';
+  for(const n of rows){
+    const card=node('article','bordering-alert-item'+(n.high_severity?' high-severity':' potential-severity'));
+    const title=node('h3','',n.high_severity?'INMET · '+n.severity:'INMET · Perigo Potencial');
+    card.append(title);
+    paragraph(card,n.title+' · '+n.municipalities.map(p=>p.name).join(', ')+'.');
+    paragraph(card,(n.verified_current?'Vigente':'Programado')+' · '+date(n.start_at)+' até '+date(n.end_at)+'.','small');
+    if(n.retained_previous)paragraph(card,'Consulta anterior: revisão ou cancelamento ainda não reconfirmados.','small');
+    const validRisks=Array.isArray(n.risks)?n.risks.filter(r=>typeof r==='string').slice(0,2):[];
+    if(validRisks.length)paragraph(card,validRisks.join(' · ').slice(0,430),'small');
+    card.append(officialLink(n.url,'Consultar aviso oficial ↗'));
+    body.append(card);
+  }
+}
+
 function renderHomeNotices() {
   const rows=homeNotices(panel.data);
   for(const [id,source]of [['epagri','Epagri/Ciram'],['inmet','INMET']]){
@@ -550,7 +595,7 @@ async function loadDashboard() {
   finally{if(id===panel.loadId){panel.loading=false;el('refresh').disabled=false;renderSummary();renderRecent();renderChart();}}
 }
 function selectVariable(variable) {panel.variable=variable;if(el('forecast-variable'))el('forecast-variable').value=variable;for(const button of document.querySelectorAll('[data-variable]')){const selected=button.dataset.variable===variable;button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));}renderChart();}
-if(typeof module!=='undefined')module.exports={dailyForecast,homeNotices,noticePeriod,reportedWindowExpired,primaryNotice,inmetContextStatus,inmetNotices,fresh,dashboardCurrent,protocolCurrent,forecastCurrent,currentGauges,signalCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale,chartReadingsAt,chartReadingText};
+if(typeof module!=='undefined')module.exports={dailyForecast,borderingNotices,homeNotices,noticePeriod,reportedWindowExpired,primaryNotice,inmetContextStatus,inmetNotices,fresh,dashboardCurrent,protocolCurrent,forecastCurrent,currentGauges,signalCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale,chartReadingsAt,chartReadingText};
 if(typeof document!=='undefined'){
   function navigationState(){for(const link of document.querySelectorAll('nav a[href^="#"]')){const active=link.getAttribute('href')===(location.hash||'#main');if(active)link.setAttribute('aria-current','location');else link.removeAttribute('aria-current');}}
   window.addEventListener('hashchange',navigationState);navigationState();

@@ -161,7 +161,25 @@ def main():
         page.goto(url)
         page.get_by_role('heading', name='Normalidade').wait_for()
         assert page.locator('#level-card').get_attribute('data-risk') == 'verde'
-        page.screenshot(path=str(OUTPUT/'normality-light-1440.png'), full_page=True)
+        # Local normality and a neighboring official danger are independent.
+        stamp=data['dashboard.json']['generated_at']
+        until=data['dashboard.json']['valid_until']
+        data['dashboard.json']['bordering_notice_context']={
+            'schema_version':1,'kind':'inmet_bordering_municipality_warning_context_not_araquari_alert',
+            'status':'available','effect_on_local_risk':'none','checked_at':stamp,
+            'notices':[{'id':'78699','title':'Tempestade','severity':'Perigo','severity_rank':2,
+                        'start_at':stamp,'end_at':until,
+                        'scope':'bordering_municipalities_only','araquari_included':False,
+                        'url':'https://alertas2.inmet.gov.br/78699','retained_previous':False,
+                        'municipalities':[{'id':'joinville','name':'Joinville','ibge_code':'4209102'}]}]}
+        page.reload()
+        page.locator('#bordering-alerts').wait_for(state='visible')
+        assert page.locator('#level-card').get_attribute('data-risk')=='verde'
+        assert 'PERIGO' in page.locator('#bordering-alerts').inner_text().upper()
+        assert 'Joinville' in page.locator('#bordering-alerts').inner_text()
+        assert 'Araquari não consta' in page.locator('#bordering-alerts').inner_text()
+        assert page.locator('#bordering-alerts a').get_attribute('href')=='https://alertas2.inmet.gov.br/78699'
+        page.screenshot(path=str(OUTPUT/'normality-with-bordering-danger-light-1440.png'), full_page=True)
         assert not page.locator('#epagri-context').is_visible()
         assert not page.locator('#inmet-context').is_visible()
         data['dashboard.json']['inmet_context'] = {'status': 'available', 'retrieved_at': data['dashboard.json']['generated_at'], 'notices': []}
@@ -180,6 +198,9 @@ def main():
             assert page.locator('#epagri-context').get_attribute('open') is None
             assert page.locator('#inmet-context').get_attribute('open') is None
             for key in ('epagri','inmet'):page.locator('#'+key+'-context > summary').click()
+            assert page.locator('#bordering-alerts').is_visible()
+            assert page.locator('#level-card').get_attribute('data-risk')=='verde'
+            assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
             assert 'Chuva intensa e rajadas' in page.locator('#epagri-notices').inner_text()
             assert 'Araquari, Joinville' in page.locator('#inmet-notices').inner_text()
             assert 'validade a confirmar' in page.locator('#inmet-notices').inner_text()

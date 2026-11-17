@@ -386,3 +386,37 @@ assert.equal(dailyForecast(dailyData),undefined);
   delete global.location;
 }
 console.log('Official-warning validity survived stale publication; precise end remained binding.');
+
+
+// INMET dangers in bordering municipalities: distinct, timed and outside local classification.
+{
+  const {borderingNotices,riskPresentation}=require('../web/dashboard.js');
+  global.location={href:'https://guimig.github.io/criseclimatica/',origin:'https://guimig.github.io'};
+  const stamp='2026-11-17T18:00:00Z',now=Date.parse(stamp);
+  const src={kind:'inmet_bordering_municipality_warning_context_not_araquari_alert',
+    status:'available',effect_on_local_risk:'none',notices:[
+      {id:'9001',severity:'Perigo',severity_rank:2,start_at:'2026-11-17T12:00:00Z',
+       end_at:'2026-11-18T02:59:00Z',url:'https://alertas2.inmet.gov.br/9001',
+       scope:'bordering_municipalities_only',araquari_included:false,
+       municipalities:[{id:'joinville',name:'Joinville',ibge_code:'4209102'}]},
+      {id:'9002',severity:'Perigo Potencial',severity_rank:1,start_at:'2026-11-17T12:00:00Z',
+       end_at:'2026-11-18T02:59:00Z',url:'https://alertas2.inmet.gov.br/9002',
+       scope:'bordering_municipalities_only',araquari_included:false,
+       municipalities:[{id:'barra-velha',name:'Barra Velha',ibge_code:'4202107'}]},
+    ]};
+  const snapshot={bordering_notice_context:src};
+  const rows=borderingNotices(snapshot,now);
+  assert.deepEqual(rows.map(n=>n.id),['9001','9002']);
+  assert.equal(rows[0].high_severity,true);
+  assert.equal(rows[1].high_severity,false);
+  assert.deepEqual(borderingNotices(snapshot,Date.parse('2026-11-18T03:00:00Z')),[]);
+  assert.deepEqual(borderingNotices({...snapshot,bordering_notice_context:{...src,status:'unavailable'}},now),[]);
+  assert.deepEqual(borderingNotices({...snapshot,bordering_notice_context:{...src,notices:[{...src.notices[0],araquari_included:true}]}},now),[]);
+  assert.deepEqual(borderingNotices({...snapshot,bordering_notice_context:{...src,notices:[{...src.notices[0],municipalities:[{name:'Araquari',ibge_code:'4201307'}]}]}},now),[]);
+  assert.deepEqual(borderingNotices({...snapshot,bordering_notice_context:{...src,notices:[{...src.notices[0],url:'https://other.example/9001'}]}},now),[]);
+  assert.match(html,/id="bordering-alerts"[^>]*hidden/);
+  assert.match(html,/id="bordering-alerts-content"/);
+  assert.equal(riskPresentation(normal,Date.parse(normal.generated_at)).color,'verde');
+  delete global.location;
+}
+console.log('Bordering official danger context: separate severity, exact time, official link and local isolation.');

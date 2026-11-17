@@ -13,6 +13,8 @@ from urllib.parse import urlparse, unquote
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from observatorio.inmet_forecast import validate_product as validate_inmet_forecast
 from observatorio.alerts import retain_valid_notices
+from observatorio.bordering_notices import KIND as BORDERING_KIND, load_bordering, severity_rank
+from observatorio.notice_time import moment
 from observatorio.risk_classification import validate_product as validate_classification
 from observatorio.defesa_civil_sc import event_window as defesa_event_window
 from observatorio.multisource import validate_product as validate_multisource
@@ -139,6 +141,28 @@ def validate(output: Path, *, fixture: bool = False) -> None:
             or dashboard.get("fixture_mode", False) is not fixture or dashboard.get("decision_automated") is not False):
         raise ValueError("Invalid primary Araquari dashboard")
     validate_multisource(dashboard["synthesis"])
+    border = dashboard.get("bordering_notice_context")
+    if not isinstance(border, dict) or border.get("schema_version") != 1 or border.get("kind") != BORDERING_KIND or border.get("checked_at") != overview.get("generated_at") or border.get("effect_on_local_risk") != "none" or border.get("status") not in ("available", "retained_unconfirmed", "unavailable"):
+        raise ValueError("Invalid bordering danger context")
+    registry = {r["ibge_code"] for r in load_bordering(Path(__file__).resolve().parents[1] / "config" / "araquari_limitrofes.json")}
+    bordering_rows = border.get("notices")
+    if not isinstance(bordering_rows, list) or len(bordering_rows) > 100 or (border["status"] == "unavailable" and bordering_rows):
+        raise ValueError("Invalid bordering notice list")
+    ids = set()
+    for item in bordering_rows:
+        if not isinstance(item, dict):
+            raise ValueError("Invalid bordering notice record")
+        start, end = moment(item.get("start_at")), moment(item.get("end_at"))
+        if (not isinstance(item, dict) or not isinstance(item.get("id"), str) or item["id"] in ids
+                or severity_rank(item.get("severity")) != item.get("severity_rank")
+                or not start or not end or not start < end or end <= moment(border["checked_at"])
+                or item.get("scope") != "bordering_municipalities_only" or item.get("araquari_included") is not False
+                or not isinstance(item.get("municipalities"), list) or not item["municipalities"]):
+            raise ValueError("Invalid bordering danger evidence")
+        ids.add(item["id"])
+        for municipality in item["municipalities"]:
+            if not isinstance(municipality, dict) or municipality.get("ibge_code") not in registry:
+                raise ValueError("Bordering municipality does not belong to territorial registry")
     validate_classification(dashboard["risk_classification"])
     if dashboard["risk_classification"] != dashboard["synthesis"].get("risk_classification"):
         raise ValueError("Home and detailed risk classifications must match")

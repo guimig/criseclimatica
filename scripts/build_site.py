@@ -30,6 +30,7 @@ from observatorio.territorial_alignment import summarize as summarize_alignment
 from observatorio.coverage import summarize as summarize_coverage
 from observatorio.config import load_locations  # noqa: E402
 from observatorio.alerts import AlertSourceError, fetch_alerts, normalize_alerts, unavailable_alerts, retain_valid_notices, merge_active_notices  # noqa: E402
+from observatorio.bordering_notices import load_bordering, append_bordering  # noqa: E402
 from observatorio.metar import MetarSourceError, fetch_metars, normalize_metars, unavailable_metars  # noqa: E402
 from observatorio.history import merge_daily_publications  # noqa: E402
 from observatorio.inmet_rain import collect_rain, unavailable as rain_unavailable  # noqa: E402
@@ -197,6 +198,7 @@ def build(
     if fixture is None and any(value is not None for value in (station_fixture, alerts_fixture, metar_fixture, conventional_fixture)):
         raise ValueError("Provider fixtures can only be used in a synthetic offline build")
     locations = load_locations(ROOT / "config" / "locations.json")
+    bordering_places = load_bordering(ROOT / "config" / "araquari_limitrofes.json")
     client = FixtureClient(fixture) if fixture is not None else OpenMeteoClient()
 
     # Never use live site state in an offline fixture build.
@@ -304,14 +306,17 @@ def build(
     if fixture is not None:
         alert_raw = json.loads((alerts_fixture or ROOT / "tests" / "fixtures" / "inmet_alerts.json").read_text(encoding="utf-8"))
         metar_raw = json.loads((metar_fixture or ROOT / "tests" / "fixtures" / "metar.json").read_text(encoding="utf-8"))
-        alerts = normalize_alerts(alert_raw, locations, stamp)
+        alerts = append_bordering(normalize_alerts(alert_raw, locations, stamp), previous=None, places=bordering_places, stamp=stamp, raw=alert_raw)
         observations = normalize_metars(metar_raw, locations, stamp)
     else:
         try:
-            alerts = merge_active_notices(normalize_alerts(fetch_alerts(), locations, stamp), previous_alerts, locations, stamp)
+            alert_raw = fetch_alerts()
+            alerts = merge_active_notices(normalize_alerts(alert_raw, locations, stamp), previous_alerts, locations, stamp)
+            alerts = append_bordering(alerts, previous=previous_alerts, places=bordering_places, stamp=stamp, raw=alert_raw)
         except (AlertSourceError, OSError, ValueError, TypeError) as exc:
             print(f"INMET notices unavailable: {type(exc).__name__}", file=sys.stderr)
             alerts = retain_valid_notices(previous_alerts, locations, stamp)
+            alerts = append_bordering(alerts, previous=previous_alerts, places=bordering_places, stamp=stamp, raw=None)
         try:
             observations = normalize_metars(fetch_metars(), locations, stamp)
         except (MetarSourceError, OSError, ValueError, TypeError) as exc:
@@ -407,7 +412,8 @@ def build(
     analysis = summarize_analysis(locations, details, cemaden, observations, alerts, cptec,
                                   stamp, previous=previous_forecast, sensors=cemaden_sensors)
     dashboard, observation_history = summarize_dashboard(analysis, details, epagri_notices,
-        epagri_bulletins, defesa_sc, stamp, previous_history=previous_dashboard_history, sensors=cemaden_sensors)
+        epagri_bulletins, defesa_sc, stamp, previous_history=previous_dashboard_history, sensors=cemaden_sensors,
+        official_alert_feed=alerts, bordering_places=bordering_places)
     comparison = compare_forecasts(details.get('araquari', {}), model_records, cptec, stamp)
     comparison['inmet'] = inmet_forecast
     model_archive = merge_archive(previous_model_archive, comparison)
