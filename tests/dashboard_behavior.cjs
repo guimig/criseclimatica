@@ -391,6 +391,7 @@ console.log('Official-warning validity survived stale publication; precise end r
 // INMET dangers in bordering municipalities: distinct, timed and outside local classification.
 {
   const {borderingNotices,riskPresentation}=require('../web/dashboard.js');
+  global.location={href:'https://guimig.github.io/criseclimatica/',origin:'https://guimig.github.io'};
   const stamp='2026-11-17T18:00:00Z',now=Date.parse(stamp);
   const src={kind:'inmet_bordering_municipality_warning_context_not_araquari_alert',
     status:'available',effect_on_local_risk:'none',notices:[
@@ -416,5 +417,6 @@ console.log('Official-warning validity survived stale publication; precise end r
   assert.match(html,/id="bordering-alerts"[^>]*hidden/);
   assert.match(html,/id="bordering-alerts-content"/);
   assert.equal(riskPresentation(normal,Date.parse(normal.generated_at)).color,'verde');
+  delete global.location;
 }
 console.log('Bordering official danger context: separate severity, exact time, official link and local isolation.');
