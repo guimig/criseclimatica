@@ -446,6 +446,9 @@ function noticePeriod(notice,now=Date.now()) {
 }
 function homeNotices(data,now=Date.now()) {
   const rows=[],seen=new Set(),list=value=>Array.isArray(value)?value:[];
+  // Never repeat a featured official INMET notice in the collapsible list.
+  const bordering=borderingNotices(data,now,1);
+  const featuredIds=new Set(bordering.filter(n=>n.severity_rank>=2).map(n=>n.id));
   function add(row){const key=row.source+':'+(row.id||row.url||row.title);if(!seen.has(key)){seen.add(key);rows.push(row);}}
   const source=data?.source_status?.find(s=>s.source==='Epagri/Ciram · avisos');
   for(const n of list(data?.assessment?.base_assessment?.evidence||data?.assessment?.evidence)){
@@ -461,7 +464,7 @@ function homeNotices(data,now=Date.now()) {
   }
   const feed=data?.inmet_context||data?.complementary_notices;
   if(feed?.status==='available'||feed?.retained_previous)for(const n of list(feed.notices)){
-    if(!n||typeof n!=='object')continue;
+    if(!n||typeof n!=='object'||featuredIds.has(String(n.id)))continue;
     const start=Date.parse(n.start_at),end=Date.parse(n.end_at),timed=Number.isFinite(start)&&Number.isFinite(end)&&start<end;
     if(n.lifecycle==='expired'||reportedWindowExpired(n.window_as_reported,now)||(timed&&end<=now)||(!fresh(feed.retrieved_at,6,now)&&!timed)||(feed.retained_previous&&!timed))continue;
     const municipalities=list(n.municipalities).filter(m=>m&&(m.location_id==='araquari'||(Number.isFinite(m.distance_km)&&m.distance_km>=0&&m.distance_km<=40)));
@@ -474,6 +477,13 @@ function homeNotices(data,now=Date.now()) {
       regions:municipalities.map(m=>m.name||m.location_id).join(', ')+(local?'':' · entorno; Araquari não confirmada'),
       summary:list(n.risks).filter(t=>typeof t==='string').join(' '),retained_previous:n.retained_previous||feed.retained_previous});
   }
+  // Lower-severity neighboring warnings belong to the regular INMET disclosure.
+  // This also covers bordering municipalities outside the old 40-km point radius.
+  for(const n of bordering.filter(row=>row.severity_rank===1)){
+    add({...n,source:'INMET',title:n.title||'Aviso meteorológico',
+      regions:n.municipalities.map(m=>m.name).join(', ')+' · entorno; Araquari não confirmada',
+      summary:list(n.risks).filter(t=>typeof t==='string').join(' ')});
+  }
   for(const p of list(data?.synthesis?.publication_evidence)){
     if(p.source!=='Epagri/Ciram'||!(now<Date.parse(p.valid_until))||!fresh(p.collected_at,6,now))continue;
     const url=safeLink(p.url);if(!url)continue;
@@ -482,12 +492,15 @@ function homeNotices(data,now=Date.now()) {
   return rows;
 }
 
-function borderingNotices(data,now=Date.now()) {
+function borderingNotices(data,now=Date.now(),minimumRank=2) {
   const feed=data?.bordering_notice_context;
   if(feed?.kind!=='inmet_bordering_municipality_warning_context_not_araquari_alert'||!['available','retained_unconfirmed'].includes(feed.status)||!Array.isArray(feed.notices))return [];
   const seen=new Set(),rows=[];
   for(const n of feed.notices.slice(0,100)){
-    if(!n||!['perigo','grande perigo','perigo potencial'].includes(String(n.severity||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()))continue;
+    if(!n)continue;
+    const normalized=String(n.severity||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+    const rank={'perigo potencial':1,'perigo':2,'grande perigo':3}[normalized];
+    if(!rank||rank!==n.severity_rank||rank<minimumRank)continue;
     if(n.araquari_included!==false||n.scope!=='bordering_municipalities_only'||typeof n.id!=='string'||seen.has(n.id))continue;
     const start=Date.parse(n.start_at),end=Date.parse(n.end_at);
     if(!Number.isFinite(start)||!Number.isFinite(end)||!(start<end)||now>=end)continue;
@@ -508,12 +521,11 @@ function renderBorderingAlerts(now=Date.now()) {
   shell.hidden=!rows.length;
   body.replaceChildren();
   if(!rows.length)return;
-  const severe=rows.filter(n=>n.high_severity),potential=rows.filter(n=>!n.high_severity);
-  el('bordering-heading').textContent=severe.length?'Perigo no entorno imediato de Araquari':'Atenção ao entorno imediato';
-  shell.dataset.severity=severe.some(n=>n.severity_rank===3)?'grande-perigo':severe.length?'perigo':'potencial';
+  el('bordering-heading').textContent='Perigo no entorno imediato de Araquari';
+  shell.dataset.severity=rows.some(n=>n.severity_rank===3)?'grande-perigo':'perigo';
   for(const n of rows){
-    const card=node('article','bordering-alert-item'+(n.high_severity?' high-severity':' potential-severity'));
-    const title=node('h3','',n.high_severity?'INMET · '+n.severity:'INMET · Perigo Potencial');
+    const card=node('article','bordering-alert-item high-severity');
+    const title=node('h3','','INMET · '+n.severity);
     card.append(title);
     paragraph(card,n.title+' · '+n.municipalities.map(p=>p.name).join(', ')+'.');
     paragraph(card,(n.verified_current?'Vigente':'Programado')+' · '+date(n.start_at)+' até '+date(n.end_at)+'.','small');

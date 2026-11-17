@@ -180,6 +180,31 @@ def main():
         assert 'Araquari não consta' in page.locator('#bordering-alerts').inner_text()
         assert page.locator('#bordering-alerts a').get_attribute('href')=='https://alertas2.inmet.gov.br/78699'
         page.screenshot(path=str(OUTPUT/'normality-with-bordering-danger-light-1440.png'), full_page=True)
+        # A second, low-grade official notice must not become a highlight.
+        data['dashboard.json']['bordering_notice_context']['notices'].append({
+            'id':'78700','title':'Chuva intensa','severity':'Perigo Potencial',
+            'severity_rank':1,'start_at':stamp,'end_at':until,
+            'scope':'bordering_municipalities_only','araquari_included':False,
+            'url':'https://alertas2.inmet.gov.br/78700','retained_previous':False,
+            'municipalities':[{'id':'joinville','name':'Joinville','ibge_code':'4209102'}]})
+        data['dashboard.json']['inmet_context'] = {
+            'status':'available','retrieved_at':stamp,'notices':[{
+                'id':'78699','type':'Tempestade','severity':'Perigo','lifecycle':'ongoing',
+                'start_at':stamp,'end_at':until,
+                'municipalities':[{'location_id':'joinville','name':'Joinville','distance_km':15}],
+                'url':'https://alertas2.inmet.gov.br/78699'}]}
+        page.reload()
+        page.locator('#inmet-context').wait_for(state='visible')
+        assert page.locator('#bordering-alerts-content article').count()==1
+        assert '78699' not in page.locator('#inmet-notices').inner_text()
+        assert page.locator('#inmet-notices article').count()==1
+        assert 'Perigo Potencial' in page.locator('#inmet-notices').inner_text()
+        assert page.locator('#bordering-alerts').is_visible()
+        assert page.locator('#level-card').get_attribute('data-risk')=='verde'
+        data['dashboard.json']['bordering_notice_context']['notices'].pop()
+        data['dashboard.json']['inmet_context']['notices']=[]
+        page.reload()
+        assert not page.locator('#inmet-context').is_visible()
         assert not page.locator('#epagri-context').is_visible()
         assert not page.locator('#inmet-context').is_visible()
         data['dashboard.json']['inmet_context'] = {'status': 'available', 'retrieved_at': data['dashboard.json']['generated_at'], 'notices': []}
