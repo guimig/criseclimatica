@@ -39,8 +39,8 @@ jobs:
           /tmp/weather-browser/bin/python tests/ui_details.py
           /tmp/weather-browser/bin/python tests/ui_campus_station.py
           /tmp/weather-browser/bin/python tests/ui_forecasts.py
-          /tmp/weather-browser/bin/python tests/ui_multisource.py
           /tmp/weather-browser/bin/python tests/ui_essential.py
+          /tmp/weather-browser/bin/python tests/ui_multisource.py
           /tmp/weather-browser/bin/python tests/ui_publication_refresh.py
       - name: Save desktop and mobile screenshots
         if: always()

@@ -548,3 +548,37 @@
   border-block: 1px solid var(--line);
 }
 .essential-page .period-controls .range-control { margin: 0; }
+
+/* Telegram invite: an accessible header action, with a compact mobile icon. */
+.essential-page .telegram-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  min-width: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--green);
+  border-radius: var(--control-radius);
+  background: var(--green);
+  color: var(--surface);
+  font-size: var(--text-body);
+  font-weight: 650;
+  line-height: 1.5;
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.essential-page .telegram-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.essential-page .telegram-link svg { display: block; flex-shrink: 0; }
+@media (max-width: 620px) {
+  .essential-page .telegram-link { padding-inline: var(--space-2); }
+  .essential-page .telegram-label { display: none; }
+}
+@media (max-width: 380px) {
+  .sitebar-inner { gap: var(--space-1); }
+  .site-nav { gap: 0; }
+  .site-nav a { padding-inline: var(--space-1); font-size: 12px; }
+  .essential-page #theme-toggle { padding-inline: var(--space-1); }
+  .essential-page .telegram-link { padding-inline: var(--space-1); }
+}
