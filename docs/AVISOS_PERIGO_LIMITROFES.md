@@ -1,6 +1,6 @@
 # Avisos INMET de perigo em municípios limítrofes
 
-A interface de Araquari exibe **Perigo** e **Grande Perigo** no entorno imediato em um painel exclusivo, logo abaixo do nível de risco local. **Perigo Potencial** aparece como informação regional secundária, sem a mesma ênfase.
+A interface de Araquari destaca **somente Perigo e Grande Perigo** (faixa de Alerta ou superior, como referência de prioridade) em municípios limítrofes, logo abaixo do nível de risco local. **Perigo Potencial, Atenção e severidades inferiores não acionam esse destaque**; quando disponíveis, os avisos menos graves permanecem no bloco recolhível **Avisos · INMET**.
 
 ## Abrangência e coleta
 
@@ -14,7 +14,8 @@ O \`dashboard.json\` publica \`bordering_notice_context\`: identificador único 
 
 - **Grande Perigo**: destaque reforçado, identificado com o grau oficial INMET.
 - **Perigo**: destaque de perigo no entorno imediato.
-- **Perigo Potencial**: referência secundária, sem equipará-lo às duas classes mais graves.
+- **Perigo Potencial e níveis de Atenção ou inferiores**: sem destaque especial e sem notificação regional automática, mantidos apenas no bloco recolhível INMET quando houver aviso válido.
+- **Sem duplicação**: o mesmo identificador INMET destacado é omitido do bloco recolhível. Avisos menos graves de municípios limítrofes (mesmo fora do raio de 40 km) podem permanecer nesse bloco.
 - **Evento programado**: visível como programado, jamais apresentado como já em curso.
 - **Evento encerrado**: removido ao atingir o fim oficial.
 - **Fonte desatualizada**: aviso previamente coletado permanece até o fim oficial, com aviso de que revisão/cancelamento não foram reconfirmados.

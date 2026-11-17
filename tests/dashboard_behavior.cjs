@@ -390,7 +390,7 @@ console.log('Official-warning validity survived stale publication; precise end r
 
 // INMET dangers in bordering municipalities: distinct, timed and outside local classification.
 {
-  const {borderingNotices,riskPresentation}=require('../web/dashboard.js');
+  const {borderingNotices,homeNotices,riskPresentation}=require('../web/dashboard.js');
   global.location={href:'https://guimig.github.io/criseclimatica/',origin:'https://guimig.github.io'};
   const stamp='2026-11-17T18:00:00Z',now=Date.parse(stamp);
   const src={kind:'inmet_bordering_municipality_warning_context_not_araquari_alert',
@@ -406,10 +406,27 @@ console.log('Official-warning validity survived stale publication; precise end r
     ]};
   const snapshot={bordering_notice_context:src};
   const rows=borderingNotices(snapshot,now);
-  assert.deepEqual(rows.map(n=>n.id),['9001','9002']);
+  assert.deepEqual(rows.map(n=>n.id),['9001']);
   assert.equal(rows[0].high_severity,true);
-  assert.equal(rows[1].high_severity,false);
+  assert.deepEqual(borderingNotices(snapshot,now,1).map(n=>n.id),['9001','9002']);
+  assert.deepEqual(homeNotices(snapshot,now).filter(n=>n.source==='INMET').map(n=>n.id),['9002']);
   assert.deepEqual(borderingNotices(snapshot,Date.parse('2026-11-18T03:00:00Z')),[]);
+  // Same warning also present in a monitored municipality must appear only once,
+  // in the prominent block; a potential warning stays in the ordinary disclosure.
+  const generalFeed={status:'available',retrieved_at:stamp,notices:src.notices.map(n=>({
+    id:n.id,type:'Tempestade',severity:n.severity,start_at:n.start_at,end_at:n.end_at,
+    municipalities:[{location_id:'joinville',name:'Joinville',distance_km:20}],
+    risks:['Rajadas de vento.'],lifecycle:'ongoing',url:n.url
+  }))};
+  const mixed={...snapshot,inmet_context:generalFeed};
+  assert.deepEqual(homeNotices(mixed,now).filter(n=>n.source==='INMET').map(n=>n.id),['9002']);
+  assert.deepEqual(borderingNotices(mixed,now).map(n=>n.id),['9001']);
+  assert.deepEqual(borderingNotices({...snapshot,bordering_notice_context:{
+    ...src,notices:[{...src.notices[1],severity:'Atenção',severity_rank:1}] }},now),[]);
+  assert.deepEqual(borderingNotices({...snapshot,bordering_notice_context:{
+    ...src,notices:[{...src.notices[1],severity:'Grande Perigo',severity_rank:1}] }},now),[]);
+  assert.deepEqual(borderingNotices({...snapshot,bordering_notice_context:{
+    ...src,notices:[{...src.notices[0],severity:'Perigo Potencial',severity_rank:2}] }},now),[]);
   assert.deepEqual(borderingNotices({...snapshot,bordering_notice_context:{...src,status:'unavailable'}},now),[]);
   assert.deepEqual(borderingNotices({...snapshot,bordering_notice_context:{...src,notices:[{...src.notices[0],araquari_included:true}]}},now),[]);
   assert.deepEqual(borderingNotices({...snapshot,bordering_notice_context:{...src,notices:[{...src.notices[0],municipalities:[{name:'Araquari',ibge_code:'4201307'}]}]}},now),[]);
