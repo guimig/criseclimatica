@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "municipality": {
+    "id": "araquari",
+    "name": "Araquari",
+    "ibge_code": "4201307"
+  },
+  "reference": {
+    "territorial": "https://www.ibge.gov.br/geociencias/organizacao-do-territorio/estrutura-territorial/42224-municipios-limitrofes.html",
+    "local_relation": "https://aciaa.com.br/institucional/conheca-araquari/",
+    "codes": "https://www.ibge.gov.br/explica/codigos-dos-municipios.php",
+    "note": "Relação operacional de municípios que fazem divisa; conferir atualizações territoriais na malha oficial do IBGE. Não representa previsão ou alerta para Araquari."
+  },
+  "municipalities": [
+    {
+      "id": "balneario-barra-do-sul",
+      "name": "Balneário Barra do Sul",
+      "ibge_code": "4202057"
+    },
+    {
+      "id": "barra-velha",
+      "name": "Barra Velha",
+      "ibge_code": "4202107"
+    },
+    {
+      "id": "guaramirim",
+      "name": "Guaramirim",
+      "ibge_code": "4206504"
+    },
+    {
+      "id": "joinville",
+      "name": "Joinville",
+      "ibge_code": "4209102"
+    },
+    {
+      "id": "massaranduba",
+      "name": "Massaranduba",
+      "ibge_code": "4210605"
+    },
+    {
+      "id": "sao-francisco-do-sul",
+      "name": "São Francisco do Sul",
+      "ibge_code": "4216206"
+    },
+    {
+      "id": "sao-joao-do-itaperiu",
+      "name": "São João do Itaperiú",
+      "ibge_code": "4216354"
+    }
+  ]
+}
