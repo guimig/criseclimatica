@@ -198,6 +198,7 @@ def main():
         assert page.locator('#bordering-alerts-content article').count()==1
         assert '78699' not in page.locator('#inmet-notices').inner_text()
         assert page.locator('#inmet-notices article').count()==1
+        page.locator('#inmet-context > summary').click()
         assert 'Perigo Potencial' in page.locator('#inmet-notices').inner_text()
         assert page.locator('#bordering-alerts').is_visible()
         assert page.locator('#level-card').get_attribute('data-risk')=='verde'
