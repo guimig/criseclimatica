@@ -19,7 +19,8 @@ from urllib.request import Request, urlopen
 from .notice_time import normalize_window, moment, lifecycle
 
 URL = "https://apiprevmet3.inmet.gov.br/avisos/ativos"
-PUBLIC_PORTAL = "https://alertas2.inmet.gov.br/"
+PUBLIC_PORTAL = "https://avisos.inmet.gov.br/"
+RSS_FEED = "https://apiprevmet3.inmet.gov.br/avisos/rss"
 KIND = "inmet_official_notices_by_municipality"
 _CODE = re.compile(r"(?<!\d)\d{7}(?!\d)")
 
@@ -175,6 +176,7 @@ def normalize_alerts(payload: Any, locations: list[dict[str, Any]], collected_at
             duration, duration_kind = _duration(normalized_start, normalized_end)
             matches.append({
                 "id": identifier, "revision": seq, "type": _text(raw.get("descricao"), 140) or "Aviso meteorológico",
+                "url": PUBLIC_PORTAL,  # Browser portal, not an unverified /{id} permalink.
                 "severity": _text(raw.get("severidade"), 80) or "Não informada",
                 "window_as_reported": _source_window(raw),
                 "start_at": normalized_start, "end_at": normalized_end, "timezone_basis": time_basis,
@@ -190,7 +192,7 @@ def normalize_alerts(payload: Any, locations: list[dict[str, Any]], collected_at
     return {
         "schema_version": 1, "kind": KIND, "status": "available",
         "retrieved_at": collected_at,
-        "source": {"id": "inmet", "name": "INMET", "url": PUBLIC_PORTAL, "api_url": URL},
+        "source": {"id": "inmet", "name": "INMET", "url": PUBLIC_PORTAL, "api_url": URL, "rss_url": RSS_FEED},
         "time_notice": "Na ausência de fuso explícito, aplica-se o horário de Brasília; datas sem horas abrangem os dias completos.",
         "regional_distinct_notices": len(regional_ids),
         "cancelled_ids": sorted(cancelled_ids),
@@ -202,7 +204,7 @@ def unavailable_alerts(locations: list[dict[str, Any]], checked_at: str) -> dict
     return {
         "schema_version": 1, "kind": KIND, "status": "unavailable", "retrieved_at": None,
         "checked_at": checked_at,
-        "source": {"id": "inmet", "name": "INMET", "url": PUBLIC_PORTAL, "api_url": URL},
+        "source": {"id": "inmet", "name": "INMET", "url": PUBLIC_PORTAL, "api_url": URL, "rss_url": RSS_FEED},
         "time_notice": "Fonte indisponível; não é possível afirmar ausência de avisos.",
         "regional_distinct_notices": None,
         "locations": [{"location_id": loc["id"], "ibge_code": str(loc["ibge_code"]), "alerts": []} for loc in locations],

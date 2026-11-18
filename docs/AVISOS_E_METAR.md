@@ -14,7 +14,8 @@ A nova camada **não** fornece acumulados de chuva medidos por pluviômetros, ne
 | Fonte | Consulta programada | Formato | Observações |
 |---|---|---|---|
 | INMET avisos | `https://apiprevmet3.inmet.gov.br/avisos/ativos` | JSON `hoje`/`futuro` | Endpoint utilizado por terceiros, porém **sem contrato público de estabilidade confirmado**. Falhas geram estado `unavailable`; jamais viram “sem avisos”. |
-| INMET portal | https://alertas2.inmet.gov.br/ | Visualização oficial | Conferência necessária para decisões de proteção civil. |
+| INMET portal legível | https://avisos.inmet.gov.br/ | Portal público HTML/JavaScript | Os avisos podem ser localizados por data, severidade e abrangência; a URL raiz **não** é uma página individual. |
+| INMET RSS/XML | https://apiprevmet3.inmet.gov.br/avisos/rss | Feed técnico | Fonte estruturada, não adequada ao botão “Ler aviso completo”. |
 | Aviation Weather Center | `https://aviationweather.gov/api/data/metar?ids=SBBI%2CSBCT%2CSBFL%2CSBJV%2CSBNF%2CSSBL&format=json&hours=6` | JSON | API pública documentada; boletins geralmente horários; recomendável consultar de forma parcimoniosa. |
 | Dados geográficos IBGE | https://www.ibge.gov.br/explica/codigos-dos-municipios.php | Cadastro nacional | Filtro de alertas baseado em códigos exatos de sete dígitos. |
 
@@ -75,3 +76,10 @@ A disponibilidade das APIs INMET e Aviation Weather Center, e o formato retornad
 ## Nova política de vigência oficial
 
 Nenhum aviso positivo de INMET/Epagri/Ciram expira por idade da coleta ou pela validade da publicação geral do painel. O fim informado pela fonte e cancelamentos/revisões expressos governam sua vigência. Horas sem fuso seguem Brasília; datas sem hora representam o dia integral. Retenção após falhas distingue ausência de reconfirmação de cancelamento. A descrição técnica e as limitações estão em [VALIDADE_E_ABRANGENCIA_AVISOS.md](VALIDADE_E_ABRANGENCIA_AVISOS.md).
+
+
+### Links públicos de avisos INMET (17/11/2026)
+
+O portal oficial atualizado é **https://avisos.inmet.gov.br/**. Ele oferece páginas públicas individuais (por exemplo, `https://avisos.inmet.gov.br/56430`), mas **a correspondência do `id_aviso` da API `/avisos/ativos` com um permalink navegável não foi confirmada para todos os registros históricos**. O sistema, portanto, não constrói automaticamente `/28723` ou outro caminho não verificado, nem usa o host anterior `alertas2.inmet.gov.br` para links humanos.
+
+Os cartões do observatório exibem riscos e instruções recuperados da API em texto legível, com identificação, severidade, datas e municípios. O botão aponta para o portal público e informa que é uma **lista de avisos**, não necessariamente o registro exato. O feed `/avisos/rss` pode ser consultado como **RSS/XML técnico**, explicitamente rotulado como tal.

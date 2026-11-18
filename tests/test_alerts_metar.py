@@ -37,9 +37,12 @@ class TestOfficialNotices(unittest.TestCase):
     def test_exact_municipality_geocode_and_deduplicates_revisions(self):
         result = normalize_alerts(ALERTS, LOCATIONS, STAMP)
         self.assertEqual(result["status"], "available")
+        self.assertEqual(result["source"]["url"], "https://avisos.inmet.gov.br/")
+        self.assertEqual(result["source"]["rss_url"], "https://apiprevmet3.inmet.gov.br/avisos/rss")
         araquari = next(x for x in result["locations"] if x["location_id"] == "araquari")
         self.assertEqual(len(araquari["alerts"]), 1)
         self.assertEqual(araquari["alerts"][0]["id"], "3100")
+        self.assertEqual(araquari["alerts"][0]["url"], "https://avisos.inmet.gov.br/")
         self.assertEqual(araquari["alerts"][0]["revision"], 2)
         self.assertEqual(araquari["alerts"][0]["severity"], "Grande Perigo")
         self.assertEqual(araquari["alerts"][0]["phases"], ["futuro", "hoje"])

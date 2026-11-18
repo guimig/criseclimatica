@@ -608,7 +608,7 @@ function renderOfficialAlerts() {
     return;
   }
   if(retained)target.append(child('p','alert-unknown','A consulta atual falhou. Avisos preservados da consulta anterior, com horários originais e prazo informado ainda não encerrado. Revisão ou cancelamento não confirmados.'));
-  $('alert-updated').textContent = `Consulta INMET: ${datetime(retrieved)} · avisos complementares, sem efeito na classificação do painel. Vigência e fuso: conforme a fonte original.`;
+  $('alert-updated').textContent = `Consulta INMET: ${datetime(retrieved)} · o link abre a relação oficial, não necessariamente um aviso individual. Identifique-o pelo fenômeno, período e município. Avisos complementares não alteram automaticamente a classificação.`;
   const currentAlerts = place.alerts.filter(alert => retained ? Number.isFinite(Date.parse(alert.start_at)) && Number.isFinite(Date.parse(alert.end_at)) && Date.parse(alert.start_at)<Date.parse(alert.end_at) && Date.now()<Date.parse(alert.end_at) : !alert.end_at || !(Date.now() >= Date.parse(alert.end_at)));
   if (!currentAlerts.length) {
     target.append(child('p', 'alert-empty', 'Nenhum aviso municipal retornado pelo INMET nesta consulta. Isso não exclui outros alertas ou riscos locais.'));
@@ -619,13 +619,13 @@ function renderOfficialAlerts() {
     const head = child('div', 'alert-entry-heading');
     head.append(child('strong', '', alert.type || 'Aviso meteorológico'), child('span', 'alert-severity', alert.severity || 'Não informada'));
     card.append(head, child('p', 'alert-window', alert.window_as_reported || 'Período não informado'));
-    const risk = Array.isArray(alert.risks) ? alert.risks.filter((text) => typeof text === 'string').slice(0, 2) : [];
-    const recommendations = Array.isArray(alert.instructions) ? alert.instructions.filter((text) => typeof text === 'string').slice(0, 2) : [];
+    const risk = Array.isArray(alert.risks) ? alert.risks.filter((text) => typeof text === 'string').slice(0, 5) : [];
+    const recommendations = Array.isArray(alert.instructions) ? alert.instructions.filter((text) => typeof text === 'string').slice(0, 5) : [];
     if (risk.length) card.append(child('p', 'alert-description', risk.join(' · ')));
     if (recommendations.length) card.append(child('p', 'alert-instructions', `Orientação INMET: ${recommendations.join(' · ')}`));
     if (!alert.start_at || !alert.end_at) card.append(child('p', 'alert-window', 'Fuso ou validade não conciliados; vigência não confirmada.'));
-    const link = child('a', '', 'Consultar INMET ↗');
-    link.href = 'https://alertas2.inmet.gov.br/'; link.target = '_blank'; link.rel = 'noopener noreferrer';
+    const link = child('a', '', 'Consultar avisos no portal INMET ↗');
+    link.href = 'https://avisos.inmet.gov.br/'; link.target = '_blank'; link.rel = 'noopener noreferrer';
     card.append(link);
     target.append(card);
   }

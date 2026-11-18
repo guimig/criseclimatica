@@ -83,6 +83,34 @@ function effectiveAssessment(data,now=Date.now()) {
 function node(tag,cls,text) { const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n; }
 function safeLink(address) { try { const u=new URL(address,location.href);return u.protocol==='https:'&&((u.origin===location.origin&&/^\/criseclimatica\/references\/pn-(13|14)-2026\.pdf$/.test(u.pathname))||['ciram.epagri.sc.gov.br','www.defesacivil.sc.gov.br','defesacivil.sc.gov.br','alertas2.inmet.gov.br','avisos.inmet.gov.br','portal.inmet.gov.br'].includes(u.hostname))&&!u.username&&!u.password?u.href:null; }catch{return null;} }
 function officialLink(address,label) { const a=node('a','',label);const href=safeLink(address);if(href){a.href=href;a.target='_blank';a.rel='noopener noreferrer';}return a; }
+// The legacy INMET host and API IDs are not reliable human-readable permalinks.
+const INMET_PUBLIC_PORTAL='https://avisos.inmet.gov.br/';
+function inmetReadableLink(address) {
+  const link=safeLink(address);
+  if(!link)return null;
+  const host=new URL(link).hostname;
+  return ['avisos.inmet.gov.br','alertas2.inmet.gov.br'].includes(host)?INMET_PUBLIC_PORTAL:null;
+}
+function noticeTextItems(value) {
+  return Array.isArray(value)?value.filter(s=>typeof s==='string'&&s.trim()).slice(0,5).map(s=>s.trim().slice(0,1100)):[];
+}
+function addInmetReadableDetails(card,notice) {
+  const risks=noticeTextItems(notice.risks);
+  if(!risks.length&&typeof notice.summary==='string'&&notice.summary.trim())risks.push(notice.summary.trim().slice(0,1100));
+  const instructions=noticeTextItems(notice.instructions);
+  const disclosure=node('details','inmet-readable-details');
+  disclosure.append(node('summary','','Ler riscos e orientações do aviso'));
+  const body=node('div','inmet-readable-body');
+  for(const [heading,lines] of [['Riscos potenciais informados pelo INMET',risks],['Instruções informadas pelo INMET',instructions]]){
+    body.append(node('h4','',heading));
+    if(lines.length){const list=node('ul','inmet-readable-list');for(const line of lines)list.append(node('li','',line));body.append(list);}
+    else paragraph(body,'Informações detalhadas não disponibilizadas neste registro.','small');
+  }
+  const technicalId=String(notice.id||'');
+  if(/^[a-zA-Z0-9_-]{1,50}$/.test(technicalId))paragraph(body,'Identificador na base consultada: '+technicalId+'.','small');
+  paragraph(body,'O botão de consulta abre a lista oficial do INMET; localize o aviso pelo fenômeno, período e município. O identificador da API pode diferir do endereço público.','small');
+  disclosure.append(body);card.append(disclosure);
+}
 function updateMetric(id,value,note) { el(id+'-value').textContent=value;el(id+'-note').textContent=note; }
 const riskNames={verde:'Normalidade',azul:'Preparação',amarelo:'Atenção',laranja:'Alerta',vermelho:'Alerta máximo',roxo:'Calamidade'};
 const variableNames={rain_1h_mm:'chuva em 1 hora',rain_24h_mm:'chuva em 24 horas',wind_kmh:'vento',gust_kmh:'rajadas de vento'};
@@ -471,8 +499,7 @@ function homeNotices(data,now=Date.now()) {
     if(!Array.isArray(n.municipalities)&&n.ibge_code==='4201307')municipalities.push({location_id:'araquari',name:'Araquari'});
     if(!municipalities.length)continue;
     const local=municipalities.some(m=>m.location_id==='araquari');
-    const direct=/^\d+$/.test(String(n.id))?'https://alertas2.inmet.gov.br/'+n.id:n.url;
-    const url=safeLink(direct);if(!url)continue;
+    const url=inmetReadableLink(n.url);if(!url)continue;
     add({...n,source:'INMET',title:n.type||'Aviso meteorológico',url,
       regions:municipalities.map(m=>m.name||m.location_id).join(', ')+(local?'':' · entorno; Araquari não confirmada'),
       summary:list(n.risks).filter(t=>typeof t==='string').join(' '),retained_previous:n.retained_previous||feed.retained_previous});
@@ -506,8 +533,8 @@ function borderingNotices(data,now=Date.now(),minimumRank=2) {
     if(!Number.isFinite(start)||!Number.isFinite(end)||!(start<end)||now>=end)continue;
     const places=Array.isArray(n.municipalities)?n.municipalities.filter(m=>m&&typeof m.name==='string'&&/^\d{7}$/.test(m.ibge_code||'')&&m.ibge_code!=='4201307').slice(0,16):[];
     if(!places.length)continue;
-    const url=safeLink(n.url);
-    if(!url||!url.startsWith('https://alertas2.inmet.gov.br/'))continue;
+    const url=inmetReadableLink(n.url);
+    if(!url)continue;
     seen.add(n.id);
     rows.push({...n,municipalities:places,verified_current:now>=start,high_severity:n.severity_rank>=2,url,
       retained_previous:n.retained_previous||feed.status==='retained_unconfirmed'});
@@ -532,7 +559,8 @@ function renderBorderingAlerts(now=Date.now()) {
     if(n.retained_previous)paragraph(card,'Consulta anterior: revisão ou cancelamento ainda não reconfirmados.','small');
     const validRisks=Array.isArray(n.risks)?n.risks.filter(r=>typeof r==='string').slice(0,2):[];
     if(validRisks.length)paragraph(card,validRisks.join(' · ').slice(0,430),'small');
-    card.append(officialLink(n.url,'Consultar aviso oficial ↗'));
+    addInmetReadableDetails(card,n);
+    card.append(officialLink(n.url,'Consultar avisos no portal INMET ↗'));
     body.append(card);
   }
 }
@@ -549,10 +577,12 @@ function renderHomeNotices() {
       if(n.publication_type)paragraph(card,n.publication_type,'small');
       if(n.severity)paragraph(card,'Severidade: '+n.severity+'.','small');
       paragraph(card,'Abrangência: '+n.regions+'.');paragraph(card,'Período: '+noticePeriod(n)+'.');
-      if(n.summary)paragraph(card,String(n.summary).slice(0,650));
-    if(n.scope==='territory_needs_review')paragraph(card,'Possível abrangência territorial: conferir o texto oficial.','small');
+      if(n.source==='INMET')addInmetReadableDetails(card,n);
+      else if(n.summary)paragraph(card,String(n.summary).slice(0,650));
+      if(n.scope==='territory_needs_review')paragraph(card,'Possível abrangência territorial: conferir o texto oficial.','small');
       if(n.retained_previous)paragraph(card,'Consulta anterior; atualização da fonte indisponível.','small');
-      card.append(officialLink(n.url,n.publication_type?'Ler previsão completa ↗':'Ler aviso completo ↗'));body.append(card);
+      const linkText=n.source==='INMET'?'Consultar avisos no portal INMET ↗':n.publication_type?'Ler previsão completa ↗':'Ler aviso completo ↗';
+      card.append(officialLink(n.url,linkText));body.append(card);
     }
   }
 }
@@ -569,7 +599,11 @@ function renderRiskExplanation(force=false) {
   const currentCandidates=candidates.filter(c=>c.level===presentation.color&&Date.now()<Date.parse(c.valid_until));
   if(currentCandidates.length){body.append(node('h3','','Evidências atuais'));const linked=new Set();for(const c of currentCandidates.slice(0,6)){
     paragraph(body,`${c.reason} Referência válida até ${date(c.valid_until)}.`);
-    for(const e of c.evidence||[])if(e.url&&safeLink(e.url)&&!linked.has(e.url)){linked.add(e.url);body.append(officialLink(e.url,'Ler publicação completa ↗'));}
+    for(const e of c.evidence||[]){
+      const inmet=String(e.source||'').toUpperCase().startsWith('INMET')||Boolean(e.url&&inmetReadableLink(e.url));
+      const url=inmet?inmetReadableLink(e.url||INMET_PUBLIC_PORTAL):safeLink(e.url);
+      if(url&&!linked.has(url)){linked.add(url);body.append(officialLink(url,inmet?'Consultar avisos no portal INMET ↗':'Ler publicação completa ↗'));}
+    }
   }}
   if(presentation.color==='neutral')for(const r of requirements)if(!r.available||!(Date.now()<Date.parse(r.valid_until)))paragraph(body,r.label+': ausente ou vencida.');
   paragraph(body,'Classificação consultiva. Decisões sobre as atividades cabem à autoridade institucional.','small');
@@ -607,7 +641,7 @@ async function loadDashboard() {
   finally{if(id===panel.loadId){panel.loading=false;el('refresh').disabled=false;renderSummary();renderRecent();renderChart();}}
 }
 function selectVariable(variable) {panel.variable=variable;if(el('forecast-variable'))el('forecast-variable').value=variable;for(const button of document.querySelectorAll('[data-variable]')){const selected=button.dataset.variable===variable;button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));}renderChart();}
-if(typeof module!=='undefined')module.exports={dailyForecast,borderingNotices,homeNotices,noticePeriod,reportedWindowExpired,primaryNotice,inmetContextStatus,inmetNotices,fresh,dashboardCurrent,protocolCurrent,forecastCurrent,currentGauges,signalCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale,chartReadingsAt,chartReadingText};
+if(typeof module!=='undefined')module.exports={dailyForecast,inmetReadableLink,borderingNotices,homeNotices,noticePeriod,reportedWindowExpired,primaryNotice,inmetContextStatus,inmetNotices,fresh,dashboardCurrent,protocolCurrent,forecastCurrent,currentGauges,signalCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale,chartReadingsAt,chartReadingText};
 if(typeof document!=='undefined'){
   function navigationState(){for(const link of document.querySelectorAll('nav a[href^="#"]')){const active=link.getAttribute('href')===(location.hash||'#main');if(active)link.setAttribute('aria-current','location');else link.removeAttribute('aria-current');}}
   window.addEventListener('hashchange',navigationState);navigationState();

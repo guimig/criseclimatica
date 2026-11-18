@@ -139,3 +139,8 @@ O coletor foi ajustado para respostas lentas e textos completos, com fallback pa
 ### Avisos graves nos municípios limítrofes
 
 O painel destaca avisos INMET de **Perigo** e **Grande Perigo** emitidos para municípios com divisa territorial com Araquari, sem convertê-los em aviso municipal nem elevar automaticamente o nível consultivo local. **Perigo Potencial/Atenção não são destacados**: ficam no bloco recolhível INMET, que também exclui avisos já destacados. As cidades são selecionadas por código IBGE, independentemente do raio aproximado usado para estações meteorológicas. Veja [Avisos de perigo limítrofes](docs/AVISOS_PERIGO_LIMITROFES.md). O bot Telegram pode comunicar avisos regionais novos em mensagens separadas, após a implantação do observatório.
+
+
+### Como ler os avisos INMET
+
+Avisos do INMET no painel e em Dados e fontes exibem o texto estruturado da API (severidade, vigência, riscos e recomendações). Para conferir na origem, o link leva ao **[portal público de avisos INMET](https://avisos.inmet.gov.br/)**, sem criar um endereço individual a partir de identificadores históricos que podem não corresponder a páginas web. Para uso técnico, há um link explicitamente identificado como **[RSS/XML](https://apiprevmet3.inmet.gov.br/avisos/rss)** na página de fontes. Veja `docs/AVISOS_E_METAR.md`.

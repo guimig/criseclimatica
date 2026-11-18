@@ -305,14 +305,20 @@ console.log('Retained INMET notices: failed query remains explicit; unverified o
 
 // Home disclosures show positive regional notices only, independently of the risk level.
 global.location={href:'https://guimig.github.io/criseclimatica/',origin:'https://guimig.github.io'};
-const {homeNotices,noticePeriod}=require('../web/dashboard.js');
+const {homeNotices,noticePeriod,inmetReadableLink}=require('../web/dashboard.js');
 const noticeClock=Date.parse('2026-11-06T20:30:00Z'),noticeStamp='2026-11-06T20:00:00Z';
 const positiveNotice={id:'28680',type:'Tempestade',lifecycle:'unverified',window_as_reported:'06/11/2026 20:00 — 07/11/2026 23:59',start_at:noticeStamp,end_at:noticeStamp,municipalities:[{location_id:'araquari',name:'Araquari'}],risks:['Chuva e vento.'],url:'https://alertas2.inmet.gov.br/'};
 const noticeData={inmet_context:{status:'available',retrieved_at:noticeStamp,notices:[positiveNotice]},source_status:[{source:'Epagri/Ciram · avisos',status:'available',reference_at:noticeStamp}],assessment:{evidence:[{status:'eligible',scope:'regional_reference_not_municipal_confirmation',title:'Chuva intensa',regions_text:'Litoral Norte',checked_at:noticeStamp,valid_from:noticeStamp,valid_until:'2026-11-07T20:00:00Z',summary:'Previsão de temporais.',url:'https://ciram.epagri.sc.gov.br/aviso/'}]}};
 assert.deepEqual(homeNotices(null,noticeClock),[]);
 assert.deepEqual(homeNotices({inmet_context:{status:'available',retrieved_at:noticeStamp,notices:[]}},noticeClock),[]);
 const found=homeNotices(noticeData,noticeClock);assert.equal(found.length,2);
-assert.equal(found[1].url,'https://alertas2.inmet.gov.br/28680');assert.match(noticePeriod(found[1],noticeClock),/validade a confirmar/);
+assert.equal(found[1].url,'https://avisos.inmet.gov.br/');assert.match(noticePeriod(found[1],noticeClock),/validade a confirmar/);
+assert.equal(inmetReadableLink('https://alertas2.inmet.gov.br/28723'),'https://avisos.inmet.gov.br/');
+assert.equal(inmetReadableLink('https://avisos.inmet.gov.br/56430'),'https://avisos.inmet.gov.br/');
+assert.equal(inmetReadableLink('https://apiprevmet3.inmet.gov.br/avisos/rss/28723'),null);
+assert.equal(inmetReadableLink('https://evil.example/28723'),null);
+assert.equal(inmetReadableLink('http://avisos.inmet.gov.br/56430'),null);
+assert.equal(inmetReadableLink('https://avisos.inmet.gov.br@evil.example/'),null);
 assert.match(found[0].summary,/temporais/);
 const nearbyNotice={...positiveNotice,municipalities:[{location_id:'joinville',name:'Joinville',distance_km:15}]};
 const withNotice=n=>({...noticeData,assessment:{},inmet_context:{...noticeData.inmet_context,notices:[n]}});
@@ -407,9 +413,11 @@ console.log('Official-warning validity survived stale publication; precise end r
   const snapshot={bordering_notice_context:src};
   const rows=borderingNotices(snapshot,now);
   assert.deepEqual(rows.map(n=>n.id),['9001']);
+  assert.equal(rows[0].url,'https://avisos.inmet.gov.br/');
   assert.equal(rows[0].high_severity,true);
   assert.deepEqual(borderingNotices(snapshot,now,1).map(n=>n.id),['9001','9002']);
   assert.deepEqual(homeNotices(snapshot,now).filter(n=>n.source==='INMET').map(n=>n.id),['9002']);
+  assert.equal(homeNotices(snapshot,now).filter(n=>n.source==='INMET')[0].url,'https://avisos.inmet.gov.br/');
   assert.deepEqual(borderingNotices(snapshot,Date.parse('2026-11-18T03:00:00Z')),[]);
   // Same warning also present in a monitored municipality must appear only once,
   // in the prominent block; a potential warning stays in the ordinary disclosure.

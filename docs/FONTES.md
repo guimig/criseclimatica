@@ -82,3 +82,8 @@ Acessibilidade externa comprovada documentalmente não substitui verificação d
 ### Vigência e interpretação territorial dos avisos
 
 A data/hora da **consulta** não limita o intervalo oficial de um aviso. Os avisos vigentes continuam identificados durante falhas de atualização; horas sem fuso adotam Brasília e datas sem horas cobrem dias completos. A abrangência territorial e exclusões de Araquari seguem regras de classificação conservadora. Veja [VALIDADE_E_ABRANGENCIA_AVISOS.md](VALIDADE_E_ABRANGENCIA_AVISOS.md).
+
+
+### Acesso humano aos avisos INMET
+
+O portal público em [avisos.inmet.gov.br](https://avisos.inmet.gov.br/) apresenta severidade, período, riscos, instruções e abrangência. O JSON `avisos/ativos` fornece os dados estruturados do observatório. A API não garante que seu `id_aviso` seja o caminho navegável correspondente; por isso, não inventamos URLs individuais. O feed [RSS/XML](https://apiprevmet3.inmet.gov.br/avisos/rss) deve ser identificado como fonte técnica e não substitui o portal público. Os textos do INMET existentes no JSON são apresentados legivelmente no próprio painel.
