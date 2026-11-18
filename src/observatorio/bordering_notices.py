@@ -12,7 +12,7 @@ from datetime import timedelta
 import unicodedata
 from pathlib import Path
 
-from .alerts import KIND as INMET_KIND, normalize_alerts, merge_active_notices, retain_valid_notices
+from .alerts import KIND as INMET_KIND, PUBLIC_PORTAL, normalize_alerts, merge_active_notices, retain_valid_notices
 from .notice_time import moment
 
 KIND = "inmet_bordering_municipality_warning_context_not_araquari_alert"
@@ -103,9 +103,10 @@ def summarize_bordering(feed: dict, places: list[dict], stamp: str) -> dict:
                 row = {"id": identifier, "title": n.get("type") or "Aviso meteorológico",
                        "severity": n.get("severity"), "severity_rank": rank,
                        "start_at": n["start_at"], "end_at": n["end_at"],
-                       "url": "https://alertas2.inmet.gov.br/" + identifier if identifier.isdigit() else "https://alertas2.inmet.gov.br/",
+                       "url": PUBLIC_PORTAL,  # A numeric API identifier is not a verified public permalink.
                        "municipalities": [], "retained_previous": not source_available or bool(n.get("retained_previous")),
-                       "risks": n.get("risks", [])[:3] if isinstance(n.get("risks"), list) else [],
+                       "risks": n.get("risks", [])[:5] if isinstance(n.get("risks"), list) else [],
+                       "instructions": n.get("instructions", [])[:5] if isinstance(n.get("instructions"), list) else [],
                        "scope": "bordering_municipalities_only", "araquari_included": False}
                 grouped[identifier] = row
             row["municipalities"].append({"id": slug, "name": reference["name"], "ibge_code": reference["ibge_code"]})

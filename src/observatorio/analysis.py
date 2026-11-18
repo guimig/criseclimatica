@@ -9,6 +9,7 @@ import math
 from datetime import datetime, timedelta, timezone
 
 from .inmet import haversine_km
+from .alerts import PUBLIC_PORTAL as INMET_PORTAL
 from .pipeline import rain_window
 
 KIND = "meteorological_evidence_and_advisory_not_institutional_decision"
@@ -178,7 +179,7 @@ def notice_analysis(feed, slug, forecast, now):
             "severity": notice.get("severity"), "window_as_reported": notice.get("window_as_reported"),
             "start_at": iso(start) if start else None, "end_at": iso(end) if end else None,
             "temporal_relation": relation, "lifecycle": lifecycle, "kind": "official_notice_not_confirmed_event",
-            "url": "https://alertas2.inmet.gov.br/", "risks": notice.get("risks", []),
+            "url": INMET_PORTAL, "risks": notice.get("risks", []),
             "instructions": notice.get("instructions", []), "ibge_code": local(notice_feed, slug).get("ibge_code"),
             "timezone_basis": notice.get("timezone_basis"), "retained_previous": retained or notice.get("retained_previous", False)})
     return result

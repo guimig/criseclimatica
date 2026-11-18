@@ -35,3 +35,8 @@ Uma assinatura estável por **dia e fenômeno** evita repetição entre IDs e mu
 O teste sintético cobre abrangência exata, aviso local simultâneo, municípios não limítrofes, cada severidade, duplicidade, expiração, cancelamento e falha do provedor. O teste JavaScript cobre visibilidade com e sem risco local, janela vencida e links oficiais. O bot valida migração silenciosa, novo aviso, upgrade, falha no envio e repetição.
 
 Para reverter a interface, reverter o merge do PR do observatório. Para cessar notificações regionais, reverter o PR do bot (sem zerar o estado durável). A persistência atual de outras notificações permanece intacta.
+
+
+## Leitura humana e endereços INMET
+
+O link do destaque do entorno abre **https://avisos.inmet.gov.br/**, portal oficial legível. O código numérico do registro proveniente da API não é transformado em URL — o endereço antigo `alertas2.inmet.gov.br/{id}` não é uma página confiável. Os riscos potenciais e as instruções coletados do INMET podem ser lidos diretamente no aviso do painel. Quando necessário, o feed [RSS/XML](https://apiprevmet3.inmet.gov.br/avisos/rss) é oferecido somente como recurso técnico em Dados e fontes. Os avisos regionais continuam separados dos emitidos para Araquari.
