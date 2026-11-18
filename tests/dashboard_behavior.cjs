@@ -379,6 +379,7 @@ assert.equal(noticePhase({...positiveBrief,start_at:'invalid'},noticeClock),'Hor
 assert.equal(noticeScopePreview(positiveBrief),'Araquari e mais 2 municípios');
 assert.equal(noticeScopePreview({...positiveBrief,source:'Epagri/Ciram',regions:'todas..'}),'todas');
 assert.match(noticePreview(positiveBrief,noticeClock),/Vigente · até/);
+assert.match(noticePreview({...positiveBrief,end_at:positiveBrief.start_at},noticeClock),/Horário a conferir · validade a confirmar/);
 assert.match(noticeSourceSummary([positiveBrief,{...positiveBrief,retained_previous:true,start_at:'2026-11-07T19:00:00Z',end_at:'2026-11-07T23:00:00Z'}],noticeClock),/1 vigente · 1 programado · consulta anterior/);
 assert.equal(noticeSeverityClass('Perigo Potencial'),'potencial');
 assert.equal(noticeSeverityClass('GRANDE PERIGO'),'grande-perigo');

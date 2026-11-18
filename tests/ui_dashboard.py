@@ -263,7 +263,7 @@ def main():
         policy['evidence'][0]['summary']='Chuva intensa e rajadas no Litoral Norte.'
         stamp=data['dashboard.json']['generated_at'];until=data['dashboard.json']['valid_until']
         data['dashboard.json']['inmet_context']['notices']=[{'id':'28680','type':'Tempestade','severity':'Perigo potencial','lifecycle':'unverified','start_at':stamp,'end_at':stamp,'window_as_reported':'Período conforme a publicação original','municipalities':[{'location_id':'araquari','name':'Araquari'},{'location_id':'joinville','name':'Joinville','distance_km':15}],'risks':['Chuva de 20 a 30 mm/h e rajadas de 40 a 60 km/h.'],'instructions':['Evite usar aparelhos eletrônicos ligados à tomada.'],'url':'https://alertas2.inmet.gov.br/'}]
-        for width in (320,390,1440):
+        for width in (320,390,900,1440):
             page.set_viewport_size({'width':width,'height':1000});page.reload()
             page.locator('#epagri-context').wait_for();page.locator('#inmet-context').wait_for()
             assert page.locator('#epagri-context').get_attribute('open') is None
@@ -272,6 +272,8 @@ def main():
             assert page.locator('#notice-layout').get_attribute('data-visible')=='2'
             cols=page.locator('#notice-layout').evaluate("(el) => getComputedStyle(el).gridTemplateColumns.trim().split(/\\s+/).length")
             assert cols==(2 if width==1440 else 1)
+            metric_cols=page.locator('.comparison-metrics').evaluate("(el) => getComputedStyle(el).gridTemplateColumns.trim().split(/\\s+/).length")
+            assert metric_cols==(1 if width<=760 else 2 if width<1024 else 3)
             assert page.locator('#inmet-notices .notice-entry').count()==1
             assert page.locator('#inmet-notices .notice-entry').first.get_attribute('open') is None
             assert not page.locator('#inmet-notices .notice-entry-body').first.is_visible()
