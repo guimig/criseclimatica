@@ -342,7 +342,16 @@ assert.equal(homeNotices({...noticeData,assessment:{},inmet_context:{...noticeDa
 vm.runInContext('panel.data=null;renderHomeNotices();renderHomeNotices()',context);
 assert.equal(elements.get('epagri-context').hidden,true);assert.equal(elements.get('inmet-context').hidden,true);
 assert.equal(elements.get('inmet-notices').children.length,0);
-context.readableFixture=noticeData;
+const realtime=new Date().toISOString(),later=new Date(Date.now()+3600000).toISOString();
+context.readableFixture={
+ ...noticeData,
+ source_status:[{source:'Epagri/Ciram · avisos',status:'available',reference_at:realtime}],
+ assessment:{evidence:[{...noticeData.assessment.evidence[0],valid_from:realtime,valid_until:later}]},
+ inmet_context:{status:'available',retrieved_at:realtime,notices:[{
+   ...positiveNotice,start_at:realtime,end_at:realtime,
+   window_as_reported:'Período conforme publicação original',
+ }]}
+};
 vm.runInContext('panel.data=readableFixture;renderHomeNotices()',context);
 assert.equal(elements.get('notice-layout').dataset.visible,'2');
 const noticeEntries=elements.get('inmet-notices').querySelectorAll('.notice-entry');
