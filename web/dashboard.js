@@ -594,7 +594,7 @@ function noticePhase(notice,now=Date.now()) {
   return now<start?'Programado':now<end?'Vigente':'Encerrado';
 }
 function noticeScopePreview(notice) {
-  const raw=String(notice.regions||'').trim().replace(/\\.+$/,'');
+  const raw=String(notice.regions||'').trim().replace(/\.+$/,'');
   if(!raw)return 'Abrangência a conferir';
   if(notice.source!=='INMET')return raw.slice(0,85);
   const places=raw.split(' · ')[0].split(',').map(p=>p.trim()).filter(Boolean);
@@ -622,7 +622,7 @@ function noticeSourceSummary(notices,now=Date.now()) {
   return result.join(' · ');
 }
 function noticeSeverityClass(severity) {
-  const term=String(severity||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().replace(/\\s+/g,' ').trim();
+  const term=String(severity||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
   return {'grande perigo':'grande-perigo','perigo':'perigo','perigo potencial':'potencial'}[term]||'neutral';
 }
 function noticeKey(n) {return [n.source,n.id||n.url||n.title,n.start_at||''].join('::').slice(0,500);}
@@ -673,7 +673,7 @@ function renderHomeNotices() {
       if(n.retained_previous)header.append(node('span','notice-reconfirmation','Consulta anterior'));
       card.append(header);
       if(n.publication_type)paragraph(content,n.publication_type,'small');
-      paragraph(content,'Abrangência: '+String(n.regions||'Não informada').replace(/\\.+$/,'')+'.');
+      paragraph(content,'Abrangência: '+String(n.regions||'Não informada').replace(/\.+$/,'')+'.');
       paragraph(content,'Período: '+noticePeriod(n,now)+'.');
       if(n.source==='INMET')addInmetReadableDetails(content,n);
       else if(n.summary)paragraph(content,String(n.summary).slice(0,650),'notice-original-summary');
