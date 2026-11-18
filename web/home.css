@@ -110,6 +110,7 @@
 
 /* Compact, two-layer reading: brief official warnings above, full text on demand. */
 .home-page .notice-layout{display:grid;grid-template-columns:1fr;gap:14px;margin:16px 0 20px;align-items:start}
+.home-page .notice-layout[data-visible="0"]{display:none}
 .home-page .notice-layout>.home-notice{margin:0;min-width:0;overflow:hidden}
 .home-page .notice-layout .priority-content{padding:12px 14px 14px}
 .home-page .notice-layout .priority-card>summary{padding:13px 15px;font-size:14px;line-height:1.4}
