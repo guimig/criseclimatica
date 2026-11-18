@@ -92,7 +92,11 @@ def main():
                 assert page.locator('#forecast-plot .chart-unit').text_content()=='mm'
                 if width<1024:
                     boxes=[card.bounding_box() for card in page.locator('.comparison-metric').all()]
-                    assert all(boxes[i+1]['y']>=boxes[i]['y']+boxes[i]['height'] for i in range(2))
+                    if width>=800:
+                        assert abs(boxes[0]['y']-boxes[1]['y'])<4, 'Tablet metrics need two columns'
+                        assert boxes[2]['y']>=max(boxes[0]['y']+boxes[0]['height'],boxes[1]['y']+boxes[1]['height'])
+                    else:
+                        assert all(boxes[i+1]['y']>=boxes[i]['y']+boxes[i]['height'] for i in range(2))
                     a,b=page.locator('#observed-panel').bounding_box(),page.locator('#forecast-panel').bounding_box()
                     assert b['y']>=a['y']+a['height']
                 for period in ('72','168','240','24'):
