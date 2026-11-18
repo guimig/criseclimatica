@@ -604,8 +604,8 @@ function noticeScopePreview(notice) {
   return places.length>2?`${places[0]} e mais ${places.length-1} municípios`:raw.slice(0,85);
 }
 function noticePreview(notice,now=Date.now()) {
-  const phase=noticePhase(notice,now),end=Date.parse(notice.end_at);
-  const validity=Number.isFinite(end)?'até '+date(notice.end_at):'validade não confirmada';
+  const phase=noticePhase(notice,now),start=Date.parse(notice.start_at),end=Date.parse(notice.end_at);
+  const validity=Number.isFinite(start)&&Number.isFinite(end)&&start<end?'até '+date(notice.end_at):'validade a confirmar';
   return `${phase} · ${validity} · ${noticeScopePreview(notice)}`;
 }
 function noticeSourceSummary(notices,now=Date.now()) {
