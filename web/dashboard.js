@@ -541,17 +541,39 @@ function borderingNotices(data,now=Date.now(),minimumRank=2) {
   }
   return rows.sort((a,b)=>Number(b.high_severity)-Number(a.high_severity)||b.severity_rank-a.severity_rank||Date.parse(a.start_at)-Date.parse(b.start_at));
 }
+function borderingAlertSummary(rows) {
+  if(!rows.length)return null;
+  const maximum=Math.max(...rows.map(n=>n.severity_rank));
+  const municipalities=[...new Set(rows.flatMap(n=>n.municipalities.map(p=>p.name)))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  const named=municipalities.slice(0,3).join(', ');
+  const extra=municipalities.length>3?` e mais ${municipalities.length-3}`:'';
+  const active=rows.filter(n=>n.verified_current).length;
+  const scheduled=rows.length-active;
+  const phases=[];
+  if(active)phases.push(`${active} vigente${active===1?'':'s'}`);
+  if(scheduled)phases.push(`${scheduled} programado${scheduled===1?'':'s'}`);
+  if(rows.some(n=>n.retained_previous))phases.push('consulta anterior; verificar revisões');
+  return {
+    severity:maximum===3?'grande-perigo':'perigo',
+    label:maximum===3?'Grande Perigo':'Perigo',
+    preview:`${rows.length} aviso${rows.length===1?'':'s'} · ${phases.join(', ')} · ${named}${extra}`,
+  };
+}
 function renderBorderingAlerts(now=Date.now()) {
   const shell=el('bordering-alerts'),body=el('bordering-alerts-content');
   if(!shell||!body)return;
   const rows=borderingNotices(panel.data,now);
   shell.hidden=!rows.length;
   body.replaceChildren();
-  if(!rows.length)return;
+  if(!rows.length){shell.open=false;return;}
+  const summary=borderingAlertSummary(rows);
+  shell.dataset.severity=summary.severity;
   el('bordering-heading').textContent='Perigo no entorno imediato de Araquari';
-  shell.dataset.severity=rows.some(n=>n.severity_rank===3)?'grande-perigo':'perigo';
+  el('bordering-alerts-badge').textContent=summary.label;
+  el('bordering-alerts-preview').textContent=summary.preview;
   for(const n of rows){
     const card=node('article','bordering-alert-item high-severity');
+    card.dataset.severity=n.severity_rank===3?'grande-perigo':'perigo';
     const title=node('h3','','INMET · '+n.severity);
     card.append(title);
     paragraph(card,n.title+' · '+n.municipalities.map(p=>p.name).join(', ')+'.');
@@ -641,7 +663,7 @@ async function loadDashboard() {
   finally{if(id===panel.loadId){panel.loading=false;el('refresh').disabled=false;renderSummary();renderRecent();renderChart();}}
 }
 function selectVariable(variable) {panel.variable=variable;if(el('forecast-variable'))el('forecast-variable').value=variable;for(const button of document.querySelectorAll('[data-variable]')){const selected=button.dataset.variable===variable;button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));}renderChart();}
-if(typeof module!=='undefined')module.exports={dailyForecast,inmetReadableLink,borderingNotices,homeNotices,noticePeriod,reportedWindowExpired,primaryNotice,inmetContextStatus,inmetNotices,fresh,dashboardCurrent,protocolCurrent,forecastCurrent,currentGauges,signalCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale,chartReadingsAt,chartReadingText};
+if(typeof module!=='undefined')module.exports={dailyForecast,inmetReadableLink,borderingNotices,borderingAlertSummary,homeNotices,noticePeriod,reportedWindowExpired,primaryNotice,inmetContextStatus,inmetNotices,fresh,dashboardCurrent,protocolCurrent,forecastCurrent,currentGauges,signalCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale,chartReadingsAt,chartReadingText};
 if(typeof document!=='undefined'){
   function navigationState(){for(const link of document.querySelectorAll('nav a[href^="#"]')){const active=link.getAttribute('href')===(location.hash||'#main');if(active)link.setAttribute('aria-current','location');else link.removeAttribute('aria-current');}}
   window.addEventListener('hashchange',navigationState);navigationState();
