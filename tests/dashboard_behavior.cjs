@@ -168,11 +168,19 @@ console.log('Separate chart data passed: hourly windows, in-progress forecast ho
 // Exercise the real SVG renderer without network or a browser dependency.
 const vm=require('node:vm');
 class Element {
- constructor(tag){this.tag=tag;this.children=[];this.attributes={};this.listeners={};this.style={};this.dataset={};this.hidden=false;this.value='';this.textContent='';this.classList={toggle(){}};}
+ constructor(tag){this.tag=tag;this.children=[];this.attributes={};this.listeners={};this.style={};this.dataset={};this.hidden=false;this.open=false;this.value='';this.textContent='';this.classList={toggle(){}};}
  append(...children){this.children.push(...children);}
  replaceChildren(...children){this.children=children;this.textContent='';}
  setAttribute(k,v){this.attributes[k]=String(v);}
  addEventListener(k,fn){this.listeners[k]=fn;}
+ querySelectorAll(selector){
+   const matches=[];
+   const walk=n=>{for(const child of n.children){const named=String(child.className||'').split(/\s+/).includes('notice-entry');
+     if(named&&(selector==='.notice-entry'||selector==='.notice-entry[open]'&&child.open))matches.push(child);
+     walk(child);
+   }};
+   walk(this);return matches;
+ }
  getBoundingClientRect(){return {left:0,width:600};}
 }
 const elements=new Map([...ids].map(id=>[id,new Element('div')]));
@@ -334,6 +342,18 @@ assert.equal(homeNotices({...noticeData,assessment:{},inmet_context:{...noticeDa
 vm.runInContext('panel.data=null;renderHomeNotices();renderHomeNotices()',context);
 assert.equal(elements.get('epagri-context').hidden,true);assert.equal(elements.get('inmet-context').hidden,true);
 assert.equal(elements.get('inmet-notices').children.length,0);
+context.readableFixture=noticeData;
+vm.runInContext('panel.data=readableFixture;renderHomeNotices()',context);
+assert.equal(elements.get('notice-layout').dataset.visible,'2');
+const noticeEntries=elements.get('inmet-notices').querySelectorAll('.notice-entry');
+assert.equal(noticeEntries.length,1);
+assert.equal(noticeEntries[0].open,false);
+assert.match(noticeEntries[0].children[0].children[0].children[1].textContent,/Horário a conferir/);
+noticeEntries[0].open=true;
+vm.runInContext('renderHomeNotices()',context);
+assert.equal(elements.get('inmet-notices').querySelectorAll('.notice-entry')[0].open,true);
+vm.runInContext('panel.data=null;renderHomeNotices()',context);
+assert.equal(elements.get('notice-layout').dataset.visible,'0');
 context.noticeInput=noticeData;vm.runInContext('panel.data=noticeInput;renderRiskExplanation(true)',context);
 assert.equal(elements.get('dialog-content').children.at(-1).href,'./dados.html#weather-synthesis-detail');
 const editorial={source:'Epagri/Ciram',title:'Previsão de temporais',url:'https://ciram.epagri.sc.gov.br/index.php/previsao/',collected_at:noticeStamp,valid_until:new Date(noticeClock+3600000).toISOString(),start_at:noticeStamp,end_at:new Date(noticeClock+3600000).toISOString(),scope:'regional_reference_not_municipal_confirmation',summary:'Temporais no Litoral Norte.'};
@@ -342,6 +362,19 @@ assert.equal(homeNotices({synthesis:{publication_evidence:[{...editorial,url:'ht
 assert.equal(homeNotices({synthesis:{publication_evidence:[editorial]}},noticeClock+7200000).length,0);
 delete global.location;
 console.log('Home evidence passed: positive/empty/failed/expired, geographic scope, pending time, direct links, deduplication and repeated rendering.');
+const {noticePhase,noticeScopePreview,noticePreview,noticeSourceSummary,noticeSeverityClass}=require('../web/dashboard.js');
+const positiveBrief={source:'INMET',severity:'Perigo Potencial',regions:'Araquari, Joinville, Barra Velha',start_at:'2026-11-06T19:00:00Z',end_at:'2026-11-06T23:00:00Z'};
+assert.equal(noticePhase(positiveBrief,noticeClock),'Vigente');
+assert.equal(noticePhase({...positiveBrief,start_at:'2026-11-07T19:00:00Z',end_at:'2026-11-07T23:00:00Z'},noticeClock),'Programado');
+assert.equal(noticePhase({...positiveBrief,start_at:'invalid'},noticeClock),'Horário a conferir');
+assert.equal(noticeScopePreview(positiveBrief),'Araquari e mais 2 municípios');
+assert.equal(noticeScopePreview({...positiveBrief,source:'Epagri/Ciram',regions:'todas..'}),'todas');
+assert.match(noticePreview(positiveBrief,noticeClock),/Vigente · até/);
+assert.match(noticeSourceSummary([positiveBrief,{...positiveBrief,retained_previous:true,start_at:'2026-11-07T19:00:00Z',end_at:'2026-11-07T23:00:00Z'}],noticeClock),/1 vigente · 1 programado · consulta anterior/);
+assert.equal(noticeSeverityClass('Perigo Potencial'),'potencial');
+assert.equal(noticeSeverityClass('GRANDE PERIGO'),'grande-perigo');
+assert.equal(noticeSeverityClass('Atenção'),'neutral');
+console.log('Compact official notices: short scope, date status, source counts, severity and preserved open state.');
 
 global.location={href:'https://guimig.github.io/criseclimatica/',origin:'https://guimig.github.io'};
 assert.deepEqual(homeNotices({assessment:{evidence:{bad:true}},inmet_context:{status:'available',retrieved_at:noticeStamp,notices:'invalid'}},noticeClock),[]);
