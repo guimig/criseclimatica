@@ -240,8 +240,9 @@ def main():
         page.locator('#inmet-context').wait_for(state='visible')
         assert page.locator('#bordering-alerts-content article').count()==1
         assert '78699' not in page.locator('#inmet-notices').inner_text()
-        assert page.locator('#inmet-notices article').count()==1
+        assert page.locator('#inmet-notices .notice-entry').count()==1
         page.locator('#inmet-context > summary').click()
+        assert page.locator('#inmet-notices .notice-entry').first.get_attribute('open') is None
         assert 'Perigo Potencial' in page.locator('#inmet-notices').inner_text()
         assert page.locator('#bordering-alerts').is_visible()
         assert page.locator('#level-card').get_attribute('data-risk')=='verde'
@@ -255,18 +256,31 @@ def main():
         page.reload()
         page.get_by_role('heading', name='Normalidade').wait_for()
         assert not page.locator('#inmet-context').is_visible()
+        assert page.locator('#notice-layout').get_attribute('data-visible')=='0'
         policy['evidence'] = [{'status': 'eligible', 'title': 'Aviso regional de teste',
             'valid_from': data['dashboard.json']['generated_at'], 'valid_until': data['dashboard.json']['valid_until'],
             'scope': 'regional_reference_not_municipal_confirmation', 'regions_text': 'Litoral Norte', 'url': 'https://ciram.epagri.sc.gov.br/'}]
         policy['evidence'][0]['summary']='Chuva intensa e rajadas no Litoral Norte.'
         stamp=data['dashboard.json']['generated_at'];until=data['dashboard.json']['valid_until']
         data['dashboard.json']['inmet_context']['notices']=[{'id':'28680','type':'Tempestade','severity':'Perigo potencial','lifecycle':'unverified','start_at':stamp,'end_at':stamp,'window_as_reported':'Período conforme a publicação original','municipalities':[{'location_id':'araquari','name':'Araquari'},{'location_id':'joinville','name':'Joinville','distance_km':15}],'risks':['Chuva de 20 a 30 mm/h e rajadas de 40 a 60 km/h.'],'instructions':['Evite usar aparelhos eletrônicos ligados à tomada.'],'url':'https://alertas2.inmet.gov.br/'}]
-        for width in (320,390,1440):
+        for width in (320,390,900,1440):
             page.set_viewport_size({'width':width,'height':1000});page.reload()
             page.locator('#epagri-context').wait_for();page.locator('#inmet-context').wait_for()
             assert page.locator('#epagri-context').get_attribute('open') is None
             assert page.locator('#inmet-context').get_attribute('open') is None
             for key in ('epagri','inmet'):page.locator('#'+key+'-context > summary').click()
+            assert page.locator('#notice-layout').get_attribute('data-visible')=='2'
+            cols=page.locator('#notice-layout').evaluate("(el) => getComputedStyle(el).gridTemplateColumns.trim().split(/\\s+/).length")
+            assert cols==(2 if width==1440 else 1)
+            metric_cols=page.locator('.comparison-metrics').evaluate("(el) => getComputedStyle(el).gridTemplateColumns.trim().split(/\\s+/).length")
+            assert metric_cols==(1 if width<=760 else 2 if width<1024 else 3)
+            assert page.locator('#inmet-notices .notice-entry').count()==1
+            assert page.locator('#inmet-notices .notice-entry').first.get_attribute('open') is None
+            assert not page.locator('#inmet-notices .notice-entry-body').first.is_visible()
+            assert 'Horário a conferir' in page.locator('#inmet-notices .notice-entry-subtitle').first.inner_text()
+            page.screenshot(path=str(OUTPUT/f'compact-notices-{width}.png'),full_page=True)
+            page.locator('#epagri-notices .notice-entry > summary').first.click()
+            page.locator('#inmet-notices .notice-entry > summary').first.click()
             assert page.locator('#bordering-alerts').is_visible()
             assert page.locator('#bordering-alerts').get_attribute('open') is None
             assert page.locator('#bordering-alerts-badge').inner_text()=='Perigo'
@@ -294,9 +308,31 @@ def main():
                 page.locator('#level-explain').click();page.locator('#detail-dialog').wait_for();check_style_system(page)
                 page.screenshot(path=str(OUTPUT/f'risk-explanation-{theme}-{width}.png'))
                 page.get_by_role('button',name='Fechar explicação').click()
-            # A refresh preserves the reader's disclosure choice.
+            # Refresh preserves the reader's source and individual disclosure choices.
             page.locator('#refresh').click();page.wait_for_function('!panel.loading')
             assert page.locator('#inmet-context').get_attribute('open') is not None
+            assert page.locator('#inmet-notices .notice-entry').first.get_attribute('open') is not None
+        # Multiple INMET notices: expand/collapse all without confusing them
+        # with the separate official high-severity bordering warning.
+        data['dashboard.json']['inmet_context']['notices'].append({
+            'id':'28681','type':'Tempestade','severity':'Perigo Potencial','lifecycle':'ongoing',
+            'start_at':stamp,'end_at':until,
+            'municipalities':[{'location_id':'araquari','name':'Araquari'}],
+            'risks':['Aviso adicional de exemplo.'],'url':'https://alertas2.inmet.gov.br/'})
+        page.set_viewport_size({'width':1440,'height':1000});page.reload()
+        page.locator('#inmet-context').wait_for(state='visible')
+        page.locator('#inmet-context > summary').click()
+        assert page.locator('#inmet-notices .notice-entry').count()==2
+        assert page.locator('#notice-layout').get_attribute('data-visible')=='2'
+        expand=page.locator('#inmet-notices .notice-toggle-all')
+        assert expand.inner_text()=='Expandir todos'
+        expand.click()
+        assert page.locator('#inmet-notices .notice-entry[open]').count()==2
+        page.locator('#refresh').click();page.wait_for_function('!panel.loading')
+        assert page.locator('#inmet-notices .notice-entry[open]').count()==2
+        assert page.locator('#inmet-notices .notice-toggle-all').inner_text()=='Recolher todos'
+        page.locator('#inmet-notices .notice-toggle-all').click()
+        assert page.locator('#inmet-notices .notice-entry[open]').count()==0
         data['dashboard.json']['inmet_context']['notices']=[]
         data['dashboard.json']['bordering_notice_context']['notices']=[]
         policy['evidence']=[]

@@ -51,3 +51,8 @@ A página inicial apresenta avisos graves do entorno em um bloco nativo `<detail
 - **Perigo Potencial**: não aciona o bloco; continua nos avisos normais recolhíveis do INMET.
 
 A interação usa `summary`, sem JavaScript adicional para alternar o recolhimento: funciona por teclado e leitor de tela. O estado aberto é preservado durante re-renderizações de dados na página, mas é reinicializado quando não houver mais avisos elegíveis ou após recarregamento completo. A classificação de risco de Araquari e as notificações do Telegram não são afetadas.
+
+
+## Leitura compacta (18/11/2026)
+
+Na página inicial, os detalhes de Epagri/Ciram e INMET permanecem separadamente recolhíveis, com dois blocos lado a lado em desktop largo e uma coluna no celular. Cada aviso individual também é recolhível: o resumo expõe fenômeno, estágio temporal, fim, abrangência abreviada, severidade do INMET e informação sobre consulta anterior; período, municípios completos, riscos/instruções e link oficial permanecem acessíveis ao abrir. O botão **Expandir todos/Recolher todos** surge apenas quando houver mais de um aviso na mesma fonte. A atualização dinâmica preserva quais avisos individuais estavam abertos. A redução da interface não altera a validade nem o conteúdo armazenado na publicação, a classificação de Araquari ou o robô Telegram.

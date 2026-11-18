@@ -587,26 +587,106 @@ function renderBorderingAlerts(now=Date.now()) {
   }
 }
 
+// Official source text stays intact; only the first reading layer is condensed.
+function noticePhase(notice,now=Date.now()) {
+  const start=Date.parse(notice.start_at),end=Date.parse(notice.end_at);
+  if(!Number.isFinite(start)||!Number.isFinite(end)||start>=end)return 'Horário a conferir';
+  return now<start?'Programado':now<end?'Vigente':'Encerrado';
+}
+function noticeScopePreview(notice) {
+  const raw=String(notice.regions||'').trim().replace(/\.+$/,'');
+  if(!raw)return 'Abrangência a conferir';
+  if(notice.source!=='INMET')return raw.slice(0,85);
+  const places=raw.split(' · ')[0].split(',').map(p=>p.trim()).filter(Boolean);
+  if(places.some(p=>p.toLocaleLowerCase('pt-BR')==='araquari')){
+    return places.length>1?`Araquari e mais ${places.length-1} município${places.length===2?'':'s'}`:'Araquari';
+  }
+  return places.length>2?`${places[0]} e mais ${places.length-1} municípios`:raw.slice(0,85);
+}
+function noticePreview(notice,now=Date.now()) {
+  const phase=noticePhase(notice,now),start=Date.parse(notice.start_at),end=Date.parse(notice.end_at);
+  const validity=Number.isFinite(start)&&Number.isFinite(end)&&start<end?'até '+date(notice.end_at):'validade a confirmar';
+  return `${phase} · ${validity} · ${noticeScopePreview(notice)}`;
+}
+function noticeSourceSummary(notices,now=Date.now()) {
+  const counts={Vigente:0,Programado:0,'Horário a conferir':0};
+  for(const n of notices){
+    const phase=noticePhase(n,now);
+    if(Object.hasOwn(counts,phase))counts[phase]++;
+  }
+  const result=[];
+  if(counts.Vigente)result.push(`${counts.Vigente} vigente${counts.Vigente===1?'':'s'}`);
+  if(counts.Programado)result.push(`${counts.Programado} programado${counts.Programado===1?'':'s'}`);
+  if(counts['Horário a conferir'])result.push(`${counts['Horário a conferir']} a conferir`);
+  if(notices.some(n=>n.retained_previous))result.push('consulta anterior');
+  return result.join(' · ');
+}
+function noticeSeverityClass(severity) {
+  const term=String(severity||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+  return {'grande perigo':'grande-perigo','perigo':'perigo','perigo potencial':'potencial'}[term]||'neutral';
+}
+function noticeKey(n) {return [n.source,n.id||n.url||n.title,n.start_at||''].join('::').slice(0,500);}
 function renderHomeNotices() {
-  const rows=homeNotices(panel.data);
+  const now=Date.now(),rows=homeNotices(panel.data,now);
+  let visible=0;
   for(const [id,source]of [['epagri','Epagri/Ciram'],['inmet','INMET']]){
     const notices=rows.filter(n=>n.source===source),disclosure=el(id+'-context'),body=el(id+'-notices');
-    disclosure.hidden=!notices.length;if(!notices.length)disclosure.open=false;
-    el(id+'-notice-summary').textContent=`${notices.some(n=>n.publication_type)?'Avisos e previsões':'Avisos'} · ${source} (${notices.length})`;
+    const expanded=new Set([...body.querySelectorAll('.notice-entry[open]')].map(x=>x.dataset.noticeKey));
+    disclosure.hidden=!notices.length;
+    if(!notices.length)disclosure.open=false;
+    else visible++;
+    const label=notices.some(n=>n.publication_type)?'Avisos e previsões':'Avisos';
+    const phases=noticeSourceSummary(notices,now);
+    el(id+'-notice-summary').textContent=`${label} · ${source} (${notices.length})${phases?' · '+phases:''}`;
     body.replaceChildren();
-    for(const n of notices){
-      const card=node('article','home-notice-item');card.append(node('h3','',n.title));
-      if(n.publication_type)paragraph(card,n.publication_type,'small');
-      if(n.severity)paragraph(card,'Severidade: '+n.severity+'.','small');
-      paragraph(card,'Abrangência: '+n.regions+'.');paragraph(card,'Período: '+noticePeriod(n)+'.');
-      if(n.source==='INMET')addInmetReadableDetails(card,n);
-      else if(n.summary)paragraph(card,String(n.summary).slice(0,650));
-      if(n.scope==='territory_needs_review')paragraph(card,'Possível abrangência territorial: conferir o texto oficial.','small');
-      if(n.retained_previous)paragraph(card,'Consulta anterior; atualização da fonte indisponível.','small');
-      const linkText=n.source==='INMET'?'Consultar avisos no portal INMET ↗':n.publication_type?'Ler previsão completa ↗':'Ler aviso completo ↗';
-      card.append(officialLink(n.url,linkText));body.append(card);
+    if(!notices.length)continue;
+    let allToggle=null;
+    const updateToggle=()=>{
+      if(!allToggle)return;
+      const entries=[...body.querySelectorAll('.notice-entry')];
+      allToggle.textContent=entries.every(n=>n.open)?'Recolher todos':'Expandir todos';
+    };
+    if(notices.length>1){
+      const bar=node('div','notice-actions');
+      allToggle=node('button','notice-toggle-all','Expandir todos');
+      allToggle.type='button';
+      allToggle.addEventListener('click',()=>{
+        const entries=[...body.querySelectorAll('.notice-entry')],open=!entries.every(n=>n.open);
+        for(const entry of entries)entry.open=open;
+        updateToggle();
+      });
+      bar.append(allToggle);body.append(bar);
     }
+    for(const n of notices){
+      const card=node('details','notice-entry'),header=node('summary','notice-entry-summary'),content=node('div','notice-entry-body');
+      card.dataset.noticeKey=noticeKey(n);
+      card.open=expanded.has(card.dataset.noticeKey);
+      const heading=node('span','notice-entry-heading');
+      heading.append(node('strong','notice-entry-title',n.title||'Aviso meteorológico'));
+      heading.append(node('span','notice-entry-subtitle',noticePreview(n,now)));
+      header.append(heading);
+      if(n.severity){
+        const badge=node('span','notice-severity',n.severity);
+        badge.dataset.severity=noticeSeverityClass(n.severity);
+        header.append(badge);
+      }
+      if(n.retained_previous)header.append(node('span','notice-reconfirmation','Consulta anterior'));
+      card.append(header);
+      if(n.publication_type)paragraph(content,n.publication_type,'small');
+      paragraph(content,'Abrangência: '+String(n.regions||'Não informada').replace(/\.+$/,'')+'.');
+      paragraph(content,'Período: '+noticePeriod(n,now)+'.');
+      if(n.source==='INMET')addInmetReadableDetails(content,n);
+      else if(n.summary)paragraph(content,String(n.summary).slice(0,650),'notice-original-summary');
+      if(n.scope==='territory_needs_review')paragraph(content,'Possível abrangência territorial: conferir o texto oficial.','small');
+      if(n.retained_previous)paragraph(content,'Consulta anterior; atualização da fonte indisponível.','small');
+      const linkText=n.source==='INMET'?'Consultar avisos no portal INMET ↗':n.publication_type?'Ler previsão completa ↗':'Ler aviso completo ↗';
+      content.append(officialLink(n.url,linkText));card.append(content);
+      card.addEventListener('toggle',updateToggle);
+      body.append(card);
+    }
+    updateToggle();
   }
+  el('notice-layout').dataset.visible=String(visible);
 }
 let riskExplanationKey=null;
 function renderRiskExplanation(force=false) {
@@ -663,7 +743,7 @@ async function loadDashboard() {
   finally{if(id===panel.loadId){panel.loading=false;el('refresh').disabled=false;renderSummary();renderRecent();renderChart();}}
 }
 function selectVariable(variable) {panel.variable=variable;if(el('forecast-variable'))el('forecast-variable').value=variable;for(const button of document.querySelectorAll('[data-variable]')){const selected=button.dataset.variable===variable;button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));}renderChart();}
-if(typeof module!=='undefined')module.exports={dailyForecast,inmetReadableLink,borderingNotices,borderingAlertSummary,homeNotices,noticePeriod,reportedWindowExpired,primaryNotice,inmetContextStatus,inmetNotices,fresh,dashboardCurrent,protocolCurrent,forecastCurrent,currentGauges,signalCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale,chartReadingsAt,chartReadingText};
+if(typeof module!=='undefined')module.exports={dailyForecast,inmetReadableLink,borderingNotices,borderingAlertSummary,homeNotices,noticePhase,noticeScopePreview,noticePreview,noticeSourceSummary,noticeSeverityClass,noticePeriod,reportedWindowExpired,primaryNotice,inmetContextStatus,inmetNotices,fresh,dashboardCurrent,protocolCurrent,forecastCurrent,currentGauges,signalCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale,chartReadingsAt,chartReadingText};
 if(typeof document!=='undefined'){
   function navigationState(){for(const link of document.querySelectorAll('nav a[href^="#"]')){const active=link.getAttribute('href')===(location.hash||'#main');if(active)link.setAttribute('aria-current','location');else link.removeAttribute('aria-current');}}
   window.addEventListener('hashchange',navigationState);navigationState();

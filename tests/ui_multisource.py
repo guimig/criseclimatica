@@ -128,6 +128,8 @@ def main():
             assert not page.locator('#epagri-context').evaluate('el=>el.open')
             assert 'Avisos e previsões' in page.locator('#epagri-notice-summary').inner_text()
             page.locator('#epagri-notice-summary').click()
+            assert page.locator('#epagri-notices .notice-entry').count()>=1
+            page.locator('#epagri-notices .notice-entry > summary').first.click()
             assert page.get_by_role('link',name='Ler previsão completa ↗').get_attribute('href')==publication['url']
             page.goto(url+'dados.html');page.locator('#weather-synthesis-detail').get_by_role('heading',name='Atenção',exact=True).wait_for()
             page.get_by_text('Concordância entre previsões',exact=True).click()
