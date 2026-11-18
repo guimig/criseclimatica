@@ -179,7 +179,7 @@ def main():
         assert page.locator('#level-card').get_attribute('data-risk')=='verde'
         bordering=page.locator('#bordering-alerts')
         assert bordering.get_attribute('open') is None
-        assert bordering.locator('summary').is_visible()
+        assert bordering.locator(':scope > summary').is_visible()
         assert not page.locator('#bordering-alerts-content').is_visible()
         assert bordering.get_attribute('data-severity')=='perigo'
         assert page.locator('#bordering-alerts-badge').inner_text()=='Perigo'
