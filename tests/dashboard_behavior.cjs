@@ -396,7 +396,7 @@ console.log('Official-warning validity survived stale publication; precise end r
 
 // INMET dangers in bordering municipalities: distinct, timed and outside local classification.
 {
-  const {borderingNotices,homeNotices,riskPresentation}=require('../web/dashboard.js');
+  const {borderingNotices,borderingAlertSummary,homeNotices,riskPresentation}=require('../web/dashboard.js');
   global.location={href:'https://guimig.github.io/criseclimatica/',origin:'https://guimig.github.io'};
   const stamp='2026-11-17T18:00:00Z',now=Date.parse(stamp);
   const src={kind:'inmet_bordering_municipality_warning_context_not_araquari_alert',
@@ -415,6 +415,21 @@ console.log('Official-warning validity survived stale publication; precise end r
   assert.deepEqual(rows.map(n=>n.id),['9001']);
   assert.equal(rows[0].url,'https://avisos.inmet.gov.br/');
   assert.equal(rows[0].high_severity,true);
+  assert.equal(borderingAlertSummary([]),null);
+  assert.deepEqual(
+    [borderingAlertSummary(rows).severity,borderingAlertSummary(rows).label],
+    ['perigo','Perigo']
+  );
+  assert.match(borderingAlertSummary(rows).preview,/1 aviso · 1 vigente · Joinville · Araquari não incluída/);
+  const futureGreat={...rows[0],id:'9900',severity:'Grande Perigo',severity_rank:3,
+    verified_current:false,start_at:'2026-11-17T22:00:00Z',
+    municipalities:[{name:'Barra Velha',ibge_code:'4202107'}]};
+  const combined=borderingAlertSummary([rows[0],futureGreat]);
+  assert.equal(combined.severity,'grande-perigo');
+  assert.equal(combined.label,'Grande Perigo');
+  assert.match(combined.preview,/2 avisos · 1 vigente, 1 programado/);
+  assert.match(combined.preview,/Barra Velha, Joinville/);
+  assert.match(borderingAlertSummary([{...rows[0],retained_previous:true}]).preview,/consulta anterior/);
   assert.deepEqual(borderingNotices(snapshot,now,1).map(n=>n.id),['9001','9002']);
   assert.deepEqual(homeNotices(snapshot,now).filter(n=>n.source==='INMET').map(n=>n.id),['9002']);
   assert.equal(homeNotices(snapshot,now).filter(n=>n.source==='INMET')[0].url,'https://avisos.inmet.gov.br/');
@@ -439,8 +454,12 @@ console.log('Official-warning validity survived stale publication; precise end r
   assert.deepEqual(borderingNotices({...snapshot,bordering_notice_context:{...src,notices:[{...src.notices[0],araquari_included:true}]}},now),[]);
   assert.deepEqual(borderingNotices({...snapshot,bordering_notice_context:{...src,notices:[{...src.notices[0],municipalities:[{name:'Araquari',ibge_code:'4201307'}]}]}},now),[]);
   assert.deepEqual(borderingNotices({...snapshot,bordering_notice_context:{...src,notices:[{...src.notices[0],url:'https://other.example/9001'}]}},now),[]);
-  assert.match(html,/id="bordering-alerts"[^>]*hidden/);
+  assert.match(html,/<details id="bordering-alerts"[^>]*hidden/);
+  assert.match(html,/<summary class="bordering-alerts-summary">/);
+  assert.match(html,/id="bordering-alerts-badge"/);
+  assert.match(html,/id="bordering-alerts-preview"/);
   assert.match(html,/id="bordering-alerts-content"/);
+  assert.doesNotMatch(html,/<section id="bordering-alerts"/);
   assert.equal(riskPresentation(normal,Date.parse(normal.generated_at)).color,'verde');
   delete global.location;
 }

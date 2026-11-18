@@ -177,15 +177,52 @@ def main():
         page.reload()
         page.locator('#bordering-alerts').wait_for(state='visible')
         assert page.locator('#level-card').get_attribute('data-risk')=='verde'
-        assert 'PERIGO' in page.locator('#bordering-alerts').inner_text().upper()
-        assert 'Joinville' in page.locator('#bordering-alerts').inner_text()
-        assert 'Araquari não consta' in page.locator('#bordering-alerts').inner_text()
+        bordering=page.locator('#bordering-alerts')
+        assert bordering.get_attribute('open') is None
+        assert bordering.locator(':scope > summary').is_visible()
+        assert not page.locator('#bordering-alerts-content').is_visible()
+        assert bordering.get_attribute('data-severity')=='perigo'
+        assert page.locator('#bordering-alerts-badge').inner_text()=='Perigo'
+        assert '1 aviso · 1 vigente' in page.locator('#bordering-alerts-preview').inner_text()
+        assert 'Joinville' in page.locator('#bordering-alerts-preview').inner_text()
+        assert 'Araquari não incluída' in page.locator('#bordering-alerts-preview').inner_text()
+        assert bordering.evaluate("(node) => getComputedStyle(node).borderLeftColor")=='rgb(207, 116, 30)'
+        page.screenshot(path=str(OUTPUT/'bordering-collapsed-orange-light-1440.png'),full_page=True)
+        bordering.locator(':scope > summary').click()
+        assert bordering.get_attribute('open') is not None
+        assert page.locator('#bordering-alerts-content').is_visible()
+        assert 'Araquari não consta' in bordering.inner_text()
         assert page.locator('#bordering-alerts a').get_attribute('href')=='https://avisos.inmet.gov.br/'
         assert page.locator('#bordering-alerts a').inner_text()=='Consultar avisos no portal INMET ↗'
-        page.locator('#bordering-alerts details > summary').click()
+        page.locator('#bordering-alerts .inmet-readable-details > summary').click()
         assert 'Acompanhe a Defesa Civil.' in page.locator('#bordering-alerts .inmet-readable-body').inner_text()
         assert 'Rajadas de vento' in page.locator('#bordering-alerts .inmet-readable-body').inner_text()
+        page.evaluate('renderBorderingAlerts()')
+        assert bordering.get_attribute('open') is not None, 'Refresh must preserve disclosure choice'
         page.screenshot(path=str(OUTPUT/'normality-with-bordering-danger-light-1440.png'), full_page=True)
+        bordering.locator(':scope > summary').click()
+        assert bordering.get_attribute('open') is None
+        # Mixed severity: strongest official level colors the collapsed frame red.
+        data['dashboard.json']['bordering_notice_context']['notices'].append({
+            'id':'78698','title':'Vendaval','severity':'Grande Perigo','severity_rank':3,
+            'start_at':stamp,'end_at':until,
+            'scope':'bordering_municipalities_only','araquari_included':False,
+            'url':'https://avisos.inmet.gov.br/','retained_previous':False,
+            'municipalities':[{'id':'barra-velha','name':'Barra Velha','ibge_code':'4202107'}]})
+        page.reload()
+        page.locator('#bordering-alerts').wait_for(state='visible')
+        assert page.locator('#bordering-alerts').get_attribute('open') is None
+        assert page.locator('#bordering-alerts').get_attribute('data-severity')=='grande-perigo'
+        assert page.locator('#bordering-alerts-badge').inner_text()=='Grande Perigo'
+        assert '2 avisos · 2 vigentes' in page.locator('#bordering-alerts-preview').inner_text()
+        assert 'Barra Velha' in page.locator('#bordering-alerts-preview').inner_text()
+        assert page.locator('#bordering-alerts').evaluate("(node) => getComputedStyle(node).borderLeftColor")=='rgb(197, 61, 70)'
+        assert not page.locator('#bordering-alerts-content').is_visible()
+        page.screenshot(path=str(OUTPUT/'bordering-collapsed-red-light-1440.png'),full_page=True)
+        page.locator('#bordering-alerts > summary').click()
+        assert page.locator('#bordering-alerts-content article').count()==2
+        assert {row.get_attribute('data-severity') for row in page.locator('#bordering-alerts-content article').all()}=={'perigo','grande-perigo'}
+        data['dashboard.json']['bordering_notice_context']['notices'].pop()
         # A second, low-grade official notice must not become a highlight.
         data['dashboard.json']['bordering_notice_context']['notices'].append({
             'id':'78700','title':'Chuva intensa','severity':'Perigo Potencial',
@@ -231,6 +268,9 @@ def main():
             assert page.locator('#inmet-context').get_attribute('open') is None
             for key in ('epagri','inmet'):page.locator('#'+key+'-context > summary').click()
             assert page.locator('#bordering-alerts').is_visible()
+            assert page.locator('#bordering-alerts').get_attribute('open') is None
+            assert page.locator('#bordering-alerts-badge').inner_text()=='Perigo'
+            assert 'Joinville' in page.locator('#bordering-alerts-preview').inner_text()
             assert page.locator('#level-card').get_attribute('data-risk')=='verde'
             assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
             assert 'Chuva intensa e rajadas' in page.locator('#epagri-notices').inner_text()
@@ -244,7 +284,13 @@ def main():
             for theme in ('light','dark'):
                 if page.locator('html').get_attribute('data-theme')!=theme:page.locator('#theme-toggle').click()
                 check_style_system(page);assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+                expected_color='rgb(239, 172, 112)' if theme=='dark' else 'rgb(207, 116, 30)'
+                assert page.locator('#bordering-alerts').evaluate("(node) => getComputedStyle(node).borderLeftColor")==expected_color
+                page.screenshot(path=str(OUTPUT/f'bordering-collapsed-{theme}-{width}.png'),full_page=True)
+                page.locator('#bordering-alerts > summary').click()
+                assert page.locator('#bordering-alerts-content').is_visible()
                 page.screenshot(path=str(OUTPUT/f'positive-notices-{theme}-{width}.png'),full_page=True)
+                page.locator('#bordering-alerts > summary').click()
                 page.locator('#level-explain').click();page.locator('#detail-dialog').wait_for();check_style_system(page)
                 page.screenshot(path=str(OUTPUT/f'risk-explanation-{theme}-{width}.png'))
                 page.get_by_role('button',name='Fechar explicação').click()
@@ -252,12 +298,15 @@ def main():
             page.locator('#refresh').click();page.wait_for_function('!panel.loading')
             assert page.locator('#inmet-context').get_attribute('open') is not None
         data['dashboard.json']['inmet_context']['notices']=[]
+        data['dashboard.json']['bordering_notice_context']['notices']=[]
         policy['evidence']=[]
         policy['monitoring_state'] = 'partial'
         policy['numeric_support']['core_complete'] = False
         page.reload()
         page.get_by_role('heading', name='Dados insuficientes para classificar').wait_for()
         assert page.locator('#level-card').get_attribute('data-risk') == 'neutral'
+        assert not page.locator('#bordering-alerts').is_visible()
+        assert page.locator('#bordering-alerts').get_attribute('open') is None
         assert not errors, errors
         context.close()
         browser.close()

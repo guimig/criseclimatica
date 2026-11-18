@@ -5,8 +5,8 @@
   <meta name="theme-color" content="#19634f"><meta name="description" content="Nível de risco, observações e previsão para Araquari.">
   <title>Tempo em Araquari</title><link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <script src="./theme.js?v=period-20261107"></script>
-  <link rel="stylesheet" href="./dashboard.css?v=period-20261107"><link rel="stylesheet" href="./essential.css?v=telegram-header-20261117"><link rel="stylesheet" href="./home.css?v=inmet-readable-notices-20261117">
-  <script defer src="./chart-interaction.js?v=period-20261107"></script><script defer src="./publication-refresh.js?v=publication-recovery-20261109"></script><script defer src="./weather-synthesis.js?v=chart-polish-v1"></script><script defer src="./dashboard.js?v=inmet-public-links-20261117"></script>
+  <link rel="stylesheet" href="./dashboard.css?v=period-20261107"><link rel="stylesheet" href="./essential.css?v=telegram-header-20261117"><link rel="stylesheet" href="./home.css?v=bordering-collapse-20261118">
+  <script defer src="./chart-interaction.js?v=period-20261107"></script><script defer src="./publication-refresh.js?v=publication-recovery-20261109"></script><script defer src="./weather-synthesis.js?v=chart-polish-v1"></script><script defer src="./dashboard.js?v=bordering-collapse-20261118"></script>
 </head>
 <body class="essential-page home-page">
   <a class="skip" href="#main">Ir para o conteúdo</a>
@@ -23,7 +23,7 @@
       </div>
       <button id="level-explain" class="text-button" type="button" aria-haspopup="dialog" aria-controls="detail-dialog">Entenda a classificação de riscos</button>
     </section>
-    <section id="bordering-alerts" class="card bordering-alerts" aria-label="Avisos oficiais de perigo nos municípios limítrofes" hidden><div class="bordering-alerts-heading"><h2 id="bordering-heading">Perigo no entorno imediato</h2><span class="small">INMET · contexto regional</span></div><div id="bordering-alerts-content"></div><p class="bordering-disclaimer">Araquari não consta da abrangência dos avisos apresentados nesta seção. O destaque regional não altera automaticamente o nível de risco consultivo do município.</p></section>
+    <details id="bordering-alerts" class="card bordering-alerts" aria-label="Avisos oficiais de perigo nos municípios limítrofes" hidden><summary class="bordering-alerts-summary"><span class="bordering-alerts-summary-body"><span class="bordering-alerts-kicker">INMET · contexto regional</span><span id="bordering-heading" class="bordering-alerts-title" role="heading" aria-level="2">Perigo no entorno imediato de Araquari</span><span id="bordering-alerts-preview" class="bordering-alerts-preview">Avisos oficiais em municípios vizinhos</span></span><span id="bordering-alerts-badge" class="bordering-alerts-badge">Perigo</span></summary><div class="bordering-alerts-content"><div id="bordering-alerts-content"></div><p class="bordering-disclaimer">Araquari não consta da abrangência dos avisos apresentados nesta seção. O destaque regional não altera automaticamente o nível de risco consultivo do município.</p></div></details>
     <details id="epagri-context" class="card priority-card home-notice" hidden><summary id="epagri-notice-summary">Avisos · Epagri/Ciram</summary><div id="epagri-notices" class="priority-content"></div></details>
     <details id="inmet-context" class="card priority-card home-notice" hidden><summary id="inmet-notice-summary">Avisos · INMET</summary><div id="inmet-notices" class="priority-content"></div></details>
     <section class="metric-grid comparison-metrics" aria-label="Observado e previsto em Araquari">

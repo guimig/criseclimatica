@@ -40,3 +40,14 @@ Para reverter a interface, reverter o merge do PR do observatório. Para cessar 
 ## Leitura humana e endereços INMET
 
 O link do destaque do entorno abre **https://avisos.inmet.gov.br/**, portal oficial legível. O código numérico do registro proveniente da API não é transformado em URL — o endereço antigo `alertas2.inmet.gov.br/{id}` não é uma página confiável. Os riscos potenciais e as instruções coletados do INMET podem ser lidos diretamente no aviso do painel. Quando necessário, o feed [RSS/XML](https://apiprevmet3.inmet.gov.br/avisos/rss) é oferecido somente como recurso técnico em Dados e fontes. Os avisos regionais continuam separados dos emitidos para Araquari.
+
+
+## Destaque recolhível e cores por gravidade
+
+A página inicial apresenta avisos graves do entorno em um bloco nativo `<details>`, inicialmente fechado. Mesmo recolhido, o cabeçalho permanece visível com a indicação **INMET · contexto regional**, o maior grau oficial entre os avisos, a quantidade de avisos vigentes/programados e os municípios (até três nomes, com contagem dos adicionais). Ao expandir, são exibidos os períodos, os riscos/instruções disponíveis, o link ao portal oficial e a ressalva de que Araquari não está na abrangência municipal confirmada.
+
+- **Perigo**: cabeçalho, borda e marcador em laranja.
+- **Grande Perigo**: cabeçalho, borda e marcador em vermelho (prevalece quando há diferentes graus no mesmo bloco); cada aviso dentro do conteúdo conserva sua própria gravidade.
+- **Perigo Potencial**: não aciona o bloco; continua nos avisos normais recolhíveis do INMET.
+
+A interação usa `summary`, sem JavaScript adicional para alternar o recolhimento: funciona por teclado e leitor de tela. O estado aberto é preservado durante re-renderizações de dados na página, mas é reinicializado quando não houver mais avisos elegíveis ou após recarregamento completo. A classificação de risco de Araquari e as notificações do Telegram não são afetadas.
