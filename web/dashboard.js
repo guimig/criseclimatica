@@ -556,7 +556,7 @@ function borderingAlertSummary(rows) {
   return {
     severity:maximum===3?'grande-perigo':'perigo',
     label:maximum===3?'Grande Perigo':'Perigo',
-    preview:`${rows.length} aviso${rows.length===1?'':'s'} · ${phases.join(', ')} · ${named}${extra}`,
+    preview:`${rows.length} aviso${rows.length===1?'':'s'} · ${phases.join(', ')} · ${named}${extra} · Araquari não incluída`,
   };
 }
 function renderBorderingAlerts(now=Date.now()) {
