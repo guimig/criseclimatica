@@ -25,7 +25,7 @@ class WebContract(unittest.TestCase):
         self.assertIn('Ler riscos e orientações do aviso', client)
         self.assertIn("const INMET_PUBLIC_PORTAL='https://avisos.inmet.gov.br/'", client)
         self.assertIn("'https://avisos.inmet.gov.br/'", detail_js)
-        self.assertIn('inmet-public-links-20261117', home)
+        self.assertIn('dashboard.js?v=bordering-collapse-20261118', home)
         self.assertNotIn('href="https://alertas2.inmet.gov.br/', details)
 
     def test_telegram_group_link_on_both_headers(self):
