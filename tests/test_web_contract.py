@@ -14,6 +14,20 @@ class WebContract(unittest.TestCase):
         html_ids = set(re.findall(r'\bid="([^"]+)"', page))
         self.assertFalse(lookup_ids - html_ids, f'Missing HTML ids: {lookup_ids-html_ids}')
 
+    def test_inmet_public_portal_and_technical_feed_are_distinct(self):
+        home = (ROOT / 'web' / 'index.html').read_text(encoding='utf-8')
+        details = (ROOT / 'web' / 'dados.html').read_text(encoding='utf-8')
+        client = (ROOT / 'web' / 'dashboard.js').read_text(encoding='utf-8')
+        detail_js = (ROOT / 'web' / 'app.js').read_text(encoding='utf-8')
+        self.assertIn('https://avisos.inmet.gov.br/', details)
+        self.assertIn('RSS/XML INMET · fonte técnica', details)
+        self.assertIn('https://apiprevmet3.inmet.gov.br/avisos/rss', details)
+        self.assertIn('Ler riscos e orientações do aviso', client)
+        self.assertIn("const INMET_PUBLIC_PORTAL='https://avisos.inmet.gov.br/'", client)
+        self.assertIn("'https://avisos.inmet.gov.br/'", detail_js)
+        self.assertIn('inmet-public-links-20261117', home)
+        self.assertNotIn('href="https://alertas2.inmet.gov.br/', details)
+
     def test_telegram_group_link_on_both_headers(self):
         from html.parser import HTMLParser
 

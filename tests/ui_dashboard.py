@@ -171,6 +171,8 @@ def main():
                         'start_at':stamp,'end_at':until,
                         'scope':'bordering_municipalities_only','araquari_included':False,
                         'url':'https://alertas2.inmet.gov.br/78699','retained_previous':False,
+                         'risks':['Rajadas de vento e alagamentos.'],
+                         'instructions':['Acompanhe a Defesa Civil.'],
                         'municipalities':[{'id':'joinville','name':'Joinville','ibge_code':'4209102'}]}]}
         page.reload()
         page.locator('#bordering-alerts').wait_for(state='visible')
@@ -178,7 +180,11 @@ def main():
         assert 'PERIGO' in page.locator('#bordering-alerts').inner_text().upper()
         assert 'Joinville' in page.locator('#bordering-alerts').inner_text()
         assert 'Araquari não consta' in page.locator('#bordering-alerts').inner_text()
-        assert page.locator('#bordering-alerts a').get_attribute('href')=='https://alertas2.inmet.gov.br/78699'
+        assert page.locator('#bordering-alerts a').get_attribute('href')=='https://avisos.inmet.gov.br/'
+        assert page.locator('#bordering-alerts a').inner_text()=='Consultar avisos no portal INMET ↗'
+        page.locator('#bordering-alerts details > summary').click()
+        assert 'Acompanhe a Defesa Civil.' in page.locator('#bordering-alerts .inmet-readable-body').inner_text()
+        assert 'Rajadas de vento' in page.locator('#bordering-alerts .inmet-readable-body').inner_text()
         page.screenshot(path=str(OUTPUT/'normality-with-bordering-danger-light-1440.png'), full_page=True)
         # A second, low-grade official notice must not become a highlight.
         data['dashboard.json']['bordering_notice_context']['notices'].append({
@@ -217,7 +223,7 @@ def main():
             'scope': 'regional_reference_not_municipal_confirmation', 'regions_text': 'Litoral Norte', 'url': 'https://ciram.epagri.sc.gov.br/'}]
         policy['evidence'][0]['summary']='Chuva intensa e rajadas no Litoral Norte.'
         stamp=data['dashboard.json']['generated_at'];until=data['dashboard.json']['valid_until']
-        data['dashboard.json']['inmet_context']['notices']=[{'id':'28680','type':'Tempestade','severity':'Perigo potencial','lifecycle':'unverified','start_at':stamp,'end_at':stamp,'window_as_reported':'Período conforme a publicação original','municipalities':[{'location_id':'araquari','name':'Araquari'},{'location_id':'joinville','name':'Joinville','distance_km':15}],'risks':['Chuva de 20 a 30 mm/h e rajadas de 40 a 60 km/h.'],'url':'https://alertas2.inmet.gov.br/'}]
+        data['dashboard.json']['inmet_context']['notices']=[{'id':'28680','type':'Tempestade','severity':'Perigo potencial','lifecycle':'unverified','start_at':stamp,'end_at':stamp,'window_as_reported':'Período conforme a publicação original','municipalities':[{'location_id':'araquari','name':'Araquari'},{'location_id':'joinville','name':'Joinville','distance_km':15}],'risks':['Chuva de 20 a 30 mm/h e rajadas de 40 a 60 km/h.'],'instructions':['Evite usar aparelhos eletrônicos ligados à tomada.'],'url':'https://alertas2.inmet.gov.br/'}]
         for width in (320,390,1440):
             page.set_viewport_size({'width':width,'height':1000});page.reload()
             page.locator('#epagri-context').wait_for();page.locator('#inmet-context').wait_for()
@@ -230,7 +236,10 @@ def main():
             assert 'Chuva intensa e rajadas' in page.locator('#epagri-notices').inner_text()
             assert 'Araquari, Joinville' in page.locator('#inmet-notices').inner_text()
             assert 'validade a confirmar' in page.locator('#inmet-notices').inner_text()
-            assert page.locator('#inmet-notices a').get_attribute('href')=='https://alertas2.inmet.gov.br/28680'
+            assert page.locator('#inmet-notices a').get_attribute('href')=='https://avisos.inmet.gov.br/'
+            assert page.locator('#inmet-notices a').inner_text()=='Consultar avisos no portal INMET ↗'
+            page.locator('#inmet-notices .inmet-readable-details > summary').click()
+            assert 'Evite usar aparelhos eletrônicos' in page.locator('#inmet-notices .inmet-readable-body').inner_text()
             assert page.locator('#epagri-notices a').get_attribute('href')=='https://ciram.epagri.sc.gov.br/'
             for theme in ('light','dark'):
                 if page.locator('html').get_attribute('data-theme')!=theme:page.locator('#theme-toggle').click()

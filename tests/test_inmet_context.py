@@ -25,6 +25,7 @@ class InmetContextTests(unittest.TestCase):
         feed = {'status': 'available', 'retrieved_at': STAMP,
                 'locations': [{'location_id': 'araquari', 'ibge_code': '4201307', 'alerts': [raw]}]}
         result = notice_analysis(feed, 'araquari', {'status': 'unavailable'}, NOW)['notices'][0]
+        self.assertEqual(result['url'], 'https://avisos.inmet.gov.br/')
         self.assertEqual(result['risks'], ['Granizo'])
         self.assertEqual(result['instructions'], ['Proteja-se'])
         self.assertEqual(result['ibge_code'], '4201307')

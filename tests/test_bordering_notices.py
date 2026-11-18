@@ -50,6 +50,7 @@ class BorderingTests(unittest.TestCase):
         self.assertEqual([row["id"] for row in context["notices"]], ["51"])
         self.assertEqual({m["name"] for m in context["notices"][0]["municipalities"]}, {"Joinville", "Massaranduba"})
         self.assertFalse(context["notices"][0]["araquari_included"])
+        self.assertEqual(context["notices"][0]["url"], "https://avisos.inmet.gov.br/")
         self.assertEqual(context["effect_on_local_risk"], "none")
         self.assertEqual(context["kind"], KIND)
 
