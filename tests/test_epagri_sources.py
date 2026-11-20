@@ -116,6 +116,16 @@ class EpagriAdvisories(unittest.TestCase):
             unavailable = collect_notices(oneweek, previous=saved)
         self.assertEqual(unavailable["status"], "unavailable")
 
+    def test_aged_fixture_cannot_be_treated_as_current(self):
+        # The RSS sample was published on Nov 5 at 14:00 UTC. Exactly fifteen
+        # days later it must stop counting as a recent publication. The
+        # end-to-end fixture build must still pass after that boundary.
+        recent = collect_notices(NOW, fixture=FEED)
+        self.assertEqual(recent["status"], "available")
+        expired = collect_notices("2026-11-20T14:00:01Z", fixture=FEED)
+        self.assertEqual(expired["status"], "no_recent_notices")
+        self.assertEqual(expired["notices"], [])
+
     def test_repeated_build_and_static_validation(self):
         with tempfile.TemporaryDirectory() as directory:
             dest = Path(directory) / "dist"
@@ -123,7 +133,13 @@ class EpagriAdvisories(unittest.TestCase):
                 build(dest, fixture=ROOT / "tests" / "fixtures" / "open_meteo.json")
                 validate(dest, fixture=True)
                 self.assertEqual(json.loads((dest / "data" / "epagri_geo.json").read_text())["status"], "available")
-                self.assertEqual(json.loads((dest / "data" / "epagri_notices.json").read_text())["status"], "available")
+                advisories = json.loads((dest / "data" / "epagri_notices.json").read_text())
+                # This fixture has a fixed Nov 5 publication timestamp. An
+                # offline build made after the 15-day cutoff must not fail CI
+                # or report the expired sample as a current official notice.
+                expected = parse_feed(FEED, advisories["checked_at"])
+                self.assertEqual(advisories["status"], "available" if expected else "no_recent_notices")
+                self.assertEqual(len(advisories["notices"]), len(expected))
             with self.assertRaises(ValueError):
                 validate(dest, fixture=False)
 
