@@ -87,3 +87,13 @@ A publicação remota não é transação simultânea com o histórico de todas 
 Detalhamento normativo/metodológico: [classificação v4](CLASSIFICACAO_CONSULTIVA.md) e [aproveitamento das fontes](APROVEITAMENTO_DAS_FONTES.md).
 
 **Manutenção:** mudanças de contrato exigem atualização coordenada de produtor, validador, consumidor web, testes e documentação. Nunca altere só um JSON de exemplo para “corrigir” a produção.
+
+
+## Retenção compacta (20/11/2026)
+
+- `history.json`: 45 dias de estimativas históricas de publicações do modelo, não observações.
+- `notice_history.json`: 60 dias de arquivo INMET, preservando avisos cujo prazo oficial ainda esteja vigente, independentemente de sua idade.
+- `assessment_history.json`: 90 dias de episódios e avisos Epagri/Ciram; manter avisos ainda válidos.
+- `model_forecast_history.json`: até 24 rodadas de modelos anteriores, com no máximo 48 horas futuras por rodada; preserva a comparação e o fallback recente sem se confundir com a previsão corrente de 10 dias.
+- `multisource_history.json`: observações distintas até sete dias, no máximo 6.000 registros e as últimas 48 avaliações completas em até 24 horas. Contadores da estação IFC são agrupados em intervalos UTC fixos de cinco minutos; divergências no mesmo intervalo são marcadas como conflito e não viram medição válida.
+- As URLs e estruturas existentes dos produtos foram mantidas; redução de retenção não implica apagar histórico Git ou criar banco de dados.
