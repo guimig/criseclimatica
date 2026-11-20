@@ -12,7 +12,7 @@ from typing import Any
 
 KIND = "archive_of_inmet_notices_not_confirmed_weather_events"
 MAX_RECORDS = 2000
-KEEP_DAYS = 366
+KEEP_DAYS = 60
 
 
 def _parse_timestamp(value: Any) -> datetime:
@@ -78,7 +78,10 @@ def merge_notice_archive(previous: dict[str, Any] | None, alerts: dict[str, Any]
             first, last = _parse_timestamp(row.get("first_seen_at")), _parse_timestamp(row.get("last_seen_at"))
             if first > last or last > now + timedelta(hours=1):
                 raise ValueError("Notice archive timestamps inconsistent")
-            if last >= cutoff:
+            end_at = row.get('end_at')
+            active = (not row.get('cancelled_explicitly') and isinstance(end_at, str)
+                      and _parse_timestamp(end_at) > now)
+            if last >= cutoff or active:
                 records[identifier] = dict(row)
     if alerts.get("schema_version") != 1 or alerts.get("kind") != "inmet_official_notices_by_municipality":
         raise ValueError("Unexpected official notice feed")
