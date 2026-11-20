@@ -25,6 +25,9 @@ class CampusTests(unittest.TestCase):
         self.assertEqual(token, "illustrative-public-session-not-a-secret")
         self.assertIn("startTs", query); self.assertIn("endTs", query)
         self.assertNotIn("battery", query["keys"][0])
+        self.assertEqual(int(query["startTs"][0]) % 300_000, 0)
+        self.assertEqual(int(query["endTs"][0]) % 300_000, 0)
+        self.assertEqual(int(query["endTs"][0])-int(query["startTs"][0]),24*3600*1000)
         values = {"temperature": 17.96, "humidity": 88.4, "pressure": 1002.09,
                   "rain_daily": 31.0134, "rain_intensity": 0, "wind_avg": 0, "wind_gust": 0, "wind_direction_deg": 337}
         return {key: [row(values[key])] for key in query["keys"][0].split(",")}
@@ -40,6 +43,17 @@ class CampusTests(unittest.TestCase):
         self.assertNotIn("24h_mm", json.dumps(feed))
         self.assertNotIn("illustrative-public-session", json.dumps(feed))
         self.assertEqual(feed, collect(STAMP, now=NOW, requester=self.source))
+
+    def test_collection_window_is_stable_inside_a_five_minute_bucket(self):
+        seen=[]
+        def requester(path, **kwargs):
+            if "?" in path: seen.append(parse_qs(urlparse(path).query))
+            return self.source(path, **kwargs)
+        collect(STAMP,now=NOW+timedelta(seconds=13),requester=requester)
+        first=seen[0]["startTs"][0],seen[0]["endTs"][0]
+        seen.clear()
+        collect(STAMP,now=NOW+timedelta(minutes=3,seconds=40),requester=requester)
+        self.assertEqual(first,(seen[0]["startTs"][0],seen[0]["endTs"][0]))
 
     def test_future_nan_invalid_and_conflicting_points_are_removed(self):
         raw = [row("nan"), row("inf"), row(True), row(-999), row(18, NOW+timedelta(days=25500)),
