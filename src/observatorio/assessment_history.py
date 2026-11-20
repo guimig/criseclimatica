@@ -6,10 +6,11 @@ from .analysis import iso,moment
 KIND='araquari_assessment_episodes_and_epagri_notice_history'
 MAX_EPISODES=3000
 MAX_NOTICES=500
+KEEP_DAYS=90
 
 
 def merge(previous,dashboard,stamp):
-    now=moment(stamp);stamp=iso(now);cutoff=now-timedelta(days=366);episodes=[];notices={}
+    now=moment(stamp);stamp=iso(now);cutoff=now-timedelta(days=KEEP_DAYS);episodes=[];notices={}
     if previous is not None:
         if (not isinstance(previous,dict) or previous.get('kind')!=KIND or previous.get('schema_version')!=1
             or not isinstance(previous.get('episodes'),list) or len(previous['episodes'])>MAX_EPISODES
@@ -21,7 +22,8 @@ def merge(previous,dashboard,stamp):
             if last>=cutoff:episodes.append(dict(old))
         for old in previous['notices']:
             if moment(old.get('last_seen_at')) is None:raise ValueError('Invalid notice history clock')
-            if moment(old['last_seen_at'])>=cutoff:notices[old['id']]=dict(old)
+            if (moment(old['last_seen_at'])>=cutoff or (moment(old.get('end_at')) and moment(old['end_at'])>now)):
+                notices[old['id']]=dict(old)
     policy=dashboard['assessment'];state=policy.get('suggested_level') or policy.get('monitoring_state','partial')
     classification=dashboard.get('risk_classification')
     if classification:state=classification.get('level') or 'partial'
@@ -49,7 +51,7 @@ def merge(previous,dashboard,stamp):
             'validity_hours':round((end-start).total_seconds()/3600,3) if start and end and end>=start else None,
             'duration_kind':'explicit_instants','first_seen_at':first,'last_seen_at':stamp,
             'scope':notice.get('scope'),'regions_text':notice.get('regions_text')}
-    return {'schema_version':1,'kind':KIND,'location_id':'araquari','generated_at':stamp,'retention_days':366,
+    return {'schema_version':1,'kind':KIND,'location_id':'araquari','generated_at':stamp,'retention_days':KEEP_DAYS,
             'episodes':episodes[-MAX_EPISODES:],
             'notices':sorted(notices.values(),key=lambda r:(r['last_seen_at'],r['id']))[-MAX_NOTICES:],
             'duration_note':'Span between observed samples is not continuous alert or weather-event duration. Validity windows describe the source notice, not an observed disaster.'}
