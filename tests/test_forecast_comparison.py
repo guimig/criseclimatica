@@ -106,6 +106,18 @@ class ComparisonTests(unittest.TestCase):
         self.assertEqual(request.call_count,2)
         request.reset_mock();collect(LOCATION,STAMP,fixture=True);request.assert_not_called()
 
+    def test_archive_capped_at_24_publications_and_48_forecast_hours(self):
+        c=summarize(detail(),[source()],{},STAMP)
+        archive=merge_archive(None,c)
+        from datetime import timedelta
+        from observatorio.analysis import iso
+        base=datetime.fromisoformat(STAMP.replace("Z","+00:00"))
+        for i in range(30):
+            archive=merge_archive(archive,{**c,"generated_at":iso(base+timedelta(minutes=30*(i+1)))})
+        self.assertEqual(len(archive["publications"]),24)
+        self.assertEqual(archive["retention_days"],2)
+        self.assertTrue(all(len(r["hourly"])<=49 for p in archive["publications"] for r in p["records"]))
+
     def test_archive_idempotent_current_forecast_hour_and_fail_closed(self):
         c=summarize(detail(),[source()],{},STAMP)
         a=merge_archive(None,c);b=merge_archive(a,c)
