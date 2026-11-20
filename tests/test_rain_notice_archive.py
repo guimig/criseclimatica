@@ -162,7 +162,7 @@ class TestNoticeArchive(unittest.TestCase):
     def test_old_entries_retired_and_corrupt_prior_rejected(self):
         earlier = NOW - timedelta(days=400)
         prior = merge_notice_archive(None, WARNINGS, now=earlier)
-        current = merge_notice_archive(prior, normalize_alerts({'hoje': [], 'futuro': []}, LOCATIONS, STAMP), now=NOW)
+        current = merge_notice_archive(prior, normalize_alerts({'hoje': [], 'futuro': []}, LOCATIONS, STAMP), now=NOW+timedelta(days=400))
         self.assertEqual(current['records'], [])
         active = merge_notice_archive(None, WARNINGS, now=NOW)
         bad = {**active, 'records': active['records'] + [active['records'][0]]}
