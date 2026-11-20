@@ -84,6 +84,26 @@ class MultisourceTests(unittest.TestCase):
         rows[8]['value']=0;self.assertIsNone(counter_window(rows,1,STAMP))
         self.assertIsNone(counter_window(rows,24,STAMP))
 
+    def test_counter_bins_deduplicate_and_conflicts_remain_excluded(self):
+        base=NOW-timedelta(minutes=5)
+        readings=[evidence("ifc","ifc-araquari","rain_daily_mm",12,iso(base+timedelta(seconds=s)),unit="mm",method="five_minute_counter_max") for s in (3,19,37)]
+        h=merge_history(None,readings,{},STAMP)
+        self.assertEqual(len(h["records"]),1)
+        self.assertEqual(h["records"][0]["end_at"],iso(base))
+        self.assertEqual(merge_history(h,readings,{},STAMP)["records"],h["records"])
+        flagged=merge_history(h,[{**readings[-1],"value":13}],{},STAMP)
+        self.assertEqual(flagged["records"],[])
+        self.assertEqual(len(flagged["conflicts"]),1)
+        self.assertEqual(merge_history(flagged,readings,{},STAMP)["records"],[])
+
+    def test_full_assessments_are_24h_and_48_samples(self):
+        row=evidence("ifc","ifc-araquari","temperature_c",20,STAMP,unit="C")
+        h=merge_history(None,[row],{},STAMP)
+        h["assessments"]=[{"generated_at":iso(NOW-timedelta(hours=i/4))} for i in range(200)]
+        result=merge_history(h,[],{},STAMP)
+        self.assertEqual(len(result["assessments"]),48)
+        self.assertTrue(all(r["generated_at"]>=iso(NOW-timedelta(hours=24)) for r in result["assessments"]))
+
     def test_history_repeat_conflicts_and_refusal_of_loss(self):
         row=evidence('ifc','ifc-araquari','temperature_c',20,STAMP,unit='°C')
         h=merge_history(None,[row],{},STAMP);self.assertEqual(h,merge_history(h,[row],{},STAMP))
