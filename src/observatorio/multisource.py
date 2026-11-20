@@ -340,7 +340,9 @@ def build(dashboard, primary, campus, sensors, comparison, inmet, bulletins, sta
               'antecedent_rain':antecedent_rain(primary,stamp),'forecast_ranges':model_ranges,'observation_model_matches':model_matches,
               'daily_quantitative':daily_numeric+daily_models,'publication_evidence':publications,'pending_publications':pending,
               'sensor_inventory':sensor_inventory(sensors,stamp),
-              'selected_forecast': forecast, 'observation_history': [r for r in history['records'] if r['variable'] in ('rain_1h_mm','rain_24h_mm','temperature_c','wind_kmh','gust_kmh')],
+              'selected_forecast': forecast, 'observation_history': [r for r in history['records']
+                   if r['variable'] in ('rain_1h_mm','rain_24h_mm','temperature_c','wind_kmh','gust_kmh')
+                   and moment(r['end_at']) >= moment(stamp)-timedelta(hours=24)],
               'formal_level': None, 'notice_weighting': 'equal_meteorological_relevance_not_institutional_color_conversion',
               'normative_assessment': deepcopy(dashboard['assessment']), 'institutional_decision_automated': False}
     assessment = {'generated_at': stamp, 'method_version': VERSION, 'coverage': coverage,
