@@ -124,6 +124,7 @@ class HistoryTests(unittest.TestCase):
     def test_epagri_validity_and_visibility_spans_are_separate(self):
         d=dashboard();d['assessment']['evidence']=[{'status':'eligible','url':'https://ciram.epagri.sc.gov.br/a','valid_from':STAMP,'valid_until':(NOW+timedelta(hours=24)).isoformat()}]
         a=merge(None,d,STAMP);self.assertEqual(a['notices'][0]['validity_hours'],24)
+        self.assertEqual(a['retention_days'],90)
         self.assertEqual(a['episodes'][0]['sampled_span_hours'],0)
         b=merge(a,dashboard(),(NOW+timedelta(hours=3)).isoformat())
         self.assertEqual(len(b['notices']),1)
