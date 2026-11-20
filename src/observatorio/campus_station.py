@@ -117,7 +117,11 @@ def collect(stamp: str, *, now: datetime | None = None,
         token = auth.get("token") if isinstance(auth, dict) else None
         if not isinstance(token, str) or not 1 <= len(token) <= 8192 or any(c.isspace() for c in token):
             raise SourceError("invalid_public_session")
-        common = {"startTs": int(start.timestamp()*1000), "endTs": int(now.timestamp()*1000), "orderBy": "DESC"}
+        # Query stable UTC five-minute buckets: sliding aggregation boundaries
+        # otherwise duplicate a rolling 24h counter under different timestamps.
+        query_end = now.replace(minute=(now.minute // 5) * 5, second=0, microsecond=0)
+        query_start = query_end - timedelta(hours=24)
+        common = {"startTs": int(query_start.timestamp()*1000), "endTs": int(query_end.timestamp()*1000), "orderBy": "DESC"}
         # Never use the unbounded latest endpoint: future-dated values exist in
         # the source and win that query even when current history is healthy.
         latest = requester(TELEMETRY + "?" + urlencode({**common, "keys": ",".join(METRICS), "agg": "NONE", "limit": 20}), token=token)
