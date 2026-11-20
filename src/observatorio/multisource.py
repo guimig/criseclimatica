@@ -23,6 +23,8 @@ CAMPUS_FIELDS = {'temperature': ('temperature_c', '°C', -50, 65),
                  'rain_intensity': ('rain_intensity_mmh', 'mm/h', 0, 2000)}
 LIFETIME = {'rain_1h_mm': 1, 'rain_24h_mm': 6}
 MAX_HISTORY = 6000
+MAX_FULL_ASSESSMENTS = 48
+FULL_ASSESSMENT_HOURS = 24
 TZ = ZoneInfo('America/Sao_Paulo')
 
 
@@ -87,18 +89,30 @@ def merge_history(previous, observations, campus, stamp):
         t = moment(r.get('end_at')) if isinstance(r, dict) else None
         if (not t or not now-timedelta(days=7) <= t <= now or r.get('station') not in STATIONS
                 or r.get('nature') != 'observation' or not valid_number(r.get('value'))): continue
+        # Counter samples represent five-minute intervals, not instants.
+        # A conflicting value in the same bin invalidates that bin.
+        if (r['station'] == 'ifc-araquari' and r['variable'] == 'rain_daily_mm'
+                and r['method'] == 'five_minute_counter_max'):
+            t = t.replace(minute=(t.minute // 5) * 5, second=0, microsecond=0)
+            r = {**r, 'start_at': iso(t), 'end_at': iso(t),
+                 'valid_until': iso(t+timedelta(hours=1.5))}
         key = (r['station'], r['variable'], r['end_at'], r['method'])
         if key in unique and unique[key]['value'] != r['value']: conflicts.add(key)
         unique[key] = r
     for r in (previous or {}).get('conflicts', []):
-        if moment(r.get('end_at')) and moment(r['end_at']) >= now-timedelta(days=7):
-            conflicts.add((r['station'], r['variable'], r['end_at'], r['method']))
+        t = moment(r.get('end_at'))
+        if t and t >= now-timedelta(days=7):
+            if (r.get('station') == 'ifc-araquari' and r.get('variable') == 'rain_daily_mm'
+                    and r.get('method') == 'five_minute_counter_max'):
+                t = t.replace(minute=(t.minute // 5) * 5, second=0, microsecond=0)
+            conflicts.add((r['station'], r['variable'], iso(t), r['method']))
     records = sorted((r for k, r in unique.items() if k not in conflicts), key=lambda r: (r['end_at'], r['station'], r['variable']))[-MAX_HISTORY:]
     assessments = (previous or {}).get('assessments', [])
     if not isinstance(assessments, list) or len(assessments) > 336:
         raise ValueError('Invalid multisource assessment history')
     assessments = [r for r in assessments if isinstance(r, dict) and moment(r.get('generated_at'))
-                   and now-timedelta(days=7) <= moment(r['generated_at']) <= now]
+                   and now-timedelta(hours=FULL_ASSESSMENT_HOURS) <= moment(r['generated_at']) <= now]
+    assessments = assessments[-MAX_FULL_ASSESSMENTS:]
     return {'schema_version': 1, 'kind': HISTORY_KIND, 'generated_at': stamp, 'retention_days': 7,
             'method_version': VERSION, 'records': records, 'assessments': assessments,
             'conflicts': [dict(zip(('station', 'variable', 'end_at', 'method'), k)) for k in sorted(conflicts)[-MAX_HISTORY:]]}
@@ -326,7 +340,9 @@ def build(dashboard, primary, campus, sensors, comparison, inmet, bulletins, sta
               'antecedent_rain':antecedent_rain(primary,stamp),'forecast_ranges':model_ranges,'observation_model_matches':model_matches,
               'daily_quantitative':daily_numeric+daily_models,'publication_evidence':publications,'pending_publications':pending,
               'sensor_inventory':sensor_inventory(sensors,stamp),
-              'selected_forecast': forecast, 'observation_history': [r for r in history['records'] if r['variable'] in ('rain_1h_mm','rain_24h_mm','temperature_c','wind_kmh','gust_kmh')],
+              'selected_forecast': forecast, 'observation_history': [r for r in history['records']
+                   if r['variable'] in ('rain_1h_mm','rain_24h_mm','temperature_c','wind_kmh','gust_kmh')
+                   and moment(r['end_at']) >= moment(stamp)-timedelta(hours=24)],
               'formal_level': None, 'notice_weighting': 'equal_meteorological_relevance_not_institutional_color_conversion',
               'normative_assessment': deepcopy(dashboard['assessment']), 'institutional_decision_automated': False}
     assessment = {'generated_at': stamp, 'method_version': VERSION, 'coverage': coverage,
@@ -336,7 +352,7 @@ def build(dashboard, primary, campus, sensors, comparison, inmet, bulletins, sta
                   'antecedent_rain':result['antecedent_rain']}
     snapshots = {r['generated_at']: r for r in history['assessments']}
     snapshots[stamp] = assessment
-    history['assessments'] = sorted(snapshots.values(), key=lambda r: r['generated_at'])[-336:]
+    history['assessments'] = sorted(snapshots.values(), key=lambda r: r['generated_at'])[-MAX_FULL_ASSESSMENTS:]
     return result, history, detail
 
 

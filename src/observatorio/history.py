@@ -1,6 +1,6 @@
 """Bounded, portable DAILY MODEL PUBLICATION SNAPSHOTS, not climate observations.
 
-A one-year rolling publication history may be embedded in GitHub Pages, but it
+A 45-day rolling publication history may be embedded in GitHub Pages, but it
 is not a backup or scientifically valid measured climate series. A future
 external archive can store raw observations and long-lived rollups.
 """
@@ -38,7 +38,7 @@ def merge_daily_publications(
     overview: dict[str, Any],
     details: dict[str, dict[str, Any]],
     *, now: datetime | None = None,
-    keep_days: int = 366,
+    keep_days: int = 45,
 ) -> dict[str, Any]:
     """One latest successfully collected model state per locality/day, idempotently."""
     if not (1 <= keep_days <= MAX_SAVED_DAYS):

@@ -159,16 +159,16 @@ def merge_archive(previous, comparison):
         t = moment(p.get('saved_at')) if isinstance(p, dict) else None
         if t is None or not isinstance(p.get('records'), list):
             raise ValueError('Invalid prior forecast publication')
-        if now-timedelta(days=7) <= t <= now:
+        if now-timedelta(days=2) <= t <= now:
             publications[p['saved_at']] = p
     rows = []
     for record in comparison['records']:
         # Keep the current forecast point for wind/temperature recovery as well
         # as future rainfall endpoints. These rows never become observations.
-        hourly = [r for r in record['hourly'] if now.replace(minute=0, second=0, microsecond=0) <= moment(r['time']) <= now+timedelta(hours=72)]
+        hourly = [r for r in record['hourly'] if now.replace(minute=0, second=0, microsecond=0) <= moment(r['time']) <= now+timedelta(hours=48)]
         if hourly:
             rows.append({**record, 'hourly': hourly})
     publications[comparison['generated_at']] = {'saved_at': comparison['generated_at'], 'records': rows, 'cptec': comparison['cptec'], 'inmet': comparison.get('inmet')}
     return {'schema_version': 1, 'kind': ARCHIVE_KIND, 'location_id': 'araquari', 'generated_at': comparison['generated_at'],
-            'retention_days': 7, 'verification_performed': False,
-            'publications': sorted(publications.values(), key=lambda p: p['saved_at'])[-64:]}
+            'retention_days': 2, 'verification_performed': False,
+            'publications': sorted(publications.values(), key=lambda p: p['saved_at'])[-24:]}

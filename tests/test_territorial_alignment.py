@@ -128,7 +128,7 @@ class StateCollectionTests(unittest.TestCase):
                              now=datetime.fromisoformat(STAMP.replace('Z','+00:00')))
         self.assertEqual([r['code'] for r in out['stations']],['410690001A'])
 
-    def test_one_year_history_accepts_twenty_municipalities_with_bounded_size(self):
+    def test_45_day_history_accepts_twenty_municipalities_with_bounded_size(self):
         now=datetime(2026,11,6,12,tzinfo=timezone.utc)
         records=[]
         for place in load_locations(ROOT/'config/locations.json'):
@@ -139,7 +139,7 @@ class StateCollectionTests(unittest.TestCase):
                   'temperature_c':25,'wind_kmh':10,'gust_kmh':20,'rain_next_24h_mm':0})
         previous={'schema_version':1,'kind':'daily_last_model_publication_not_station_observation','records':records}
         out=merge_daily_publications(previous,{'locations':load_locations(ROOT/'config/locations.json')},{},now=now)
-        self.assertEqual(len(out['records']),7320)
+        self.assertEqual(len(out['records']),900)
         self.assertLess(len(json.dumps(out,ensure_ascii=False,separators=(',',':')).encode()),3_000_000)
 
 

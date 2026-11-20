@@ -23,7 +23,7 @@ A pasta `data/` abaixo é **saída gerada em `dist/data/`**, não diretório de 
 | `inmet_forecast.json` | Previsão municipal diária/por turno, com textos/temperaturas e prazos próprios |
 | `model_forecast_history.json` | Rodadas de previsões preservadas para confronto e contingência, não observações |
 | `forecast_snapshot.json` | Referência de previsão anterior; não mede o tempo passado |
-| `history.json` | Último snapshot de modelo por dia e município, em janela móvel de 366 dias |
+| `history.json` | Último snapshot de modelo por dia e município, em janela móvel de 45 dias |
 | `observation_history.json` | Histórico observado das estações elegíveis de Araquari, até sete dias |
 | `multisource_history.json` | Evidências locais normalizadas, amostras de avaliação e histórico consultivo com limites de volume |
 | `assessment_history.json` | Episódios de **estados amostrados** e avisos; intervalo entre coletas não é duração ininterrupta do fenômeno |
@@ -60,12 +60,12 @@ A relação vem das chamadas `publish_json(...)` no final de `scripts/build_site
 
 | Histórico | Política observada no código |
 | --- | --- |
-| `history.json` | `merge_daily_publications(..., keep_days=366)`, no máximo um snapshot de modelo por município/dia; valida até 12.000 registros anteriores |
-| `notice_history.json` | `KEEP_DAYS=366`, `MAX_RECORDS=2000` |
+| `history.json` | `merge_daily_publications(..., keep_days=45)`, no máximo um snapshot de modelo por município/dia; valida até 12.000 registros anteriores |
+| `notice_history.json` | `KEEP_DAYS=60`, `MAX_RECORDS=2000` |
 | `observation_history.json` | `RETENTION_DAYS=7`, `MAX_HISTORY=6000` |
-| `multisource_history.json` | Evidências de até sete dias e 6.000 registros; avaliações limitadas a 336, conforme método multifontes |
-| `model_forecast_history.json` | Até 64 publicações arquivadas e tamanho validado de até 5 MB; a disponibilidade histórica não prolonga o prazo de uma previsão recuperada |
-| `assessment_history.json` | Até 366 dias, 3.000 episódios e 500 avisos; estados amostrados, não duração comprovada |
+| `multisource_history.json` | Evidências de até sete dias e 6.000 registros; avaliações completas limitadas a 48 (até 24 horas), conforme método multifontes |
+| `model_forecast_history.json` | Até 24 publicações arquivadas e tamanho validado de até 5 MB; a disponibilidade histórica não prolonga o prazo de uma previsão recuperada |
+| `assessment_history.json` | Até 90 dias, 3.000 episódios e 500 avisos; estados amostrados, não duração comprovada |
 | `forecast_snapshot.json` | Estado de comparação anterior, até 49 registros horários por município e tamanho de até 1 MB |
 
 Os limites são barreiras de integridade e custo; não devem ser elevados sem avaliar tamanho final, tempo de download, quotas e efeito sobre o Pages. O arquivo de modelo por dia não permite calcular médias climáticas medidas.
@@ -87,3 +87,13 @@ A publicação remota não é transação simultânea com o histórico de todas 
 Detalhamento normativo/metodológico: [classificação v4](CLASSIFICACAO_CONSULTIVA.md) e [aproveitamento das fontes](APROVEITAMENTO_DAS_FONTES.md).
 
 **Manutenção:** mudanças de contrato exigem atualização coordenada de produtor, validador, consumidor web, testes e documentação. Nunca altere só um JSON de exemplo para “corrigir” a produção.
+
+
+## Retenção compacta (20/11/2026)
+
+- `history.json`: 45 dias de estimativas históricas de publicações do modelo, não observações.
+- `notice_history.json`: 60 dias de arquivo INMET, preservando avisos cujo prazo oficial ainda esteja vigente, independentemente de sua idade.
+- `assessment_history.json`: 90 dias de episódios e avisos Epagri/Ciram; manter avisos ainda válidos.
+- `model_forecast_history.json`: até 24 rodadas de modelos anteriores, com no máximo 48 horas futuras por rodada; preserva a comparação e o fallback recente sem se confundir com a previsão corrente de 10 dias.
+- `multisource_history.json`: observações distintas até sete dias, no máximo 6.000 registros e as últimas 48 avaliações completas em até 24 horas. Contadores da estação IFC são agrupados em intervalos UTC fixos de cinco minutos; divergências no mesmo intervalo são marcadas como conflito e não viram medição válida.
+- As URLs e estruturas existentes dos produtos foram mantidas; redução de retenção não implica apagar histórico Git ou criar banco de dados.
