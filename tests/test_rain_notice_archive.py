@@ -148,6 +148,17 @@ class TestNoticeArchive(unittest.TestCase):
         self.assertEqual(row['type'], 'Chuva intensa revisada')
         self.assertEqual(row['first_seen_at'], STAMP)
 
+    def test_active_notice_survives_60_day_cleanup(self):
+        active=merge_notice_archive(None,WARNINGS,now=NOW)
+        old=active["records"][0]
+        old["last_seen_at"]=(NOW-timedelta(days=70)).isoformat()
+        old["first_seen_at"]=old["last_seen_at"]
+        old["end_at"]=(NOW+timedelta(days=1)).isoformat()
+        empty=normalize_alerts({"hoje":[],"futuro":[]},LOCATIONS,STAMP)
+        merged=merge_notice_archive(active,empty,now=NOW)
+        self.assertTrue(any(r["id"]==old["id"] for r in merged["records"]))
+        self.assertEqual(merged["retention_days"],60)
+
     def test_old_entries_retired_and_corrupt_prior_rejected(self):
         earlier = NOW - timedelta(days=400)
         prior = merge_notice_archive(None, WARNINGS, now=earlier)
