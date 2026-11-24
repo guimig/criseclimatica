@@ -70,3 +70,14 @@ O coletor corrigido foi executado contra o portal oficial: recuperou **20 public
 Permanecem os limites anteriores: dados territoriais apenas em mapas/imagens não são transformados automaticamente em evidência local; manchetes não comprovam ocorrência de desastre; monitoramentos regionais e avisos de dias futuros não são automaticamente critérios atuais. A cor da Defesa Civil não é convertida diretamente em nível institucional. Falha completa conserva o conteúdo anterior como desatualizado, sem declará-lo atualizado.
 
 O agendamento de 30 minutos, demais coletores, inicial compacta e critérios severos foram preservados. Reversão por revert do commit.
+
+
+## Ajuste de resiliência de 24/11/2026
+
+A auditoria do artefato publicado em 24/11 confirmou que os seis caminhos para o mesmo domínio estadual (WordPress, três feeds e duas listagens) continuavam falhando por timeout no GitHub Actions. As demais fontes oficiais e a publicação semestral do site permaneceram independentes.
+
+Para evitar consultas redundantes ao portal indisponível a cada ciclo de 30 minutos, o coletor passou a aplicar espera progressiva de 30, 60 e, no máximo, 120 minutos após falhas consecutivas. O próximo horário de tentativa e o horário da última requisição real são publicados separadamente de `checked_at` (atualização do pacote do painel). Uma consulta bem-sucedida zera o contador; não há supressão de outras fontes nem classificação de “ausência de alerta” durante falhas.
+
+A coleta original de notícias da Defesa Civil continua sendo exploratória e *não* constitui serviço certificado de alertas ativos. A ausência de conectividade do runner com o portal **não está corrigida por alterações na frequência de retentativa**. Para obter conteúdo atual do canal é necessário recuperar a conectividade HTTPS comprovada, ou avaliar outro canal oficial sob os mesmos requisitos de abrangência, validade e rastreabilidade. Registros de publicação anteriores permanecem identificados como desatualizados.
+
+O arquivo anual INMET mantém cadência conservadora de download, em razão de seu tamanho e atraso natural. O JSON passou a fornecer `archive_delay_days` e `next_archive_attempt_at`; o painel diferencia data da última leitura registrada, data do último download do ZIP e próxima tentativa programada. **Esses campos não representam medições recentes nem garantem que a fonte disponibilizará conteúdo novo.** A integração horária INMET permanece opcional e depende da credencial `INMET_API_TOKEN` no segredo do GitHub Actions, sem expor token no GitHub Pages. Nenhum banco de dados ou arquivo histórico extra foi criado.

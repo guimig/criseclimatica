@@ -446,7 +446,9 @@ function renderArchive() {
   const statuses = { available:'Arquivo público consultado', cached:'Arquivo previamente consultado',
     stale:'Últimas observações antigas', unavailable:'Fonte indisponível',
     no_nearby_stations:'Sem estações automáticas próximas no catálogo', fixture_mode:'Somente teste' };
-  $('archive-updated').textContent = `INMET · ${statuses[status] || status} · última coleta do ZIP: ${datetime(feed?.retrieved_at)} · última medição do arquivo: ${datetime(feed?.latest_observation_at)}. Não representa precipitação atual.`;
+  const delay = Number.isFinite(feed?.archive_delay_days) ? ` · defasagem das medições: ${feed.archive_delay_days} dia(s)` : '';
+  const next = feed?.next_archive_attempt_at ? ` · próxima tentativa do ZIP: ${datetime(feed.next_archive_attempt_at)}` : '';
+  $('archive-updated').textContent = `INMET · ${statuses[status] || status} · último download do ZIP: ${datetime(feed?.retrieved_at)} · última medição do arquivo: ${datetime(feed?.latest_observation_at)}${delay}${next}. Produto histórico, NÃO representa precipitação atual.`;
   if (!feed || !['available','cached','stale'].includes(status)) {
     target.append(child('p', 'loading-label', 'Ainda não há dados de arquivo anual verificáveis para as estações próximas. Consulte diretamente o INMET; isso não representa chuva zero.'));
     return;
@@ -488,7 +490,9 @@ function renderDefesa() {
   const selected = [...mentioned, ...statewide].slice(0, 9);
   $('defesa-count').textContent = mentioned.length ? `${mentioned.length} publicação(ões) mencionando a localidade` : 'Menção municipal não identificada';
   const failures = (source?.source_diagnostics || []).slice(0, 2).join(' / ');
-  $('defesa-updated').textContent = `Defesa Civil SC · consulta: ${datetime(source?.checked_at)} · situação: ${source?.status || 'indisponível'}${failures ? ` · falhas: ${failures}` : ''} · as publicações NÃO confirmam vigência de alertas. Emergência: 199 ou 193.`;
+  const lastAttempt = source?.last_attempt_at ? ` · última tentativa de acesso: ${datetime(source.last_attempt_at)}` : '';
+  const nextAttempt = source?.next_attempt_at ? ` · próxima tentativa prevista: ${datetime(source.next_attempt_at)}` : '';
+  $('defesa-updated').textContent = `Defesa Civil SC · atualização do painel: ${datetime(source?.checked_at)}${lastAttempt}${nextAttempt} · situação: ${source?.status || 'indisponível'}${failures ? ` · falhas: ${failures}` : ''} · as publicações NÃO confirmam vigência de alertas. Emergência: 199 ou 193.`;
   if (source?.status === 'stale') target.append(child('p', 'alert-unknown', 'A fonte oficial não respondeu nesta atualização. Estas publicações foram preservadas de uma consulta anterior e NÃO comprovam alertas vigentes.'));
   if (!selected.length) {
     target.append(child('p', 'loading-label', source?.status === 'unavailable' ? 'Canal automatizado indisponível. Consulte os links oficiais para alertas e boletins.' : 'Nenhuma publicação recente identificada para este município na amostra acessível. Isso não significa ausência de alertas.'));
