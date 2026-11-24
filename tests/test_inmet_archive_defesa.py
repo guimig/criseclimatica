@@ -113,6 +113,24 @@ class InmetAnnualArchiveTests(unittest.TestCase):
             second = collect_archive(LOCATIONS, CATALOG, next_time, previous=stale)
         self.assertIn(second["status"], ("cached", "stale"))
 
+    def test_delayed_annual_archive_identifies_source_lag_and_next_retry(self):
+        first = collect_archive(LOCATIONS, CATALOG, STAMP, fixture_zip=archive_zip())
+        self.assertIsInstance(first['archive_delay_days'], int)
+        self.assertTrue(first['next_archive_attempt_at'])
+        after = (NOW+timedelta(days=16)).isoformat().replace('+00:00','Z')
+        with patch("observatorio.inmet_archive._download_year", side_effect=InmetArchiveError("offline")):
+            delayed = collect_archive(LOCATIONS, CATALOG, after, previous=first)
+        self.assertEqual(delayed['status'], 'stale')
+        self.assertGreaterEqual(delayed['archive_delay_days'], 14)
+        self.assertEqual(delayed['retrieved_at'], STAMP)
+        self.assertEqual(delayed['last_attempt_at'], after)
+        self.assertEqual(delayed['next_archive_attempt_at'],
+                         (NOW+timedelta(days=17)).isoformat().replace('+00:00','Z'))
+        with patch("observatorio.inmet_archive._download_year", side_effect=AssertionError("retry must be deferred")) as request:
+            deferred=collect_archive(LOCATIONS,CATALOG,(NOW+timedelta(days=16,hours=2)).isoformat(),previous=delayed)
+        request.assert_not_called()
+        self.assertEqual(deferred['status'], 'stale')
+
     def test_no_catalog_recovers_station_metadata_from_zip(self):
         result = collect_archive(LOCATIONS, {"locations": []}, STAMP, fixture_zip=archive_zip())
         self.assertEqual(result["status"], "available")
