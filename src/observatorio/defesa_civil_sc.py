@@ -40,6 +40,11 @@ KIND = "defesa_civil_sc_publications_not_verified_active_alerts"
 MAX_BYTES = 750_000
 REQUEST_TIMEOUT = 20
 COLLECT_BUDGET_SECONDS = 70
+# Only retry this repeatedly unreachable optional portal after a bounded interval.
+# Do not suppress independent INMET/Epagri checks, or treat silence as safety.
+RETRY_BASE_MINUTES = 30
+RETRY_MAX_MINUTES = 120
+MAX_FAILURE_COUNT = 16
 MAX_PAGE_BYTES = 1_300_000
 
 
@@ -333,6 +338,7 @@ def unavailable(checked_at: str, *, status: str = "unavailable") -> dict:
         "notice": "Publicacoes oficiais nao equivalem a alertas vigentes. Consulte sempre os canais da Defesa Civil.",
         "retrieval_method": "none", "last_successful_check": None,
         "request_timeout_seconds":REQUEST_TIMEOUT,"collection_budget_seconds":COLLECT_BUDGET_SECONDS,
+        "last_attempt_at": None, "next_attempt_at": None, "consecutive_failures": 0,
     }
 
 
@@ -362,6 +368,29 @@ def collect(locations: list[dict], checked_at: str, *, fixture: dict | None = No
             previous: dict | None = None) -> dict:
     """Publications are best-effort; a source failure never proves no active alert."""
     now = _date(checked_at, rss=False)
+    # A prior failed request cannot justify 70 seconds of identical timeouts
+    # on every 30-minute build. The source stays explicitly unavailable and
+    # the last *actual* attempted check is kept separate from this publication.
+    if fixture is None and isinstance(previous, dict) and previous.get("kind") == KIND:
+        next_at = previous.get("next_attempt_at")
+        if previous.get("status") in ("unavailable", "stale") and isinstance(next_at, str):
+            try:
+                if now < _date(next_at, rss=False):
+                    response = unavailable(checked_at)
+                    prior = _prior_publications(previous, now)
+                    response.update({
+                        "status": "stale" if prior else "unavailable",
+                        "publications": prior,
+                        "retrieval_method": "previously_published_publications" if prior else "none",
+                        "source_diagnostics": list(previous.get("source_diagnostics", []))[:7],
+                        "last_successful_check": previous.get("last_successful_check"),
+                        "last_attempt_at": previous.get("last_attempt_at"),
+                        "next_attempt_at": next_at,
+                        "consecutive_failures": min(MAX_FAILURE_COUNT, max(0, int(previous.get("consecutive_failures", 1)))),
+                    })
+                    return response
+            except (CivilDefenseError, TypeError, ValueError, OverflowError):
+                pass  # Invalid cooldown metadata is ignored, not trusted.
     deadline=time.monotonic()+COLLECT_BUDGET_SECONDS
     def download(url,*,limit=MAX_BYTES):
         remaining=deadline-time.monotonic()
@@ -422,6 +451,13 @@ def collect(locations: list[dict], checked_at: str, *, fixture: dict | None = No
     if status == "unavailable":
         response = unavailable(checked_at)
         response["source_diagnostics"] = errors[:7]
+        prior_count = (previous.get("consecutive_failures", 0) if isinstance(previous, dict) and previous.get("kind") == KIND else 0)
+        failures = min(MAX_FAILURE_COUNT, max(0, int(prior_count)) + 1)
+        wait_minutes = min(RETRY_MAX_MINUTES, RETRY_BASE_MINUTES * (2 ** min(failures - 1, 3)))
+        response["consecutive_failures"] = failures
+        response["last_attempt_at"] = checked_at
+        response["next_attempt_at"] = (now + timedelta(minutes=wait_minutes)).isoformat(timespec="seconds").replace("+00:00", "Z")
+        response["last_successful_check"] = previous.get("last_successful_check") if isinstance(previous, dict) else None
         prior = _prior_publications(previous, now)
         if prior:
             response["status"] = "stale"
@@ -445,4 +481,7 @@ def collect(locations: list[dict], checked_at: str, *, fixture: dict | None = No
     response["last_successful_check"] = checked_at
     response["feeds_retrieved"] = fetched_feeds
     response["source_diagnostics"] = errors[:7]
+    response["last_attempt_at"] = checked_at
+    response["next_attempt_at"] = None
+    response["consecutive_failures"] = 0
     return response
