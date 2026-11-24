@@ -347,11 +347,31 @@ def _archive_location_index(locations: list[dict], stations: list[dict]) -> list
 def _present(data: dict[str, Any], checked_at: str, *, cached: bool = False,
              locations: list[dict] | None = None) -> dict[str, Any]:
     out = {**data, "checked_at": checked_at}
+    # The archive can be downloaded successfully while its newest station
+    # measurement is weeks old. Preserve that distinction and report the next
+    # planned download without inventing fresher observations.
+    now = _moment(checked_at)
+    retrieved = data.get("retrieved_at")
+    attempted = data.get("last_attempt_at")
+    try:
+        downloaded_at = _moment(retrieved) if retrieved else None
+        attempted_at = _moment(attempted) if attempted else None
+    except InmetArchiveError:
+        downloaded_at = attempted_at = None
+    if downloaded_at and timedelta(0) <= now-downloaded_at < timedelta(days=CACHE_DAYS):
+        next_check = downloaded_at + timedelta(days=CACHE_DAYS)
+    elif attempted_at and timedelta(0) <= now-attempted_at < timedelta(hours=RETRY_HOURS):
+        next_check = attempted_at + timedelta(hours=RETRY_HOURS)
+    else:
+        next_check = None
+    out["next_archive_attempt_at"] = _stamp(next_check) if next_check else None
+    out["archive_delay_days"] = None
     if locations is not None and out.get("stations"):
         out["locations"] = _archive_location_index(locations, out["stations"])
     last = out.get("latest_observation_at")
     if last:
-        age = _moment(checked_at) - _moment(last)
+        age = now - _moment(last)
+        out["archive_delay_days"] = max(0, int(age.total_seconds() // 86400))
         out["status"] = "stale" if age > timedelta(days=14) else "cached" if cached else "available"
     return out
 
