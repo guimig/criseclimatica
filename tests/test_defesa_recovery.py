@@ -92,6 +92,49 @@ class DefesaRecoveryTests(unittest.TestCase):
         self.assertEqual(result['status'],'stale');self.assertEqual(result['last_successful_check'],STAMP)
         self.assertEqual(result['publications'][0]['event_window'],previous['publications'][0]['event_window'])
 
+    def test_repeated_timeout_uses_bounded_backoff_and_can_recover(self):
+        # Failure never means no alerts. Skipped cycles must preserve the last
+        # actual network attempt rather than claim a new successful check.
+        with patch('observatorio.defesa_civil_sc._download', side_effect=CivilDefenseError('Public bulletin unavailable: timeout')) as request:
+            first = collect(LOCATIONS, STAMP)
+            calls = request.call_count
+            self.assertEqual(first['status'], 'unavailable')
+            self.assertEqual(first['consecutive_failures'], 1)
+            self.assertEqual(first['last_attempt_at'], STAMP)
+            self.assertEqual(first['next_attempt_at'], (NOW+timedelta(minutes=30)).isoformat().replace('+00:00','Z'))
+            skipped = collect(LOCATIONS, (NOW+timedelta(minutes=10)).isoformat(), previous=first)
+            self.assertEqual(request.call_count, calls)
+            self.assertEqual(skipped['last_attempt_at'], STAMP)
+            self.assertEqual(skipped['status'], 'unavailable')
+            second = collect(LOCATIONS, (NOW+timedelta(minutes=31)).isoformat(), previous=skipped)
+            self.assertGreater(request.call_count, calls)
+            self.assertEqual(second['consecutive_failures'], 2)
+            self.assertEqual(second['next_attempt_at'], (NOW+timedelta(minutes=91)).isoformat().replace('+00:00','Z'))
+            third = collect(LOCATIONS, (NOW+timedelta(minutes=92)).isoformat(), previous=second)
+            self.assertEqual(third['consecutive_failures'], 3)
+            self.assertEqual(third['next_attempt_at'], (NOW+timedelta(minutes=212)).isoformat().replace('+00:00','Z'))
+            skipped_again = collect(LOCATIONS, (NOW+timedelta(minutes=130)).isoformat(), previous=third)
+            self.assertEqual(skipped_again['next_attempt_at'], third['next_attempt_at'])
+        with patch('observatorio.defesa_civil_sc._download', return_value=json.dumps(payload()).encode()) as request:
+            recovered = collect(LOCATIONS, (NOW+timedelta(minutes=213)).isoformat(), previous=skipped_again)
+        self.assertEqual(request.call_count, 1)
+        self.assertEqual(recovered['status'], 'available')
+        self.assertEqual(recovered['consecutive_failures'], 0)
+        self.assertIsNone(recovered['next_attempt_at'])
+        self.assertEqual(len(recovered['publications']), 1)
+
+    def test_backoff_preserves_prior_notice_as_stale_not_current(self):
+        with patch('observatorio.defesa_civil_sc._download', return_value=json.dumps(payload()).encode()):
+            valid = collect(LOCATIONS, STAMP)
+        with patch('observatorio.defesa_civil_sc._download', side_effect=CivilDefenseError('Public bulletin unavailable: timeout')):
+            failed = collect(LOCATIONS, (NOW+timedelta(minutes=30)).isoformat(), previous=valid)
+        with patch('observatorio.defesa_civil_sc._download', side_effect=AssertionError('must not request before retry')) as request:
+            deferred = collect(LOCATIONS, (NOW+timedelta(minutes=35)).isoformat(), previous=failed)
+        request.assert_not_called()
+        self.assertEqual(deferred['status'], 'stale')
+        self.assertEqual(deferred['last_successful_check'], STAMP)
+        self.assertEqual(deferred['publications'][0]['published_at'], valid['publications'][0]['published_at'])
+
     def test_z_timestamp_and_similar_municipal_name_are_handled(self):
         raw=payload();raw[0]['date_gmt']+='Z';raw[0]['content']['rendered']='<p>Araraquari não é o nome cadastrado.</p>'
         p=parse_wp_json(json.dumps(raw).encode(),LOCATIONS,NOW)[0]
