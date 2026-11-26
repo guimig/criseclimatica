@@ -100,7 +100,10 @@
     for(const s of series){
       const item=html('span','legend-item'),swatch=make('svg',{width:30,height:16,viewBox:'0 0 30 16','aria-hidden':'true',class:'legend-swatch'});
       swatch.append(make('line',{x1:1,x2:29,y1:8,y2:8,stroke:s.color,'stroke-width':2.5,'stroke-dasharray':s.dash||''}),marker(15,8,s.color,s.shape,3));
-      item.append(swatch,html('span','',s.name+(s.points.some(p=>p.rainQuality==='estimated')?' · tracejado: estimativa':'')));target.append(item);
+      const labels=[s.name];if(s.points.some(p=>p.rainQuality==='estimated'))labels.push('tracejado: estimativa');
+      if(s.points.some(p=>p.rainQuality==='partial'))labels.push('vazado: parcial');
+      if(s.unavailable)labels.push('sem acumulado');
+      item.append(swatch,html('span','',labels.join(' · ')));target.append(item);
     }
   }
   function valueText(p,unit){
@@ -161,7 +164,7 @@
     const validHours=forecast?source.map(s=>{const available=new Set(s.points.filter(p=>Number.isFinite(p.value)).map(p=>Date.parse(p.time)));return Array.from({length:hours},(_,i)=>start+(i+(rain?1:0))*HOUR).filter(t=>available.has(t)).length;}):[];
     const coverage=forecast&&validHours.length?`Cobertura: ${Math.min(...validHours)}/${hours} h${validHours.some(n=>n<hours)?' · há lacunas':''}.`:'';
     const result={block,coverage,series};
-    if(!points.length){target.append(html('p','empty',options.emptyText||'Sem amostras completas para este recorte. Ausência de dados não significa zero.'));return result;}
+    if(!points.length){target.append(html('p','empty',options.emptyText||'Sem amostras para este recorte. Ausência de dados não significa zero.'));if(series.some(s=>s.unavailable))legendItems(legend,series);return result;}
     const bounds=sharedScale||scale(points.map(p=>p.value),source.some(s=>s.field==='temperature_c'));
     const root=make('svg',{viewBox:`0 0 ${W} ${H}`,role:'img',class:'weather-chart',tabindex:0,'aria-label':`${displayLabel}, em ${unit}. ${forecast&&rain&&block>1?`Barras de ${block} horas. `:''}Horários de Brasília. Use setas para consultar; Enter fixa e Escape libera.`});
     root.append(make('title',{},displayLabel),make('text',{x:L,y:14,class:'chart-unit'},unit));
@@ -182,7 +185,7 @@
           mark.append(make('title',{},`${s.name}: ${valueText(p,unit)} · ${date(p.start_at)} a ${date(p.time)}`));root.append(mark);
         }
       }else{
-        const runs=segments(s.points,s.gapMs||HOUR);
+        const runs=segments(s.points.map(p=>p.rainQuality==='partial'?{...p,value:null}:p),s.gapMs||HOUR);
         // Split at changes in IFC provenance; a dashed run contains aggregate estimates.
         const qualityRuns=[];
         for(const run of runs){
@@ -192,6 +195,13 @@
             part.push(p);
           }
           if(part.length)qualityRuns.push(part);
+        }
+        const partial=s.points.filter(p=>p.rainQuality==='partial'&&Number.isFinite(p.value));
+        // Independent samples, not an interpolated line or a filled zero.
+        const selectedPartial=simplify(partial,start,end,Math.max(1,Math.floor(w/8)));
+        for(const p of selectedPartial){
+          const dot=make('circle',{cx:x(Date.parse(p.time)),cy:y(p.value),r:4,fill:'var(--surface)',stroke:s.color,'stroke-width':2,class:'chart-partial-sample'});
+          dot.append(make('title',{},`${s.name}: ${valueText(p,unit)} · ${date(p.time)}`));root.append(dot);
         }
         for(const run of qualityRuns){const reduced=simplify(run,start,end,Math.max(1,Math.floor(w)));
           if(reduced.length>1)root.append(make('path',{d:reduced.map((p,i)=>`${i?'L':'M'}${x(Date.parse(p.time)).toFixed(2)},${y(p.value).toFixed(2)}`).join(' '),fill:'none',stroke:s.color,'stroke-width':2.5,'stroke-dasharray':run[0].rainQuality==='estimated'?'5 4':s.dash||'',class:cumulativeHours?'accumulation-line':'weather-line'}));
@@ -205,7 +215,7 @@
     if(tableHost?.id)root.setAttribute('aria-details',tableHost.id);
     if(typeof ChartInteraction!=='undefined')ChartInteraction.attach(root,{width:W,left:L,right:R,top:T,bottom:H-B,domain,times,tooltip,lookup(t){
       const selected=series.map(s=>({s,p:readingAt(s,t,forecast&&rain)}));
-      const rows=selected.slice(0,4),marks=rows.filter(r=>Number.isFinite(r.p?.value)).map(({s,p})=>({x:forecast&&rain?x(t):x(Date.parse(p.time)),y:y(p.value),color:s.color,shape:s.shape}));
+      const rows=selected.slice(0,4),marks=rows.filter(r=>Number.isFinite(r.p?.value)&&r.p.rainQuality!=='partial').map(({s,p})=>({x:forecast&&rain?x(t):x(Date.parse(p.time)),y:y(p.value),color:s.color,shape:s.shape}));
       const text=[cumulativeHours?`Acumulado móvel de ${cumulativeHours} h · término da leitura`:displayLabel,...rows.map(({s,p})=>`${s.name}: ${valueText(p,unit)}${p?' · '+(forecast&&rain?date(p.start_at)+' a ':'')+date(p.time):''}`)];
       if(selected.length>4)text.push(`+${selected.length-4} séries · filtre por estação ou consulte a tabela`);
       if(!marks.length)text.push('Ausência de amostra não significa zero.');return {text:text.join('\n'),marks};

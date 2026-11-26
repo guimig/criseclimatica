@@ -197,3 +197,5 @@
 .home-page .ifc-rain-status[data-quality="validated"]{border-left-color:var(--green)}
 .home-page .ifc-rain-status .ifc-rain-value{font-weight:600}
 .home-page .ifc-rain-status .ifc-rain-detail{color:var(--muted)}
+
+.home-page .station-partial,.home-page .chart-partial-sample{vector-effect:non-scaling-stroke}

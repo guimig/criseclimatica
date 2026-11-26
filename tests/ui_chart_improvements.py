@@ -152,10 +152,18 @@ def main():
             assert '97,9%' in status.inner_text() and '1,4 mm' in status.inner_text()
             page.locator('.station-filter summary').click()
             page.locator('#station-select').select_option('ifc:ifc-araquari')
-            assert page.locator('#plot svg').count() == 0
+            page.get_by_role('button', name='Por estação', exact=True).click()
+            assert page.locator('#plot .station-partial').count() == 1
+            assert page.locator('#plot .station-bar').count() == 0
+            assert 'parcial 97,9%' in page.locator('#plot').inner_text()
+            page.get_by_role('button', name='Ao longo do tempo', exact=True).click()
+            assert page.locator('#plot .chart-partial-sample').count() == 1
+            assert page.locator('#plot .accumulation-line').count() == 0
             assert status.is_visible()
             page.locator('#rain-window').select_option('1')
             assert status.get_attribute('data-quality') == 'missing'
+            page.get_by_role('button', name='Por estação', exact=True).click()
+            assert 'Acumulado indisponível' in page.locator('#plot').inner_text()
             page.locator('#rain-window').select_option('24')
             page.locator('#rain-scope').select_option('nearby')
             assert not status.count()

@@ -231,6 +231,55 @@ class RainTests(unittest.TestCase):
         self.assertFalse(next(w for w in result["windows"] if w["hours"]==24)["complete"])
         validate_rain(result,iso(NOW))
 
+    def test_graph_only_bridge_uses_paired_counter_endpoints(self):
+        end=END;start=end-3600000;gap=end-2*STEP
+        raw={k:[] for k in ("rain_total","rain_daily","rain_suspects_total")}
+        for t in range(start,end+1,5000):
+            if gap-STEP+30000<t<gap-30000:continue
+            value=10 if t<gap-60000 else 10.28
+            for k,v in (("rain_total",value),("rain_daily",value-10),("rain_suspects_total",0)):
+                raw[k].append({"ts":t,"value":str(v)})
+        product=raw_rain(raw,start,end,NOW)
+        validate_rain(product,iso(NOW))
+        self.assertFalse(product["windows"][0]["complete"])
+        self.assertEqual(len(product["counter_bridges"]),1)
+        self.assertAlmostEqual(product["counter_bridges"][0]["value"],.28)
+        view,archive=merge_rain({},product,iso(NOW))
+        validate_rain(view,iso(NOW))
+        self.assertFalse(view["windows"][0]["complete"])
+        graph=view["graph_windows"][0]
+        self.assertTrue(graph["complete"])
+        self.assertEqual(graph["bridge_minutes"],5)
+        self.assertFalse(graph["threshold_eligible"])
+        self.assertAlmostEqual(graph["value"],.28)
+        self.assertEqual(view["graph_series"]["rain_1h"][-1]["quality"],"estimated")
+        self.assertFalse(any(r["time"]==iso(datetime.fromtimestamp(gap/1000,timezone.utc)) for r in archive["intervals"]))
+        # The graph estimate survives a temporary source outage, but a hard veto removes it.
+        retained,_=merge_rain(archive,{},iso(NOW))
+        self.assertEqual(retained["graph_windows"][0]["bridge_minutes"],5)
+        t=product["counter_bridges"][0]["time"]
+        denied,_=merge_rain(archive,{"rejected_intervals":[{"time":t,"reason":"counter_reset_or_decrease"}]},iso(NOW))
+        self.assertEqual(denied["graph_windows"][0]["bridge_minutes"],0)
+        raw["rain_daily"]=[]
+        rejected=raw_rain(raw,start,end,NOW)
+        self.assertEqual(rejected["counter_bridges"],[])
+        raw["rain_daily"]=[{"ts":r["ts"],"value":"0"} for r in raw["rain_total"]]
+        self.assertFalse(raw_rain(raw,start,end,NOW)["counter_bridges"])
+
+    def test_graph_partial_24h_has_real_sum_without_complete_series(self):
+        groups=fixture()
+        groups["COUNT"]["rain_total"].pop(-3)
+        raw=summarize(groups,START,END,NOW)
+        product,_=merge_rain({},raw,iso(NOW))
+        validate_rain(product,iso(NOW))
+        strict=next(r for r in product["windows"] if r["hours"]==24)
+        graph=product["graph_series"]["rain_24h"][-1]
+        self.assertFalse(strict["complete"])
+        self.assertEqual(graph["quality"],"partial")
+        self.assertEqual(graph["value"],strict["value"])
+        self.assertEqual(graph["covered_minutes"],strict["covered_minutes"])
+        self.assertNotIn(graph["time"],[r["time"] for r in product["series"]["rain_24h"]])
+
     def test_backfill_chunk_limits_and_resume(self):
         from urllib.parse import parse_qs,urlsplit
         g=fixture();queries=[]
