@@ -100,7 +100,7 @@
     for(const s of series){
       const item=html('span','legend-item'),swatch=make('svg',{width:30,height:16,viewBox:'0 0 30 16','aria-hidden':'true',class:'legend-swatch'});
       swatch.append(make('line',{x1:1,x2:29,y1:8,y2:8,stroke:s.color,'stroke-width':2.5,'stroke-dasharray':s.dash||''}),marker(15,8,s.color,s.shape,3));
-      item.append(swatch,html('span','',s.name));target.append(item);
+      item.append(swatch,html('span','',s.name+(s.points.some(p=>p.rainQuality==='estimated')?' · tracejado: estimativa':'')));target.append(item);
     }
   }
   function valueText(p,unit){
@@ -183,8 +183,18 @@
         }
       }else{
         const runs=segments(s.points,s.gapMs||HOUR);
-        for(const run of runs){const reduced=simplify(run,start,end,Math.max(1,Math.floor(w)));
-          if(reduced.length>1)root.append(make('path',{d:reduced.map((p,i)=>`${i?'L':'M'}${x(Date.parse(p.time)).toFixed(2)},${y(p.value).toFixed(2)}`).join(' '),fill:'none',stroke:s.color,'stroke-width':2.5,'stroke-dasharray':s.dash||'',class:cumulativeHours?'accumulation-line':'weather-line'}));
+        // Split at changes in IFC provenance; a dashed run contains aggregate estimates.
+        const qualityRuns=[];
+        for(const run of runs){
+          let part=[];
+          for(const p of run){
+            if(part.length&&part.at(-1).rainQuality!==p.rainQuality){qualityRuns.push(part);part=[];}
+            part.push(p);
+          }
+          if(part.length)qualityRuns.push(part);
+        }
+        for(const run of qualityRuns){const reduced=simplify(run,start,end,Math.max(1,Math.floor(w)));
+          if(reduced.length>1)root.append(make('path',{d:reduced.map((p,i)=>`${i?'L':'M'}${x(Date.parse(p.time)).toFixed(2)},${y(p.value).toFixed(2)}`).join(' '),fill:'none',stroke:s.color,'stroke-width':2.5,'stroke-dasharray':run[0].rainQuality==='estimated'?'5 4':s.dash||'',class:cumulativeHours?'accumulation-line':'weather-line'}));
           const selected=reduced.length<=60?reduced:[reduced[0],reduced.at(-1),reduced.reduce((a,b)=>a.value<b.value?a:b),reduced.reduce((a,b)=>a.value>b.value?a:b)];
           for(const p of new Set(selected)){const dot=marker(x(Date.parse(p.time)),y(p.value),s.color,s.shape);dot.setAttribute('class',cumulativeHours?'chart-sample accumulation-sample':'chart-sample');dot.append(make('title',{},`${s.name}: ${valueText(p,unit)} · ${cumulativeHours?`${cumulativeHours} h anteriores a `:''}${date(p.time)}`));root.append(dot);}
         }

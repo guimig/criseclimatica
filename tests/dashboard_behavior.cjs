@@ -506,3 +506,20 @@ assert.equal(getChartSeries(instrumental,null,'observed','precipitation_mm',24,n
 
 const hybrid={...data,synthesis:{campus_context:{rain_reconstruction:{authoritative_from:'2026-11-06T19:00:00Z',series:{rain_24h:[{time:'2026-11-06T19:45:00Z',value:12,interval_minutes:5,count:1,quality:'estimated',estimated_minutes:1440,validated_minutes:0}]}}}}};
 assert.match(getChartSeries(hybrid,null,'observed','precipitation_mm',24,now,'rain_24h_mm')[0].points[0].qualifier,/estimativa por agregados/);
+
+const {campusRainState}=require('../web/dashboard.js');
+const coverageWindow={hours:24,start_at:'2026-11-05T20:00:00Z',end_at:data.generated_at,expected_minutes:1440,covered_minutes:1410,validated_minutes:55,estimated_minutes:1355,complete:false,value:1.4};
+const coverageData={...data,synthesis:{campus_context:{rain_reconstruction:{windows:[coverageWindow]}}}};
+assert.equal(campusRainState(coverageData,24).quality,'partial');
+assert.equal(campusRainState(coverageData,24).value,1.4);
+assert.match(campusRainState(coverageData,24).detail,/97,9%/);
+assert.equal(campusRainState(coverageData,1).quality,'missing');
+assert.equal(campusRainState({...coverageData,generated_at:'2026-11-07T00:00:00Z'},24).quality,'missing');
+coverageWindow.covered_minutes=1440;coverageWindow.estimated_minutes=1385;coverageWindow.complete=true;
+assert.equal(campusRainState(coverageData,24).quality,'estimated');
+coverageWindow.validated_minutes=1440;coverageWindow.estimated_minutes=0;coverageWindow.value=0;
+assert.equal(campusRainState(coverageData,24).quality,'validated');
+assert.equal(campusRainState(coverageData,24).value,0);
+coverageWindow.covered_minutes=0;coverageWindow.validated_minutes=0;coverageWindow.complete=false;coverageWindow.value=null;
+assert.equal(campusRainState(coverageData,24).quality,'missing');
+assert.equal(campusRainState(coverageData,24).value,null);

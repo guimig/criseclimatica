@@ -35,6 +35,9 @@ RETRY_MS = 3*3600000
 CHUNK_MS = (QUERY_HOURS*12-1)*STEP
 MAX_INITIAL_CHUNKS = 14
 MAX_REPAIR_CHUNKS = 2
+RAW_REPAIR_HOURS = 24
+MAX_RAW_REPAIRS = 2
+MAX_RECOVERY_ATTEMPTS = 48
 # Public dashboard 421b5150, device 948e1e60, verified 26/11/2026:
 # rain_total widget: Chuva Total, units mm. This is provider metadata,
 # not metrological certification or proof of uninterrupted transmission.
@@ -306,7 +309,7 @@ def clean_attempts(attempts, now_ms):
         except (TypeError,ValueError):continue
         if t%STEP==0 and now_ms-WINDOW_HOURS*3600000<=t<=now_ms and now_ms-WINDOW_HOURS*3600000<=at<=now_ms:
             out[str(t)]=at
-    return dict(sorted(out.items(),key=lambda item:int(item[0]))[-MAX_INITIAL_CHUNKS-4:])
+    return dict(sorted(out.items(),key=lambda item:int(item[0]))[-MAX_RECOVERY_ATTEMPTS:])
 
 
 def merge_rain(previous, current, stamp):
@@ -495,6 +498,38 @@ def collect_rain(requester,token,telemetry,now,previous=None,*,budget_seconds=RE
     except (SourceError,OSError,ValueError,TypeError,KeyError):
         pass
     reconcile(records,blocked,raw,now_ms)
+    initial=not attempts
+    # Repair holes within the known recent history before spending the budget
+    # on older aggregate chunks. Raw gaps require original evidence; hard vetoes
+    # remain permanent. Bound each repair to a small query and the shared budget.
+    raw_repairs=missing_repairs=0
+    def repair_recent():
+        nonlocal raw_repairs,missing_repairs
+        if raw_repairs+missing_repairs>=MAX_RAW_REPAIRS or monotonic()-started>=budget_seconds:
+            return
+        floor=max(end-RAW_REPAIR_HOURS*3600000,min(list(records)+list(blocked),default=end))
+        ceiling=raw_start  # the primary raw query already covers newer intervals
+        candidates=[t for t in range(floor,ceiling+1,STEP)
+                    if t not in records and blocked.get(t) not in HARD_REASONS
+                    and now_ms-attempts.get(str(t),0)>=RETRY_MS]
+        if not candidates:return
+        t=max(candidates,key=lambda t:(blocked.get(t)=="raw_gap",t))
+        if blocked.get(t)=="raw_gap":raw_repairs+=1
+        else:missing_repairs+=1
+        attempts[str(t)]=now_ms
+        try:
+            data=query(requester,token,telemetry,("rain_total","rain_daily","rain_suspects_total","rain_increment"),
+                       t-2*STEP,min(end,t+STEP),"NONE",RAW_LIMIT)
+            repair=raw_rain(data,t-2*STEP,min(end,t+STEP),now)
+            # The surrounding readings only establish boundaries. Reconcile the
+            # requested gap, not unrelated archived intervals.
+            target=iso(datetime.fromtimestamp(t/1000,timezone.utc))
+            repair["intervals"]=[r for r in repair.get("intervals",[]) if r["time"]==target]
+            repair["rejected_intervals"]=[r for r in repair.get("rejected_intervals",[]) if r["time"]==target]
+            reconcile(records,blocked,repair,now_ms)
+        except (SourceError,OSError,ValueError,TypeError,KeyError):
+            pass
+    repair_recent()
     recent_start=end-QUERY_HOURS*3600000
     missing_recent=any(t not in records for t in range(recent_start+2*STEP,end+1,STEP))
     raw_full=any(w["hours"]==1 and w.get("validated_complete") for w in raw["windows"])
@@ -502,22 +537,7 @@ def collect_rain(requester,token,telemetry,now,previous=None,*,budget_seconds=RE
     if (missing_recent or not raw_full) and monotonic()-started<budget_seconds:
         recent=aggregate_query(requester,token,telemetry,recent_start,end,now)
         reconcile(records,blocked,recent,now_ms)
-    initial=not attempts
-    # A verified raw gap is never filled with aggregate estimates. Attempt
-    # one small retrospective raw repair (late telemetry may have arrived).
-    raw_repairs=0
-    repairable=[t for t,r in blocked.items() if r=="raw_gap" and end-6*3600000<=t<raw_start+STEP
-                and now_ms-attempts.get(str(t),0)>=RETRY_MS]
-    if repairable and monotonic()-started<budget_seconds:
-        t=max(repairable);a=t-2*STEP;b=min(end,t+STEP)
-        attempts[str(t)]=now_ms;raw_repairs=1
-        try:
-            data=query(requester,token,telemetry,("rain_total","rain_daily","rain_suspects_total","rain_increment"),
-                       a,b,"NONE",RAW_LIMIT)
-            repair=raw_rain(data,a,b,now)
-            reconcile(records,blocked,repair,now_ms)
-        except (SourceError,OSError,ValueError,TypeError,KeyError):
-            pass
+    repair_recent()
     limit=MAX_INITIAL_CHUNKS if initial else MAX_REPAIR_CHUNKS
     recovered=available=0
     oldest=end-WINDOW_HOURS*3600000
@@ -548,7 +568,7 @@ def collect_rain(requester,token,telemetry,now,previous=None,*,budget_seconds=RE
     result["diagnostics"]={"retrieval_method":"hybrid_raw_and_aggregated","raw":raw["diagnostics"],
                            "recent_aggregate":recent["diagnostics"],
                            "historical_chunks_attempted":recovered,"historical_chunks_available":available,
-                           "raw_gap_repairs_attempted":raw_repairs,
+                           "raw_gap_repairs_attempted":raw_repairs,"raw_missing_repairs_attempted":missing_repairs,
                            "raw_bins":sum(q==RAW_QUALITY for _,q in records.values()),
                            "aggregate_bins":sum(q==AGG_QUALITY for _,q in records.values()),
                            "rejected_bins":len(blocked),"query_budget_seconds":budget_seconds}
@@ -613,7 +633,7 @@ def validate_rain(product, stamp):
                 or not valid_number(row.get("value"),0,500)):
             raise ValueError("Invalid IFC interval provenance")
         previous_time=t
-    if len(product.get("rejected_intervals",[]))>LIMIT or len(product.get("attempts",{}))>MAX_INITIAL_CHUNKS+4:
+    if len(product.get("rejected_intervals",[]))>LIMIT or len(product.get("attempts",{}))>MAX_RECOVERY_ATTEMPTS:
         raise ValueError("Unbounded IFC recovery metadata")
     seen=set()
     for r in product["windows"]:

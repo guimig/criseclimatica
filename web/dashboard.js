@@ -282,6 +282,34 @@ function getChartSeries(data,history,mode,variable,hours,now=Date.now(),observed
   const order=[...new Set([...grouped.values()].map(s=>s.station))].sort();
   return [...grouped.values()].sort((a,b)=>a.id.localeCompare(b.id)).map((s,i)=>({...s,name:s.name.replace('Estação sem nome','Estação '+(order.indexOf(s.station)+1)),color:colors[i%colors.length],points:s.points.sort((a,b)=>Date.parse(a.time)-Date.parse(b.time))}));
 }
+// A partial sum is descriptive, never a numeric point on the comparative scale.
+function campusRainState(data,hours) {
+  const reconstruction=data?.synthesis?.campus_context?.rain_reconstruction;
+  const w=reconstruction?.windows?.find(r=>r.hours===hours);
+  const expected=hours*60,anchor=Date.parse(data?.generated_at),end=Date.parse(w?.end_at),start=Date.parse(w?.start_at);
+  const n=w?.covered_minutes,v=w?.validated_minutes,e=w?.estimated_minutes;
+  if(!w||!Number.isFinite(anchor)||!Number.isFinite(end)||anchor-end<0||anchor-end>90*60000||end-start!==expected*60000||
+     w.expected_minutes!==expected||!Number.isInteger(n)||n<0||n>expected||n%5||
+     !Number.isInteger(v)||!Number.isInteger(e)||v<0||e<0||v+e!==n||
+     w.complete!==(n===expected)||n>0&&(!Number.isFinite(w.value)||w.value<0)||n===0&&w.value!==null)
+    return {quality:'missing',label:'Acumulado indisponível',detail:'Sem janela recente conferida do contador; ausência de dados não significa chuva zero.'};
+  const quality=n===0?'missing':n<expected?'partial':v===expected?'validated':'estimated';
+  const label=quality==='partial'?'Acumulado parcial':quality==='estimated'?'Acumulado completo estimado':quality==='validated'?'Acumulado completo conferido':'Acumulado indisponível';
+  const minutes=m=>m>=60?Math.floor(m/60)+' h'+(m%60?' '+m%60+' min':''):m+' min';
+  const detail=minutes(n)+' de '+hours+' h ('+num(n/expected*100)+'%) · '+minutes(v)+' conferidos · '+minutes(e)+' estimados'+(n<expected?' · '+minutes(expected-n)+' ausentes':'')+' · término '+date(w.end_at)+'.';
+  return {quality,label,detail,coverage:n/expected,value:n>0?w.value:null,end_at:w.end_at};
+}
+function renderCampusRainStatus(host,data,hours) {
+  const state=campusRainState(data,hours),box=node('div','ifc-rain-status');
+  box.setAttribute('id','ifc-rain-status');box.dataset.quality=state.quality;
+  const title=node('strong','','IFC Araquari · '+state.label);
+  box.append(title);
+  if(Number.isFinite(state.value))box.append(node('span','ifc-rain-value',num(state.value)+' mm'+(state.quality==='partial'?' (soma dos intervalos disponíveis)':'')));
+  box.append(node('span','ifc-rain-detail',state.detail));
+  if(state.quality==='partial')box.append(node('span','ifc-rain-detail','O parcial não é o total de '+hours+' h e não entra na comparação nem na classificação de risco.'));
+  if(state.quality==='estimated')box.append(node('span','ifc-rain-detail','Inclui estimativas por agregados; não entra na classificação de risco.'));
+  host.append(box);
+}
 function comparableReadings(series,anchor,windowHours) {
   const rows=series.filter(s=>s.points.length).map(s=>({series:s,point:s.points[s.points.length-1]}));
   if(!rows.length)return {rows,cohort:[]};
@@ -339,6 +367,9 @@ function renderChart() {
   }):[];
   const selector=el('station-select');selector.replaceChildren();const all=node('option','','Todas as estações');all.value='all';selector.append(all);
   const keys=new Set();for(const s of allObserved){const key=s.source+':'+s.station;if(keys.has(key))continue;keys.add(key);const option=node('option','',s.name.replace(/ · (vento|rajada)$/, ''));option.value=key;selector.append(option);}
+  if(rain&&!nearby&&data&&!keys.has('ifc:ifc-araquari')){
+    keys.add('ifc:ifc-araquari');const option=node('option','','IFC Araquari');option.value='ifc:ifc-araquari';selector.append(option);
+  }
   if(panel.station!=='all'&&!keys.has(panel.station))panel.station='all';selector.value=panel.station;
   const observed=allObserved.filter(s=>panel.station==='all'||s.source+':'+s.station===panel.station);
   el('observed-panel').hidden=false;el('forecast-panel').hidden=false;
@@ -371,10 +402,13 @@ function renderChart() {
   el('observed-source').textContent=rain?(nearby?'Cemaden · entorno':'Estações de Araquari'):sources.join(' / ')||'Sem leituras';
   const filter=panel.station==='all'?'todas as estações':selector.options?.[selector.selectedIndex]?.textContent||'estação selecionada';
   el('observed-filter').textContent=`${nearby?'Entorno · até 40 km':rain?'Araquari':'Estações disponíveis'} · ${filter}`;
-  el('station-coverage').textContent=`${stations.size} ${stations.size===1?'estação':'estações'} · ${rain?(nearby?'entorno':'Araquari'):'leituras disponíveis'}`;
+  el('station-coverage').textContent=`${stations.size} ${stations.size===1?'estação':'estações'} · ${rain?(nearby?'entorno':'Araquari'):'leituras disponíveis'}`+(rain&&!nearby&&data&&(panel.station==='all'||panel.station==='ifc:ifc-araquari')&&!stations.has('ifc:ifc-araquari')?' · IFC sem acumulado completo no recorte':'');
   el('forecast-period').textContent=`Próximas ${chartRangeLabel(panel.hours)} · ${date(new Date(base).toISOString())} — ${date(new Date(base+panel.hours*3600000).toISOString())}`;
   const endpoints=observed.flatMap(s=>s.points.map(p=>Date.parse(p.time))).filter(Number.isFinite),last=endpoints.length?new Date(Math.max(...endpoints)).toISOString():null;
-  el('observed-status').textContent=(last?'Última amostra: '+date(last)+'. ':'Sem amostras. ')+(panel.hours>168?'Histórico disponível: até 7 dias.':'');
+  el('observed-status').textContent=(last?'Última amostra completa: '+date(last)+'. ':'Sem amostras completas. ')+(panel.hours>168?'Histórico disponível: até 7 dias.':'');
+  if(rain&&!nearby&&data&&(panel.station==='all'||panel.station==='ifc:ifc-araquari')){
+    renderCampusRainStatus(el('observed-status'),data,panel.rainWindow);
+  }
   const reference=forecastSource?.reference_at||data?.forecast?.reference_at||data?.forecast?.collected_at;
   el('forecast-status').textContent=validForecast?`${result.coverage} Referência da previsão: ${date(reference)}.`:'Sem previsão horária vigente.';
   el('observed-caption').textContent=rain?(snapshot?`Acumulado de ${panel.rainWindow} h por estação.`:`Cada ponto representa as ${panel.rainWindow} h anteriores ao horário da leitura. Janelas móveis não se somam; cinza indica falta de amostras.`):'Leituras por estação. Traço contínuo: vento; tracejado: rajada.';
@@ -700,7 +734,7 @@ async function loadDashboard() {
   finally{if(id===panel.loadId){panel.loading=false;el('refresh').disabled=false;renderSummary();renderRecent();renderChart();}}
 }
 function selectVariable(variable) {panel.variable=variable;if(el('forecast-variable'))el('forecast-variable').value=variable;for(const button of document.querySelectorAll('[data-variable]')){const selected=button.dataset.variable===variable;button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));}renderChart();}
-if(typeof module!=='undefined')module.exports={dailyForecast,inmetReadableLink,borderingNotices,borderingAlertSummary,homeNotices,noticePhase,noticeScopePreview,noticePreview,noticeSourceSummary,noticeSeverityClass,noticePeriod,reportedWindowExpired,primaryNotice,inmetContextStatus,inmetNotices,fresh,dashboardCurrent,protocolCurrent,forecastCurrent,currentGauges,signalCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale};
+if(typeof module!=='undefined')module.exports={dailyForecast,inmetReadableLink,borderingNotices,borderingAlertSummary,homeNotices,noticePhase,noticeScopePreview,noticePreview,noticeSourceSummary,noticeSeverityClass,noticePeriod,reportedWindowExpired,primaryNotice,inmetContextStatus,inmetNotices,fresh,dashboardCurrent,protocolCurrent,forecastCurrent,currentGauges,signalCurrent,effectiveAssessment,getChartSeries,comparableReadings,pointDescription,riskPresentation,stationName,chartScale,campusRainState};
 if(typeof document!=='undefined'){
   function navigationState(){for(const link of document.querySelectorAll('nav a[href^="#"]')){const active=link.getAttribute('href')===(location.hash||'#main');if(active)link.setAttribute('aria-current','location');else link.removeAttribute('aria-current');}}
   window.addEventListener('hashchange',navigationState);navigationState();
