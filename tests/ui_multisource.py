@@ -97,8 +97,16 @@ def main():
                 if theme=='dark':page.locator('#theme-toggle').click()
                 assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
                 page.screenshot(path=str(OUTPUT/f'multisource-home-{theme}-{width}.png'),full_page=True)
-            page.goto(url+'dados.html');page.locator('#weather-synthesis-detail .synthesis-daily').wait_for()
-            assert 'INMET' in page.locator('#weather-synthesis-detail').inner_text()
+            page.goto(url+'dados.html');page.locator('#local-synthesis-overview > summary').wait_for()
+            intro=page.locator('#weather-synthesis-detail');overview=page.locator('#local-synthesis-overview')
+            assert not overview.evaluate('el=>el.open')
+            assert not overview.locator('.synthesis-grid').is_visible()
+            assert not overview.locator('.synthesis-daily').is_visible()
+            assert not overview.locator('.synthesis-method > summary').first.is_visible()
+            initial_height=intro.bounding_box()['height']
+            assert initial_height < (300 if width<651 else 190),initial_height
+            assert page.locator('#location-select').is_visible()
+            page.screenshot(path=str(OUTPUT/f'synthesis-collapsed-{width}.png'),full_page=True)
             assert 'Classificação de risco' in page.locator('#weather-synthesis-detail').inner_text()
             risk=page.locator('#risk-classification-detail')
             assert risk.locator('.risk-level-name').inner_text()=='Atenção'
@@ -124,8 +132,24 @@ def main():
             assert risk.locator('[data-risk-panel="criteria"]').evaluate('el=>el.open')
             risk.locator(':scope > summary').click()
             assert not risk.evaluate('el=>el.open')
-            assert '4 estações' in page.locator('#weather-synthesis-detail').inner_text()
+            assert not overview.evaluate('el=>el.open')
+            overview.locator(':scope > summary').focus();page.keyboard.press('Enter')
+            assert overview.evaluate('el=>el.open')
+            assert overview.locator('.synthesis-daily').is_visible()
+            assert 'INMET' in overview.inner_text()
+            assert '4 estações' in overview.inner_text()
+            assert intro.bounding_box()['height']>initial_height
+            group=overview.locator('[data-synthesis-panel="forecast-agreement"]')
+            group.locator(':scope > summary').click()
+            assert group.evaluate('el=>el.open')
+            with page.expect_response(lambda r: '/data/dashboard.json' in r.url):page.locator('#reload').click()
+            page.wait_for_timeout(300)
+            assert overview.evaluate('el=>el.open') and group.evaluate('el=>el.open')
             assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+            page.screenshot(path=str(OUTPUT/f'synthesis-expanded-{width}.png'),full_page=True)
+            overview.locator(':scope > summary').click()
+            assert not overview.evaluate('el=>el.open')
+            assert intro.bounding_box()['height']<=initial_height+2
             page.screenshot(path=str(OUTPUT/f'multisource-details-{width}.png'),full_page=True)
             dash.clear();dash.update(deepcopy(calm))
             page.goto(url);page.get_by_role('heading',name='Normalidade',exact=True).wait_for()
@@ -160,6 +184,7 @@ def main():
             page.locator('#epagri-notices .notice-entry > summary').first.click()
             assert page.get_by_role('link',name='Ler previsão completa ↗').get_attribute('href')==publication['url']
             page.goto(url+'dados.html');page.locator('#risk-classification-detail .risk-level-name').wait_for();assert page.locator('#risk-classification-detail .risk-level-name').inner_text()=='Atenção'
+            page.locator('#local-synthesis-overview > summary').click()
             page.get_by_text('Concordância entre previsões',exact=True).click()
             assert 'divergência sobre atenção' in page.locator('#weather-synthesis-detail').inner_text()
             page.get_by_text('Temperaturas diárias por fonte',exact=True).click()
