@@ -26,22 +26,162 @@
     return data?.risk_classification?riskLevel(data.risk_classification,now):null;
   }
   function element(tag,cls,text){const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;}
+  const riskBasisNames={
+    numeric_attention:'Medição ou previsão quantitativa',
+    approximate_local_observation:'Medição local aproximada',
+    compatible_observation_and_forecast:'Medição e previsão concordantes',
+    compatible_observation_and_additional_model:'Medição e previsão concordantes',
+    applicable_official_notice:'Aviso oficial aplicável',
+    positive_notice_pending_time_verification:'Aviso com validade a confirmar',
+    qualitative_epagri_evidence:'Publicação Epagri/Ciram',
+    inmet_qualitative_forecast_attention:'Previsão qualitativa do INMET',
+    cptec_qualitative_forecast_attention:'Previsão qualitativa do CPTEC/INPE',
+    scoped_dated_publication_attention:'Boletim meteorológico',
+    observed_shorter_window_lower_bound_24h:'Chuva observada em intervalo menor',
+    complete_monitored_coverage:'Cobertura das fontes monitoradas',
+    qualitative_monitored_coverage:'Cobertura com previsão qualitativa'
+  };
+  const rowsOf=value=>Array.isArray(value)?value.filter(r=>r&&typeof r==='object'):[];
+  function riskDetailModel(product,now=Date.now()){
+    const risk=riskLevel(product,now);
+    const order=Object.keys(riskNames);
+    const candidates=rowsOf(product?.candidates).filter(c=>order.includes(c.level)&&c.level!=='roxo'&&typeof c.reason==='string'&&Array.isArray(c.evidence)&&c.evidence.length);
+    const active=[],expired=[];
+    // Group repeating reasons without dropping the individual validity or source.
+    const groups=new Map();
+    for(const c of candidates){
+      const current=live(c,now),key=JSON.stringify([current,c.level,c.basis,c.reason]);
+      if(!groups.has(key)){
+        const g={level:c.level,basis:c.basis,reason:c.reason,entries:[]};
+        groups.set(key,g);(current?active:expired).push(g);
+      }
+      groups.get(key).entries.push(c);
+    }
+    const sort=(a,b)=>order.indexOf(b.level)-order.indexOf(a.level);
+    active.sort(sort);expired.sort(sort);
+    const requirements=rowsOf(product?.requirements).map(r=>({...r,current:!!r.available&&live(r,now)}));
+    const levels=rowsOf(product?.levels).filter(r=>order.includes(r.id)&&typeof r.criterion==='string');
+    return {risk,active,expired,requirements,levels,
+      activeCount:candidates.filter(c=>live(c,now)).length,expiredCount:candidates.filter(c=>!live(c,now)).length,
+      covered:requirements.filter(r=>r.current).length,
+      validUntil:risk.active?active.find(g=>g.level===risk.active&&g.reason===risk.reason)?.entries[0]?.valid_until:null};
+  }
+  function riskSource(e,registry){
+    if(!e||typeof e!=='object')return '';
+    const station=registry.find(r=>r.id===e.station||r.id===e.code)?.name;
+    if(station)return station;
+    const source=e.source||e.name||e.label||'';
+    const aliases={'ifc':'IFC Araquari','cemaden-rain':'Cemaden','cemaden-sensors':'Cemaden','open_meteo':'Open-Meteo','best_match':'Open-Meteo','metar':'NOAA/METAR'};
+    return aliases[source]||String(source);
+  }
+  function riskRequirementNote(r){
+    const notes=[];
+    if(r.resolution==='qualitative_daily_or_period'){
+      const sources=[...new Set(rowsOf(r.evidence).filter(e=>e.period&&e.source).map(e=>e.source))];
+      notes.push((sources.length?sources.join('/')+' ':'Previsão ')+'diário/por turno');
+    }else if(r.resolution==='hourly_quantitative')notes.push('Previsão horária');
+    if(r.spatial_scope==='regional_reference')notes.push('Referência regional');
+    if(rowsOf(r.evidence).some(e=>e.retained_previous))notes.push('Consulta anterior válida');
+    if(r.current)notes.push('Até '+date(r.valid_until));
+    else if(r.valid_until)notes.push('Última validade: '+date(r.valid_until));
+    return notes.join(' · ');
+  }
+  function renderRisk(target,data,now,saved,focused){
+    const product=data.risk_classification,model=riskDetailModel(product,now),{risk}=model;
+    const registry=rowsOf(data.station_registry);
+    const box=element('details','risk-analysis');
+    box.id='risk-classification-detail';box.dataset.risk=risk.color;box.dataset.riskPanel='main';
+    box.open=saved.get('main')===true;
+    const summary=element('summary','risk-summary');
+    const heading=element('span','risk-summary-heading','Classificação de risco');
+    const level=element('span','risk-summary-level');
+    const dot=element('span','risk-indicator');dot.setAttribute('aria-hidden','true');
+    level.append(dot,element('strong','risk-level-name',risk.title));
+    const main=element('span','risk-summary-main');
+    main.append(heading,level,element('span','risk-summary-reason',risk.reason));
+    const meta=element('span','risk-summary-meta');
+    meta.append(element('span','risk-summary-kind','Araquari · '+risk.kind));
+    if(model.validUntil)meta.append(element('span','','Válida até '+date(model.validUntil)));
+    if(model.requirements.length)meta.append(element('span','',model.covered+'/'+model.requirements.length+' requisitos de normalidade disponíveis'));
+    const action=element('span','risk-summary-action');
+    action.append(element('span','risk-closed-label','Ver detalhes'),element('span','risk-open-label','Recolher'));
+    summary.append(main,meta,action);box.append(summary);
+    const body=element('div','risk-analysis-body');
+    body.append(element('p','risk-note','Classificação consultiva de Araquari, baseada nas categorias da PN 13/2026. A decisão sobre atividades cabe à autoridade institucional competente.'));
+    const criterion=model.levels.find(l=>l.id===risk.active);
+    if(criterion){
+      const current=element('div','risk-current-criterion');
+      current.append(element('h3','','Critério do nível atual'),element('p','',criterion.criterion));
+      body.append(current);
+    }
+    function disclosure(key,label,initial=false){
+      const panel=element('details','risk-subpanel');panel.dataset.riskPanel=key;
+      panel.open=saved.has(key)?saved.get(key):initial;
+      panel.append(element('summary','',label));body.append(panel);return panel;
+    }
+    function evidenceList(groups,host,current){
+      if(!groups.length){
+        host.append(element('p','risk-note',current?'Nenhuma evidência classificatória vigente. Consulte a cobertura das fontes.':'Nenhum registro vencido nesta publicação.'));
+        return;
+      }
+      const list=element('ul','risk-evidence-list');
+      for(const g of groups){
+        const item=element('li','risk-evidence-item');
+        const h=element('div','risk-evidence-heading');
+        const tag=element('span','risk-evidence-level',riskNames[g.level]);tag.dataset.risk=g.level;
+        h.append(tag,element('span','risk-evidence-basis',riskBasisNames[g.basis]||'Referência meteorológica'));
+        if(g.entries.length>1)h.append(element('span','risk-evidence-count',g.entries.length+' referências'));
+        item.append(h,element('p','risk-evidence-reason',g.reason));
+        const details=element('ul','risk-reference-list');
+        const seen=new Set();
+        for(const c of g.entries){
+          const sources=[...new Set(rowsOf(c.evidence).map(e=>riskSource(e,registry)).filter(Boolean))];
+          // Coverage candidates already have their requirements listed below.
+          const sourceText=g.level==='verde'?'Cobertura avaliada':sources.join(' · ')||'Referência sem fonte detalhada';
+          const line=sourceText+' · '+(current?'Até ':'Venceu em ')+date(c.valid_until);
+          if(!seen.has(line)){details.append(element('li','',line));seen.add(line);}
+        }
+        item.append(details);list.append(item);
+      }
+      host.append(list);
+    }
+    const active=disclosure('evidence','Evidências vigentes · '+model.activeCount,!!risk.active);
+    evidenceList(model.active,active,true);
+    const coverage=disclosure('coverage','Cobertura para Normalidade'+(model.requirements.length?' · '+model.covered+'/'+model.requirements.length:''),!risk.active);
+    coverage.append(element('p','risk-note','A ausência de uma referência não é indicação de segurança. Esta cobertura informa os requisitos de Normalidade, não a intensidade do risco.'));
+    if(model.requirements.length){
+      const list=element('ul','risk-coverage-list');
+      for(const r of model.requirements){
+        const item=element('li','risk-coverage-item');
+        const status=element('span','risk-coverage-status',r.current?'Disponível':'Ausente ou vencida');status.dataset.available=String(r.current);
+        item.append(element('strong','',r.label||'Referência'),status);
+        const note=riskRequirementNote(r);if(note)item.append(element('small','',note));
+        list.append(item);
+      }
+      coverage.append(list);
+    }else coverage.append(element('p','risk-note','Cobertura não informada nesta publicação.'));
+    const criteria=disclosure('criteria','Critérios dos seis níveis');
+    const levels=element('ol','risk-level-list');
+    for(const r of model.levels){
+      const item=element('li','risk-level-item');item.dataset.risk=r.id;
+      const title=element('strong','',riskNames[r.id]||r.name);
+      if(r.id===risk.active){title.append(element('span','risk-current-tag','Atual'));item.setAttribute('aria-current','true');}
+      item.append(title,element('p','',r.criterion));levels.append(item);
+    }
+    criteria.append(levels);
+    if(model.expiredCount)evidenceList(model.expired,disclosure('expired','Referências vencidas · '+model.expiredCount),false);
+    const link=element('a','risk-method-link','Critérios completos e limites do algoritmo ↗');link.href='https://github.com/guimig/criseclimatica/blob/main/docs/CLASSIFICACAO_CONSULTIVA.md';link.target='_blank';link.rel='noopener noreferrer';
+    body.append(link);box.append(body);target.append(box);
+    if(focused){const panel=Array.from(box.querySelectorAll('details[data-risk-panel]')).find(d=>d.dataset.riskPanel===focused);const node=focused==='main'?summary:panel?.querySelector('summary');node?.focus({preventScroll:true});}
+  }
   function render(target,data,detailed=false){
-    if(!target)return;target.replaceChildren();
+    if(!target)return;
+    const saved=new Map(Array.from(target.querySelectorAll('details[data-risk-panel]')).map(d=>[d.dataset.riskPanel,d.open]));
+    const activeElement=document.activeElement,focused=activeElement?.tagName==='SUMMARY'&&target.contains(activeElement)?activeElement.parentElement?.dataset.riskPanel:null;
+    target.replaceChildren();
     if(!valid(data)){target.append(element('p','','Síntese local indisponível nesta publicação.'));return;}
     const now=Date.now();
-    if(detailed&&data.risk_classification){
-      const risk=riskLevel(data.risk_classification,now),box=element('section','risk-analysis');
-      box.append(element('h2','','Classificação de risco'),element('h3','',risk.title),element('p','',risk.reason),element('p','small','Nível consultivo com referência às categorias da PN 13/2026. A decisão institucional permanece com a autoridade competente.'));
-      box.append(element('h4','','Evidências utilizadas'));
-      const candidates=data.risk_classification.candidates||[];
-      for(const c of candidates)box.append(element('p','small',`${riskNames[c.level]} · ${c.reason} · válida até ${date(c.valid_until)}${live(c,now)?'':' · vencida'}.`));
-      box.append(element('h4','','Cobertura necessária para normalidade'));
-      for(const r of data.risk_classification.requirements||[])box.append(element('p','small',`${r.label}: ${r.available&&live(r,now)?'disponível':'ausente ou vencida'}${r.resolution==='qualitative_daily_or_period'?' · '+[...new Set((r.evidence||[]).filter(e=>e.period).map(e=>e.source))].join('/')+' diário/por turno':''}${r.spatial_scope==='regional_reference'?' · referência regional':''}${r.evidence?.some(e=>e.retained_previous)?' · consulta anterior válida':''}${r.valid_until?' · até '+date(r.valid_until):''}.`));
-      box.append(element('h4','','Critérios por nível'));
-      for(const level of data.risk_classification.levels||[])box.append(element('p','small',`${level.name}: ${level.criterion}`));
-      const link=element('a','','Critérios completos e limites do algoritmo ↗');link.href='https://github.com/guimig/criseclimatica/blob/main/docs/CLASSIFICACAO_CONSULTIVA.md';link.target='_blank';link.rel='noopener noreferrer';box.append(link);target.append(box);
-    }
+    if(detailed&&data.risk_classification)renderRisk(target,data,now,saved,focused);
     if(detailed){
       const group=(title)=>{const d=element('details','synthesis-method');d.append(element('summary','',title));target.append(d);return d;};
       if(data.forecast_ranges?.length){const box=group('Concordância entre previsões');for(const r of data.forecast_ranges){
@@ -110,7 +250,7 @@
       target.append(history);
     }
   }
-  window.WeatherSynthesis={valid,currentStats,presentation,riskLevel,render};
+  window.WeatherSynthesis={valid,currentStats,presentation,riskLevel,riskDetailModel,render};
   const target=document.getElementById('weather-synthesis-detail');
   if(target){let data=null,version=null,loading=false;
     async function load(){if(loading)return;loading=true;try{

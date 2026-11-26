@@ -100,6 +100,30 @@ def main():
             page.goto(url+'dados.html');page.locator('#weather-synthesis-detail .synthesis-daily').wait_for()
             assert 'INMET' in page.locator('#weather-synthesis-detail').inner_text()
             assert 'Classificação de risco' in page.locator('#weather-synthesis-detail').inner_text()
+            risk=page.locator('#risk-classification-detail')
+            assert risk.locator('.risk-level-name').inner_text()=='Atenção'
+            assert not risk.evaluate('el=>el.open')
+            assert risk.locator('.risk-summary-reason').is_visible()
+            assert not risk.locator('.risk-analysis-body').is_visible()
+            collapsed=risk.bounding_box()['height']
+            assert collapsed<260,collapsed
+            risk.locator(':scope > summary').focus();page.keyboard.press('Enter')
+            assert risk.evaluate('el=>el.open')
+            assert risk.locator('.risk-analysis-body').is_visible()
+            assert risk.locator('.risk-evidence-list').is_visible()
+            risk.locator('[data-risk-panel="criteria"] > summary').click()
+            assert risk.locator('.risk-level-list li').count()==6
+            assert risk.locator('.risk-level-list [aria-current="true"]').count()==1
+            assert risk.bounding_box()['height']>collapsed
+            assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+            page.screenshot(path=str(OUTPUT/f'risk-expanded-{width}.png'),full_page=True)
+            # An automatic/manual refresh must not close the panel being read.
+            with page.expect_response(lambda r: '/data/dashboard.json' in r.url):page.locator('#reload').click()
+            page.wait_for_timeout(300)
+            assert risk.evaluate('el=>el.open')
+            assert risk.locator('[data-risk-panel="criteria"]').evaluate('el=>el.open')
+            risk.locator(':scope > summary').click()
+            assert not risk.evaluate('el=>el.open')
             assert '4 estações' in page.locator('#weather-synthesis-detail').inner_text()
             assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
             page.screenshot(path=str(OUTPUT/f'multisource-details-{width}.png'),full_page=True)
@@ -116,8 +140,12 @@ def main():
             page.locator('#level-explain').click();assert page.locator('#detail-dialog').is_visible()
             assert 'qualitativa' in page.locator('#dialog-content').inner_text()
             page.keyboard.press('Escape')
-            page.goto(url+'dados.html');page.locator('#weather-synthesis-detail').get_by_role('heading',name='Normalidade',exact=True).wait_for()
-            assert 'INMET diário/por turno' in page.locator('#weather-synthesis-detail').inner_text()
+            page.goto(url+'dados.html');page.locator('#risk-classification-detail .risk-level-name').wait_for();assert page.locator('#risk-classification-detail .risk-level-name').inner_text()=='Normalidade'
+            risk=page.locator('#risk-classification-detail')
+            assert not risk.evaluate('el=>el.open')
+            risk.locator(':scope > summary').click()
+            risk.locator('[data-risk-panel="coverage"] > summary').click()
+            assert 'INMET diário/por turno' in risk.inner_text()
             dash.clear();dash.update(deepcopy(recovered))
             page.goto(url);page.get_by_role('heading',name='Normalidade',exact=True).wait_for()
             assert 'consulta anterior' in page.locator('#forecast-source').inner_text()
@@ -131,7 +159,7 @@ def main():
             assert page.locator('#epagri-notices .notice-entry').count()>=1
             page.locator('#epagri-notices .notice-entry > summary').first.click()
             assert page.get_by_role('link',name='Ler previsão completa ↗').get_attribute('href')==publication['url']
-            page.goto(url+'dados.html');page.locator('#weather-synthesis-detail').get_by_role('heading',name='Atenção',exact=True).wait_for()
+            page.goto(url+'dados.html');page.locator('#risk-classification-detail .risk-level-name').wait_for();assert page.locator('#risk-classification-detail .risk-level-name').inner_text()=='Atenção'
             page.get_by_text('Concordância entre previsões',exact=True).click()
             assert 'divergência sobre atenção' in page.locator('#weather-synthesis-detail').inner_text()
             page.get_by_text('Temperaturas diárias por fonte',exact=True).click()

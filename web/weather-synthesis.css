@@ -2,3 +2,72 @@
 .weather-synthesis h3,.weather-synthesis h4{margin:0 0 .6rem}.synthesis-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem}.synthesis-item{min-width:0}.synthesis-item p{margin:.4rem 0;overflow-wrap:anywhere}.synthesis-daily{margin:1rem 0;line-height:1.6}.synthesis-method{margin-top:.75rem}.synthesis-method summary{cursor:pointer;font-weight:600}.synthesis-method p{line-height:1.6}.weather-synthesis .small{font-size:.9rem;line-height:1.5}@media(max-width:650px){.synthesis-grid{grid-template-columns:1fr}.synthesis-item+.synthesis-item{border-top:1px solid var(--border,#78918b);padding-top:.75rem}}
 
 @media(max-width:650px){.home-page .synthesis-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:.65rem}.home-page .synthesis-item+.synthesis-item{border:0;padding:0}.home-page .synthesis-item h4{font-size:.9rem}.home-page .synthesis-item>p:first-of-type{font-weight:600}.home-page .synthesis-item .small{font-size:.875rem}}
+
+
+/* Compact classification disclosure, scoped to Dados e fontes. */
+#weather-synthesis-detail .risk-analysis {--risk-accent:#71817a;margin:0 0 1rem;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface);min-width:0}
+#weather-synthesis-detail [data-risk="verde"]{--risk-accent:#328749}
+#weather-synthesis-detail [data-risk="azul"]{--risk-accent:#377fbd}
+#weather-synthesis-detail [data-risk="amarelo"]{--risk-accent:#c6a029}
+#weather-synthesis-detail [data-risk="laranja"]{--risk-accent:#cf741e}
+#weather-synthesis-detail [data-risk="vermelho"]{--risk-accent:#c53d46}
+#weather-synthesis-detail [data-risk="roxo"]{--risk-accent:#8d61b4}
+#weather-synthesis-detail .risk-summary{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,auto) auto;align-items:center;gap:12px 20px;padding:14px 16px 14px 13px;border-inline-start:4px solid var(--risk-accent);cursor:pointer;list-style:none;min-height:44px;color:var(--ink);text-align:left}
+#weather-synthesis-detail .risk-summary::before{display:none}
+#weather-synthesis-detail .risk-summary:hover,#weather-synthesis-detail .risk-analysis[open]>.risk-summary{background:var(--surface-soft)}
+#weather-synthesis-detail .risk-summary-main,#weather-synthesis-detail .risk-summary-meta{display:flex;flex-direction:column;gap:4px;min-width:0}
+#weather-synthesis-detail .risk-summary-heading{font-size:13px;font-weight:650;color:var(--muted)}
+#weather-synthesis-detail .risk-summary-level{display:flex;align-items:center;gap:8px;min-width:0;font-size:19px;line-height:1.3;letter-spacing:-.25px}
+#weather-synthesis-detail .risk-level-name{font-weight:700;overflow-wrap:anywhere}
+#weather-synthesis-detail .risk-indicator{width:10px;height:10px;flex:none;background:var(--risk-accent);border-radius:50%}
+#weather-synthesis-detail .risk-summary-reason{font-size:14px;font-weight:450;line-height:1.55;overflow-wrap:anywhere;max-width:65ch}
+#weather-synthesis-detail .risk-summary-meta{font-size:12px;line-height:1.5;color:var(--muted);font-weight:500;max-width:25ch}
+#weather-synthesis-detail .risk-summary-kind{font-weight:650}
+#weather-synthesis-detail .risk-summary-action{display:inline-flex;align-items:center;gap:7px;justify-self:end;font-size:13px;font-weight:650;color:var(--ink);white-space:nowrap}
+#weather-synthesis-detail .risk-summary-action::after{content:"";display:block;width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);margin-top:-4px}
+#weather-synthesis-detail .risk-analysis[open] .risk-summary-action::after{transform:rotate(225deg);margin-top:4px}
+#weather-synthesis-detail .risk-open-label,#weather-synthesis-detail .risk-analysis[open] .risk-closed-label{display:none}
+#weather-synthesis-detail .risk-analysis[open] .risk-open-label{display:inline}
+#weather-synthesis-detail .risk-analysis-body{border-top:1px solid var(--border);padding:14px 16px 16px;font-size:14px;line-height:1.55;overflow-wrap:anywhere}
+#weather-synthesis-detail .risk-analysis-body p{margin:0}
+#weather-synthesis-detail .risk-note{color:var(--muted);font-size:13px;line-height:1.55}
+#weather-synthesis-detail .risk-current-criterion{margin:14px 0;padding:12px 14px;background:var(--surface-soft);border-radius:8px}
+#weather-synthesis-detail .risk-current-criterion h3{font-size:14px;line-height:1.4;margin:0 0 5px;font-weight:650}
+#weather-synthesis-detail .risk-subpanel{margin-top:10px;border-top:1px solid var(--border)}
+#weather-synthesis-detail .risk-subpanel>summary{display:flex;align-items:center;gap:9px;min-height:44px;padding:8px 2px;font-size:14px;font-weight:650;cursor:pointer;list-style:none}
+#weather-synthesis-detail .risk-evidence-list,#weather-synthesis-detail .risk-reference-list,#weather-synthesis-detail .risk-coverage-list,#weather-synthesis-detail .risk-level-list{list-style:none;padding:0;margin:0;min-width:0}
+#weather-synthesis-detail .risk-evidence-item{padding:10px 0;min-width:0}
+#weather-synthesis-detail .risk-evidence-item+.risk-evidence-item{border-top:1px solid var(--border)}
+#weather-synthesis-detail .risk-evidence-heading{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;font-size:12px;line-height:1.45}
+#weather-synthesis-detail .risk-evidence-level{display:inline-flex;align-items:center;gap:6px;font-weight:650}
+#weather-synthesis-detail .risk-evidence-level::before{content:"";background:var(--risk-accent);width:8px;height:8px;border-radius:50%;flex:none}
+#weather-synthesis-detail .risk-evidence-basis,#weather-synthesis-detail .risk-evidence-count{color:var(--muted)}
+#weather-synthesis-detail .risk-evidence-item .risk-evidence-reason{font-size:14px;font-weight:600;margin:5px 0}
+#weather-synthesis-detail .risk-reference-list{font-size:12px;color:var(--muted);line-height:1.6}
+#weather-synthesis-detail .risk-reference-list li+li{margin-top:3px}
+#weather-synthesis-detail .risk-coverage-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
+#weather-synthesis-detail .risk-coverage-item{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:4px 10px;padding:10px;border:1px solid var(--border);border-radius:7px;min-width:0}
+#weather-synthesis-detail .risk-coverage-item strong{font-size:13px;font-weight:600;min-width:0}
+#weather-synthesis-detail .risk-coverage-item small{grid-column:1/-1;color:var(--muted);font-size:12px}
+#weather-synthesis-detail .risk-coverage-status{font-size:12px;color:var(--muted);font-weight:600}
+#weather-synthesis-detail .risk-coverage-status[data-available="true"]{color:var(--green,var(--bright))}
+#weather-synthesis-detail .risk-level-item{border-inline-start:3px solid var(--risk-accent);padding:8px 12px;margin:8px 0;border-radius:4px}
+#weather-synthesis-detail .risk-level-item[aria-current="true"]{background:var(--surface-soft)}
+#weather-synthesis-detail .risk-level-item strong{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:14px}
+#weather-synthesis-detail .risk-level-item p{font-size:13px;line-height:1.55;margin-top:3px}
+#weather-synthesis-detail .risk-current-tag{font-size:12px;font-weight:550;color:var(--muted)}
+#weather-synthesis-detail .risk-method-link{display:inline-flex;align-items:center;min-height:44px;margin-top:8px;font-size:13px;font-weight:600}
+@media(max-width:750px){
+  #weather-synthesis-detail .risk-summary{grid-template-columns:minmax(0,1fr) auto;gap:8px 10px;padding:12px 10px}
+  #weather-synthesis-detail .risk-summary-main{grid-column:1/-1}
+  #weather-synthesis-detail .risk-summary-meta{grid-column:1;grid-row:2;max-width:none}
+  #weather-synthesis-detail .risk-summary-action{grid-column:2;grid-row:2;align-self:end}
+  #weather-synthesis-detail .risk-summary-reason{font-size:14px}
+  #weather-synthesis-detail .risk-coverage-list{grid-template-columns:1fr}
+  #weather-synthesis-detail .risk-analysis-body{padding:12px}
+}
+@media(max-width:360px){
+  #weather-synthesis-detail .risk-summary{grid-template-columns:minmax(0,1fr)}
+  #weather-synthesis-detail .risk-summary-action{grid-column:1;grid-row:3;justify-self:start}
+  #weather-synthesis-detail .risk-coverage-item{grid-template-columns:minmax(0,1fr)}
+}
