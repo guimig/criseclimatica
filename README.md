@@ -125,7 +125,7 @@ A página de dados organiza as consultas por assunto, preservando os links diret
 
 ### Estação no IFC Araquari
 
-A inicial e Dados e fontes → Medições incluem observações da estação do campus, coletadas na API pública do ThingsBoard no ciclo de 30 minutos. Os dados permanecem separados das previsões e da classificação de risco. [Método, unidades, validade e limitações](docs/ESTACAO_IFC_ARAQUARI.md).
+A inicial e Dados e fontes → Medições incluem observações da estação do campus, coletadas na API pública do ThingsBoard no ciclo de 30 minutos. Os dados permanecem separados das previsões. A síntese usa medições locais e picos recentes como evidência consultiva; não define nível institucional. [Método, unidades, validade e limitações](docs/ESTACAO_IFC_ARAQUARI.md).
 
 ### Previsão municipal do INMET
 

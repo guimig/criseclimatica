@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 
 from .analysis import fresh, forecast_analysis, hourly_bins, iso, local, moment, valid_number
 from .objective_analysis import band
+from .campus_history import merge as merge_campus_history, contextual as campus_context, recent_wind_peaks, validate_history as validate_campus_history
 
 VERSION = 'araquari-multisource-v1'
 KIND = 'araquari_multisource_weather_not_institutional_level'
@@ -273,10 +274,13 @@ def build(dashboard, primary, campus, sensors, comparison, inmet, bulletins, sta
     observations, rejected = local_observations(primary, campus, sensors, stamp)
     observations = [r for r in observations if moment(r["end_at"]) <= moment(stamp)]
     history = merge_history(previous, observations, campus, stamp)
+    instrumental = merge_campus_history((previous or {}).get('campus_history'), campus, stamp)
     for hours in (1, 24):
         derived = counter_window(history['records'], hours, stamp)
         if derived: observations.append(derived)
     history = merge_history(history, observations, campus, stamp)
+    history['campus_history'] = instrumental
+    context_campus = campus_context(campus, stamp)
     variables = ('rain_1h_mm', 'rain_24h_mm', 'rain_daily_mm', 'rain_intensity_mmh', 'wind_kmh', 'gust_kmh', 'temperature_c', 'humidity_pct', 'pressure_hpa')
     stats = {k: statistics(observations, k, stamp) for k in variables}
     forecast, detail = select_forecast(comparison, stamp, forecast_archive)
@@ -285,6 +289,20 @@ def build(dashboard, primary, campus, sensors, comparison, inmet, bulletins, sta
     for r in observations:
         b = band(r['value'], r['variable']) if r['variable'] in ('rain_1h_mm', 'rain_24h_mm', 'wind_kmh', 'gust_kmh') else None
         if b is not None and r.get('threshold_eligible', True): signals.append({**r, 'band': b})
+    # Peaks in the available five-minute series are independent evidence,
+    # not extra stations or fabricated instantaneous readings.
+    for key, peak in recent_wind_peaks(campus, stamp):
+        variable = CAMPUS_FIELDS[key][0]
+        b = band(peak['value'], variable)
+        if not b:
+            continue
+        if any(r['station'] == 'ifc-araquari' and r['variable'] == variable and
+               r['value'] >= peak['value'] and moment(r['end_at']) >= moment(peak['time']) for r in signals):
+            continue
+        r = evidence('ifc', 'ifc-araquari', variable, peak['value'], peak['time'], unit='km/h',
+                     method='reported_interval_unverified', interval_uncertainty_minutes=5,
+                     support='five_minute_peak', aggregation='MAX' if key == 'wind_gust' else 'AVG')
+        signals.append({**r, 'band': b})
     regional = []
     for r in primary.get('recent_observations', []):
         if r.get('source') != 'NOAA/METAR' or not valid_number(r.get('distance_km'), 0, 25) or not fresh(r.get('observed_at'), moment(stamp), 2) or moment(r['observed_at'])>moment(stamp): continue
@@ -340,9 +358,10 @@ def build(dashboard, primary, campus, sensors, comparison, inmet, bulletins, sta
               'antecedent_rain':antecedent_rain(primary,stamp),'forecast_ranges':model_ranges,'observation_model_matches':model_matches,
               'daily_quantitative':daily_numeric+daily_models,'publication_evidence':publications,'pending_publications':pending,
               'sensor_inventory':sensor_inventory(sensors,stamp),
-              'selected_forecast': forecast, 'observation_history': [r for r in history['records']
-                   if r['variable'] in ('rain_1h_mm','rain_24h_mm','temperature_c','wind_kmh','gust_kmh')
-                   and moment(r['end_at']) >= moment(stamp)-timedelta(hours=24)],
+              'selected_forecast': forecast, 'campus_history': instrumental, 'campus_context': context_campus,
+              'observation_history': [r for r in history['records']
+                   if r['source'] == 'ifc' and r['variable'] in ('rain_1h_mm','rain_24h_mm','temperature_c','wind_kmh','gust_kmh')
+                   and moment(r['end_at']) >= moment(stamp)-timedelta(days=7)],
               'formal_level': None, 'notice_weighting': 'equal_meteorological_relevance_not_institutional_color_conversion',
               'normative_assessment': deepcopy(dashboard['assessment']), 'institutional_decision_automated': False}
     assessment = {'generated_at': stamp, 'method_version': VERSION, 'coverage': coverage,
@@ -362,6 +381,8 @@ def validate_product(data):
             or {s['id']:s['weight'] for s in data.get('station_registry', [])} != {k:1 for k in STATIONS}
             or len(data.get('observation_history', [])) > MAX_HISTORY):
         raise ValueError('Invalid multisource synthesis')
+    if 'campus_history' in data:
+        validate_campus_history(data['campus_history'], data['generated_at'])
     for r in data.get('observations', []):
         if (r['station'] not in STATIONS or r['weight'] != 1 or not valid_number(r.get('value'))
                 or not moment(r.get('end_at')) or not moment(r.get('valid_until'))):

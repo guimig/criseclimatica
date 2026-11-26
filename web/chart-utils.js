@@ -55,9 +55,9 @@
     return [...keep].sort((a,b)=>a-b).map(i=>points[i]);
   }
   function segments(points,gapMs=HOUR){
-    const runs=[];let run=[],last=null;
+    const runs=[];let run=[],last=null,previous=null;
     for(const p of points){const t=Date.parse(p.time);if(!Number.isFinite(p.value)||!Number.isFinite(t)){if(run.length)runs.push(run);run=[];last=null;continue;}
-      if(last!==null&&t-last>gapMs){if(run.length)runs.push(run);run=[];}run.push(p);last=t;
+      if(last!==null&&t-last>Math.max(p.gapMs||gapMs,previous?.gapMs||gapMs)){if(run.length)runs.push(run);run=[];}run.push(p);last=t;previous=p;
     }
     if(run.length)runs.push(run);return runs;
   }
@@ -70,7 +70,7 @@
     result.push(end);return result;
   }
   function observationGaps(series,start,end){
-    const intervals=series.flatMap(s=>s.points.filter(p=>Number.isFinite(p.value)).map(p=>{const t=Date.parse(p.time),tolerance=(s.gapMs||HOUR)/2;return [Math.max(start,t-tolerance),Math.min(end,t+tolerance)];}))
+    const intervals=series.flatMap(s=>s.points.filter(p=>Number.isFinite(p.value)).map(p=>{const t=Date.parse(p.time),tolerance=(p.gapMs||s.gapMs||HOUR)/2;return [Math.max(start,t-tolerance),Math.min(end,t+tolerance)];}))
       .filter(([a,b])=>Number.isFinite(a)&&b>a).sort((a,b)=>a[0]-b[0]);
     let cursor=start;const gaps=[];
     for(const [a,b]of intervals){if(a>cursor)gaps.push({a:cursor,b:a});cursor=Math.max(cursor,b);}
@@ -104,7 +104,7 @@
     }
   }
   function valueText(p,unit){
-    return Number.isFinite(p?.value)?`${number(p.value)} ${unit}`:p?.status==='partial'?`Parcial: ${p.validHours}/${p.expectedHours} h · soma disponível ${number(p.partialValue)} ${unit}`:'Sem amostra';
+    return Number.isFinite(p?.value)?`${number(p.value)} ${unit}${p.qualifier?' · '+p.qualifier:''}`:p?.status==='partial'?`Parcial: ${p.validHours}/${p.expectedHours} h · soma disponível ${number(p.partialValue)} ${unit}`:'Sem amostra';
   }
   function nearestIndex(times,t){
     if(!times.length)return -1;
@@ -117,7 +117,7 @@
     if(interval)return points.find(p=>t>Date.parse(p.start_at)&&t<=Date.parse(p.time))||null;
     const times=series.timestamps||points.map(p=>Date.parse(p.time));
     const nearest=points[nearestIndex(times,t)];
-    return nearest&&Math.abs(Date.parse(nearest.time)-t)<=(series.gapMs||HOUR)/2?nearest:null;
+    return nearest&&Math.abs(Date.parse(nearest.time)-t)<=(nearest.gapMs||series.gapMs||HOUR)/2?nearest:null;
   }
   const tableState=new WeakMap();
   function dataTable(host,series,{label,unit,cumulativeHours=0}={}){
@@ -186,7 +186,7 @@
         for(const run of runs){const reduced=simplify(run,start,end,Math.max(1,Math.floor(w)));
           if(reduced.length>1)root.append(make('path',{d:reduced.map((p,i)=>`${i?'L':'M'}${x(Date.parse(p.time)).toFixed(2)},${y(p.value).toFixed(2)}`).join(' '),fill:'none',stroke:s.color,'stroke-width':2.5,'stroke-dasharray':s.dash||'',class:cumulativeHours?'accumulation-line':'weather-line'}));
           const selected=reduced.length<=60?reduced:[reduced[0],reduced.at(-1),reduced.reduce((a,b)=>a.value<b.value?a:b),reduced.reduce((a,b)=>a.value>b.value?a:b)];
-          for(const p of new Set(selected)){const dot=marker(x(Date.parse(p.time)),y(p.value),s.color,s.shape);dot.setAttribute('class',cumulativeHours?'chart-sample accumulation-sample':'chart-sample');dot.append(make('title',{},`${s.name}: ${number(p.value)} ${unit} · ${cumulativeHours?`${cumulativeHours} h anteriores a `:''}${date(p.time)}`));root.append(dot);}
+          for(const p of new Set(selected)){const dot=marker(x(Date.parse(p.time)),y(p.value),s.color,s.shape);dot.setAttribute('class',cumulativeHours?'chart-sample accumulation-sample':'chart-sample');dot.append(make('title',{},`${s.name}: ${valueText(p,unit)} · ${cumulativeHours?`${cumulativeHours} h anteriores a `:''}${date(p.time)}`));root.append(dot);}
         }
       }
     });

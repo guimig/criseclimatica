@@ -203,7 +203,9 @@ function renderSummary() {
   for(const [name,field,unit]of [['wind-observed','gust_kmh','km/h'],['temperature-observed','temperature_c','°C']]){
     if(!el(name+'-value'))continue;
     const stats=typeof WeatherSynthesis!=='undefined'?WeatherSynthesis.currentStats(data?.synthesis,field):null;
-    updateMetric(name,stats?num(field==='gust_kmh'?stats.max:stats.median)+' '+unit:'—',stats?`${stats.count} ${stats.count===1?'estação':'estações'} · ${compactTime(stats.members[0].end_at)}`:'Sem leitura recente');
+    const peak=field==='gust_kmh'?(data?.synthesis?.signals||[]).filter(r=>r.support==='five_minute_peak'&&r.variable===field&&Date.now()<Date.parse(r.valid_until)).sort((a,b)=>b.value-a.value)[0]:null;
+    updateMetric(name,stats?num(field==='gust_kmh'?stats.max:stats.median)+' '+unit:'—',(stats?`${stats.count} ${stats.count===1?'estação':'estações'} · ${compactTime(stats.members[0].end_at)}`:'Sem leitura recente')+(peak?' · pico IFC: '+num(peak.value)+' km/h':''));
+
   }
   const daily=dailyForecast(data),label=el('temperature-label');if(label)label.textContent='MÁXIMA · PRÓX. 24 H';
   const tempButton=document.querySelector('[data-focus="temperature_c"]');if(tempButton){tempButton.dataset.daily='false';tempButton.dataset.dailyTarget='#model-comparison';}
@@ -222,10 +224,10 @@ function stationReference(data,source,station) {
   if(source==='ifc')return {source,station,name:'IFC Araquari',municipality:'Araquari'};
   return [...(data?.station_catalog||[]),...(data?.regional_rain_context?.stations||[])].find(r=>r.source===source&&r.station===station)||{};
 }
-function getChartSeries(data,history,mode,variable,hours,now=Date.now(),observedRainField='rain_1h_mm') {
+function getChartSeries(data,history,mode,variable,hours,now=Date.now(),observedRainField='rain_1h_mm',includeCampus=true) {
   const anchor=Number.isFinite(Date.parse(data?.generated_at))?Date.parse(data.generated_at):now;
   if(mode==='context')return [
-    ...getChartSeries(data,history,'observed',variable,hours,anchor,observedRainField).map(s=>({...s,kind:'observation'})),
+    ...getChartSeries(data,history,'observed',variable,hours,anchor,observedRainField,includeCampus).map(s=>({...s,kind:'observation'})),
     ...getChartSeries(data,history,'forecast',variable,hours,anchor).map(s=>({...s,kind:'forecast'}))];
   if(mode==='forecast') {
     const base=Date.parse(data?.forecast?.start_at),end=base+hours*3600000;
@@ -239,8 +241,23 @@ function getChartSeries(data,history,mode,variable,hours,now=Date.now(),observed
   const field=variable==='precipitation_mm'?(observedRainField||'rain_1h_mm'):variable;
   const fields=variable==='gust_kmh'?['wind_kmh','gust_kmh']:[field];
   const rows=Array.isArray(history?.records)?history.records.slice():[],grouped=new Map();
-  for(const r of data?.synthesis?.observation_history||[]){if(r.source==='ifc'&&fields.includes(r.variable))rows.push({source:'ifc',station:r.station,observed_at:r.end_at,[r.variable]:r.value});}
+  const mapping={temperature_c:'temperature',wind_kmh:'wind_avg',gust_kmh:'wind_gust',rain_1h_mm:'rain_1h'};
+  if(includeCampus){
+    const earliest=new Map();
+    for(const field of fields){
+      const dense=data?.synthesis?.campus_history?.series?.[mapping[field]]||[];
+      if(dense.length)earliest.set(field,Date.parse(dense[0].time));
+      for(const r of dense)rows.push({source:'ifc',station:'ifc-araquari',observed_at:r.time,[field]:r.value,
+        intervalMinutes:r.interval_minutes,count:r.count,approximate:field==='rain_1h_mm'});
+    }
+    for(const r of data?.synthesis?.observation_history||[]){
+      if(r.source==='ifc'&&fields.includes(r.variable)&&(!earliest.has(r.variable)||Date.parse(r.end_at)<earliest.get(r.variable)))
+        rows.push({source:'ifc',station:r.station,observed_at:r.end_at,[r.variable]:r.value,intervalMinutes:30,
+          approximate:r.variable==='rain_1h_mm'});
+    }
+  }
   for(const r of rows) {
+    if(!includeCampus&&r.source==='ifc')continue;
     const t=Date.parse(r.observed_at);
     if(!Number.isFinite(t)||t>anchor||t<anchor-hours*3600000)continue;
     for(const key of fields) {
@@ -249,8 +266,10 @@ function getChartSeries(data,history,mode,variable,hours,now=Date.now(),observed
       const name=stationName(ref,'Estação sem nome');
       if(!grouped.has(id))grouped.set(id,{id,station:r.station,source:r.source,reference:ref,
         name:`${name}${ref.municipality&&String(ref.municipality).trim().toLocaleLowerCase('pt-BR')!=='araquari'?' · '+ref.municipality:''}${variable==='gust_kmh'?(key==='gust_kmh'?' · rajada':' · vento'):''}`,
-        field:key,identity:r.source+':'+r.station,points:[],gapMs:r.source==='ifc'?600000:r.source==='metar'?5400000:3600000,kind:'observation'});
+        field:key,identity:r.source+':'+r.station,points:[],gapMs:r.source==='ifc'?2160000:r.source==='metar'?5400000:3600000,kind:'observation'});
       grouped.get(id).points.push({time:r.observed_at,value:r[key],distance_km:r.distance_km,
+        gapMs:r.intervalMinutes?Math.round(r.intervalMinutes*1.2*60000):undefined,
+        qualifier:r.approximate?'intervalo aproximado':r.count?`${r.intervalMinutes} min${r.intervalMinutes===30?' · '+r.count+'/6 intervalos':''}`:undefined,
         start_at:key.startsWith('rain_')?new Date(t-(key==='rain_24h_mm'?24:1)*3600000).toISOString():null});
     }
   }
@@ -268,7 +287,7 @@ function svg(tag,attrs={},text) { const n=document.createElementNS('http://www.w
 function pointDescription(series,p,unit,anchor) {
   const interval=p.start_at?`${date(p.start_at)} a ${date(p.time)} · acumulado de ${series.field==='rain_24h_mm'?24:1} h`:`${series.kind==='forecast'?'Previsão para':'Medição em'} ${date(p.time)}`;
   const current=series.kind==='forecast'&&p.start_at&&Date.parse(p.start_at)<anchor&&Date.parse(p.time)>anchor?' · inclui a hora em curso':'';
-  return `${series.kind==='forecast'?'Open-Meteo · ':''}${series.name}: ${num(p.value)} ${unit} · ${interval}${current}`;
+  return `${series.kind==='forecast'?'Open-Meteo · ':''}${series.name}: ${num(p.value)} ${unit} · ${interval}${current}${p.qualifier?' · '+p.qualifier:''}`;
 }
 function chartScale(values,temperature=false) {return chartUtils.scale(values,temperature);}
 function drawStationSnapshot(target,legend,tooltip,series,unit) {
@@ -306,7 +325,7 @@ function renderChart() {
   const data=panel.data,anchor=Number.isFinite(Date.parse(data?.generated_at))?Date.parse(data.generated_at):Date.now(),rain=panel.observedVariable==='precipitation_mm',forecastRain=panel.variable==='precipitation_mm';
   const nearby=rain&&panel.scope==='nearby',history=nearby?{records:data?.regional_rain_context?.records||[]}:panel.history;
   const dark=document.documentElement.dataset.theme==='dark';
-  const allObserved=getChartSeries(data,history,'observed',panel.observedVariable,panel.hours,anchor,`rain_${panel.rainWindow}h_mm`).map(s=>({...s,...chartUtils.identity(s.source+':'+s.station,s.field,dark)}));
+  const allObserved=getChartSeries(data,history,'observed',panel.observedVariable,panel.hours,anchor,`rain_${panel.rainWindow}h_mm`,!nearby).map(s=>({...s,...chartUtils.identity(s.source+':'+s.station,s.field,dark)}));
   const validForecast=forecastFieldCurrent(data,panel.variable);
   const forecast=validForecast?getChartSeries(data,panel.history,'forecast',panel.variable,panel.hours,anchor).filter(s=>forecastFieldCurrent(data,s.field)).map(s=>{
     const source=data?.forecast?.sources_by_variable?.[s.field];
@@ -353,6 +372,7 @@ function renderChart() {
   const reference=forecastSource?.reference_at||data?.forecast?.reference_at||data?.forecast?.collected_at;
   el('forecast-status').textContent=validForecast?`${result.coverage} Referência da previsão: ${date(reference)}.`:'Sem previsão horária vigente.';
   el('observed-caption').textContent=rain?(snapshot?`Acumulado de ${panel.rainWindow} h por estação.`:`Cada ponto representa as ${panel.rainWindow} h anteriores ao horário da leitura. Janelas móveis não se somam; cinza indica falta de amostras.`):'Leituras por estação. Traço contínuo: vento; tracejado: rajada.';
+  if(observed.some(s=>s.source==='ifc'))el('observed-caption').textContent+=' IFC: referências de 5 min nas últimas 24 h; histórico anterior resumido em 30 min. Chuva de 1 h derivada do contador é aproximada.';
   el('forecast-caption').textContent=forecastRain?(result.block>1?`Somente blocos completos de ${result.block} h recebem barras. Os valores horários originais estão na tabela.`:'Barras de 1 h. Marcas na base representam zero; faixas cinza indicam lacunas.'):'Previsão horária. Interrupções indicam ausência de amostras.';
   el('observed-chart-summary').textContent=chartDescription(observedForTable,unit,rain);
   el('forecast-chart-summary').textContent=chartDescription(result.series,forecastUnit,forecastRain);

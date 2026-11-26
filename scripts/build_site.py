@@ -425,6 +425,8 @@ def build(
         cemaden_sensors, comparison, inmet_forecast, epagri_bulletins, stamp, previous_multisource, forecast_archive=previous_model_archive,
         supplemental={'inmet_rain':rain,'point':primary,'defesa':defesa_sc})
     synthesis['unit_inference'] = cemaden_sensors.get('unit_inference', [])
+    campus['history'] = synthesis['campus_history']
+    campus['context'] = synthesis['campus_context']
     dashboard['synthesis'] = synthesis
     dashboard['forecast'] = synthesis['selected_forecast']
     dashboard['forecast_series'] = selected_detail['hourly']

@@ -5,7 +5,7 @@
     temperature: ['Temperatura', '°C', -50, 65], humidity: ['Umidade relativa', '%', 0, 100],
     pressure: ['Pressão atmosférica', 'hPa', 800, 1100], rain_daily: ['Chuva acumulada no dia', 'mm', 0, 2000],
     rain_intensity: ['Intensidade da chuva', 'mm/h', 0, 2000], wind_avg: ['Vento médio informado', 'km/h', 0, 400],
-    wind_gust: ['Rajada informada', 'km/h', 0, 400], wind_direction_deg: ['Direção do vento', '°', 0, 360]
+    wind_gust: ['Rajada informada', 'km/h', 0, 400], wind_direction_deg: ['Direção do vento', '°', 0, 360], rain_1h: ['Chuva móvel de 1 h (aprox.)', 'mm', 0, 2000]
   };
   const number = value => new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 2}).format(value);
   const date = value => new Intl.DateTimeFormat('pt-BR', {timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'}).format(new Date(value));
@@ -22,7 +22,7 @@
         Date.parse(feed.checked_at) > Date.now()+600000 || !feed.metrics || typeof feed.metrics !== 'object') throw new Error('Invalid campus publication');
     return feed;
   }
-  // Export pure validation for offline contract tests; the source is never used by the risk engine.
+  // The raw product is not itself a risk classification.
   if (typeof module !== 'undefined') module.exports = {pointValid, validate};
   if (typeof document === 'undefined') return;
   const section = document.getElementById('campus-station');
@@ -33,7 +33,7 @@
   let feed = null, failed = false, busy = false, selectedTime = null, selectedKey = null;
   const selection = el('campus-variable');
   for (const [key, definition] of Object.entries(definitions)) {
-    if (key !== 'wind_direction_deg') {const option = create('option', definition[0]); option.value = key; selection.append(option);}
+    const option = create('option', definition[0]); option.value = key; selection.append(option);
   }
   async function json(path) {
     const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 15000);
@@ -41,6 +41,7 @@
     finally {clearTimeout(timeout);}
   }
   function bounds() {return [Date.parse(feed?.window_start), Math.min(Date.now(), Date.parse(feed?.window_end))];}
+  const period = el('campus-period');
   function suspect(key,point) {
     if(!point||point.value!==0||!['temperature','humidity'].includes(key))return false;
     const other=feed?.metrics?.[key==='temperature'?'humidity':'temperature'];
@@ -67,32 +68,56 @@
     const direction = feed.metrics.wind_direction_deg?.latest, mean = feed.metrics.wind_avg?.latest;
     el('campus-extra').textContent = [pointValid(mean, 'wind_avg', start, end) ? 'Vento médio informado: '+number(mean.value)+' km/h ('+date(mean.time)+').' : '',
       pointValid(direction, 'wind_direction_deg', start, end) ? 'Direção: '+number(direction.value)+'° ('+date(direction.time)+').' : ''].filter(Boolean).join(' ');
+    renderContext();
     renderChart();
+  }
+  function renderContext(){
+    const target=el('campus-context');if(!target)return;target.replaceChildren();
+    const c=feed?.context;
+    if(!c){target.append(create('p','Indicadores ainda não disponíveis nesta publicação.'));return;}
+    const add=text=>target.append(create('p',text,'small'));
+    if(c.temperature)add('Temperatura · médias de 5 min em 24 h: '+number(c.temperature.minimum_5min_mean)+'–'+number(c.temperature.maximum_5min_mean)+' °C.');
+    if(c.gust_peak_24h)add('Maior rajada informada em 24 h: '+number(c.gust_peak_24h.value)+' km/h · '+date(c.gust_peak_24h.time)+'.');
+    if(Number.isFinite(c.pressure_change_3h))add('Variação da pressão em aproximadamente 3 h: '+number(c.pressure_change_3h)+' hPa. Não é previsão isolada.');
+    if(Number.isFinite(c.dew_point_c))add('Ponto de orvalho estimado: '+number(c.dew_point_c)+' °C · '+date(c.thermohygrometric_at)+'.');
+    if(Number.isFinite(c.heat_index_c))add('Índice de calor estimado: '+number(c.heat_index_c)+' °C · referência à sombra; não é avaliação de exposição ocupacional.');
+    for(const r of c.rain_windows||[])add('Chuva · '+r.hours+' h: '+number(r.value)+' mm '+(r.complete?'(intervalo aproximado)':'(soma parcial dos incrementos válidos, não acumulado integral)')+' · '+r.covered_minutes+'/'+r.expected_minutes+' min · '+date(r.end_at)+'.');
+    const rose=c.wind_sectors;
+    if(rose?.sample_count){
+      add('Direção informada · '+rose.sample_count+' amostras pareadas com vento não nulo (não ponderadas pela velocidade).');
+      const list=create('div');rose.labels.forEach((label,i)=>{const row=create('p',label+' · '+number(100*rose.counts[i]/rose.sample_count)+'%','small');list.append(row);});target.append(list);
+    }
+    for(const [key,coverage] of Object.entries(c.coverage||{}))if(definitions[key])add(definitions[key][0]+': '+coverage.bins+'/'+coverage.expected_bins+' intervalos de referência em 24 h'+(coverage.latest_at?' · '+date(coverage.latest_at):'')+'.');
+    add('Indicadores contextuais, sem novos limiares de risco. A cobertura conta intervalos, não calibração.');
   }
   function renderChart() {
     const target = el('campus-plot'), readout = el('campus-readout'), keepFocus = target.contains(document.activeElement); target.replaceChildren();
-    const key = selection.value || 'temperature', metric = feed?.metrics?.[key], [start, end] = bounds();
-    const points = (Array.isArray(metric?.series) ? metric.series : []).filter(p => pointValid(p, key, start, end)&&!suspect(key,p)).sort((a,b) => Date.parse(a.time)-Date.parse(b.time)).slice(0,300);
+    const key = selection.value || 'temperature', metric = feed?.metrics?.[key], hours=Number(period?.value||24), end=Math.min(Date.now(),Date.parse(feed?.history?.generated_at||feed?.window_end||feed?.checked_at)), start=end-hours*3600000;
+    const archived=feed?.history?.series?.[key];
+    const points = (Array.isArray(archived)?archived:Array.isArray(metric?.series)?metric.series:[]).filter(p => pointValid(p, key, start, end)&&!suspect(key,p)).sort((a,b) => Date.parse(a.time)-Date.parse(b.time)).slice(0,600);
     el('campus-chart-note').textContent = key === 'rain_daily' ? 'Máximo em cada intervalo de 5 minutos. Contador diário informado; pode reiniciar. Não é chuva das últimas 24 h.' :
       metric?.aggregation === 'MAX' ? 'Máximo informado em cada intervalo de 5 minutos.'+(key==='wind_gust'?' O intervalo de medição original da rajada ainda precisa de confirmação.':'') : 'Média das leituras disponíveis em intervalos de 5 minutos. Lacunas não são interpoladas.';
+    if(key==='wind_direction_deg')el('campus-chart-note').textContent='Direções em graus; não se ligam pontos nem se faz média aritmética.';
+    if(key==='rain_1h')el('campus-chart-note').textContent='Diferença aproximada do contador diário em 1 h, somente em intervalos contínuos do mesmo dia.';
+    if(Array.isArray(archived))el('campus-chart-note').textContent+=' Últimas 24 h: 5 min; anteriores: resumos de 30 min (máximos preservados para rajadas e chuva).';
     if(points.length)el('campus-chart-note').textContent += ' '+points.length+' intervalos com dados na janela consultada.';
     if (!points.length) {target.append(create('p', 'Sem série válida nesta publicação.', 'campus-empty')); readout.textContent = 'Nenhum valor selecionado.'; return;}
     const width = Math.max(280, Math.round(target.clientWidth || 700)), height = 220, left = 48, right = width-12, top = 16, bottom = 188;
-    let lo = Math.min(...points.map(p => p.value)), hi = Math.max(...points.map(p => p.value));
+    let lo = key==='wind_direction_deg'?0:Math.min(...points.map(p => p.value)), hi = key==='wind_direction_deg'?360:Math.max(...points.map(p => p.value));
     if (lo === hi) {lo = Math.max(definitions[key][2], lo-1); hi += 1;}
-    const margin = (hi-lo)*0.08; lo = Math.max(definitions[key][2],lo-margin); hi += margin;
+    const margin = (hi-lo)*0.08; lo = Math.max(definitions[key][2],lo-margin); hi = Math.min(definitions[key][3],hi+margin);
     const x = stamp => left+(Date.parse(stamp)-start)/(end-start)*(right-left), y = value => bottom-(value-lo)/(hi-lo)*(bottom-top);
-    const svg = svgNode('svg', {viewBox: `0 0 ${width} ${height}`, role: 'img', 'aria-label': definitions[key][0]+' no campus nas últimas 24 horas. Use as setas para consultar valores.', tabindex: '0'});
+    const svg = svgNode('svg', {viewBox: `0 0 ${width} ${height}`, role: 'img', 'aria-label': definitions[key][0]+' no campus nas últimas '+hours+' horas. Use as setas para consultar valores.', tabindex: '0'});
     for (let index=0; index<=3; index++) {const value=lo+(hi-lo)*index/3, yy=y(value); svg.append(svgNode('line',{x1:left,x2:right,y1:yy,y2:yy,class:'campus-grid'}),svgNode('text',{x:left-6,y:yy+4,'text-anchor':'end',class:'campus-axis'},number(value)));}
-    for (let index=0; index<=3; index++) {const stamp=start+(end-start)*index/3, xx=left+(right-left)*index/3; svg.append(svgNode('text',{x:xx,y:211,'text-anchor':index===0?'start':index===3?'end':'middle',class:'campus-axis'},time(stamp)));}
+    for (let index=0; index<=3; index++) {const stamp=start+(end-start)*index/3, xx=left+(right-left)*index/3; svg.append(svgNode('text',{x:xx,y:211,'text-anchor':index===0?'start':index===3?'end':'middle',class:'campus-axis'},hours===24?time(stamp):date(stamp)));}
     let path='', previous=null;
-    for (const point of points) {const gap = !previous || Date.parse(point.time)-Date.parse(previous.time)>12*60000 || (key==='rain_daily' && point.value<previous.value); path += (gap?'M':'L')+x(point.time).toFixed(1)+','+y(point.value).toFixed(1)+' '; previous=point;}
+    for (const point of points) {const gap = !previous || Date.parse(point.time)-Date.parse(previous.time)>Math.max(point.interval_minutes||5,previous.interval_minutes||5)*1.2*60000 || key==='wind_direction_deg' || (key==='rain_daily' && point.value<previous.value); path += (gap?'M':'L')+x(point.time).toFixed(1)+','+y(point.value).toFixed(1)+' '; previous=point;}
     svg.append(svgNode('path',{d:path,fill:'none',class:'campus-line'}));
     for(const point of points)svg.append(svgNode('circle',{cx:x(point.time),cy:y(point.value),r:2,class:'campus-sample','aria-hidden':'true'}));
     const cursor = svgNode('line',{x1:0,x2:0,y1:top,y2:bottom,class:'campus-cursor'}), dot=svgNode('circle',{r:4,class:'campus-dot'});
     svg.append(cursor,dot); target.append(svg);
     let selected=selectedKey===key?points.findIndex(p=>p.time===selectedTime):-1; if(selected<0)selected=points.length-1;
-    function show(index) {selected=Math.max(0,Math.min(points.length-1,index)); const point=points[selected], xx=x(point.time);selectedTime=point.time;selectedKey=key; cursor.setAttribute('x1',xx);cursor.setAttribute('x2',xx);dot.setAttribute('cx',xx);dot.setAttribute('cy',y(point.value));readout.textContent=date(point.time)+' · '+number(point.value)+' '+definitions[key][1];}
+    function show(index) {selected=Math.max(0,Math.min(points.length-1,index)); const point=points[selected], xx=x(point.time);selectedTime=point.time;selectedKey=key; cursor.setAttribute('x1',xx);cursor.setAttribute('x2',xx);dot.setAttribute('cx',xx);dot.setAttribute('cy',y(point.value));readout.textContent=date(point.time)+' · '+number(point.value)+' '+definitions[key][1]+(point.interval_minutes===30?' · '+point.count+'/6 intervalos':'');}
     svg.addEventListener('pointermove', event => {const box=svg.getBoundingClientRect(), xx=(event.clientX-box.left)/box.width*width; let nearest=0; for(let i=1;i<points.length;i++)if(Math.abs(x(points[i].time)-xx)<Math.abs(x(points[nearest].time)-xx))nearest=i;show(nearest);});
     svg.addEventListener('keydown',event=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();show(event.key==='Home'?0:event.key==='End'?points.length-1:selected+(event.key==='ArrowLeft'?-1:1));}});
     show(selected);if(keepFocus)svg.focus();
@@ -108,6 +133,7 @@
     }catch(error){failed=true;render();return false;}finally{busy=false;}
   }
   selection.addEventListener('change',renderChart);
+  period?.addEventListener('change',renderChart);
   let chartWidth=0;
   if(typeof ResizeObserver!=='undefined')new ResizeObserver(entries=>{const width=Math.round(entries[0].contentRect.width);if(width>0&&width!==chartWidth){chartWidth=width;renderChart();}}).observe(el('campus-plot'));
   const refresh=typeof PublicationRefresh!=='undefined'?PublicationRefresh.create({getVersion:()=>feed?.publication_at,readLatest:()=>json('./data/latest.json'),reload:load,needsReload:()=>failed,isVisible:()=>!document.hidden,onError:()=>{failed=true;render();},onSuccess:()=>{failed=false;render();}}):null;

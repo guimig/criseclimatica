@@ -8,12 +8,12 @@
   <title>Dados meteorológicos | Tempo em Araquari</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <script src="./theme.js?v=period-20261107"></script><link rel="stylesheet" href="./style.css?v=period-20261107">
-  <script defer src="./chart-utils.js?v=charts-20261126"></script><script defer src="./chart-interaction.js?v=charts-20261126"></script><script defer src="./publication-refresh.js?v=publication-recovery-20261109"></script><script defer src="./app.js?v=charts-20261126"></script>
+  <script defer src="./chart-utils.js?v=instrumental-20261126"></script><script defer src="./chart-interaction.js?v=instrumental-20261126"></script><script defer src="./publication-refresh.js?v=publication-recovery-20261109"></script><script defer src="./app.js?v=instrumental-20261126"></script>
 <link rel="stylesheet" href="./explore.css?v=period-20261107">
 <script src="./explore.js?v=period-20261107" defer></script>
-<link rel="stylesheet" href="./forecasts.css?v=inmet-forecast-20261110"><script defer src="./forecasts.js?v=charts-20261126"></script>
-<link rel="stylesheet" href="./essential.css?v=charts-20261126">
-<link rel="stylesheet" href="./campus-station.css?v=campus-20261109"><script defer src="./campus-station.js?v=multisource-v1"></script>
+<link rel="stylesheet" href="./forecasts.css?v=inmet-forecast-20261110"><script defer src="./forecasts.js?v=instrumental-20261126"></script>
+<link rel="stylesheet" href="./essential.css?v=instrumental-20261126">
+<link rel="stylesheet" href="./campus-station.css?v=campus-20261109"><script defer src="./campus-station.js?v=instrumental-20261126"></script>
 <link rel="stylesheet" href="./weather-synthesis.css?v=multisource-v1"><script defer src="./weather-synthesis.js?v=clear-home-v2"></script>
 </head>
 <body class="explore-page essential-page">
@@ -89,11 +89,11 @@
 <p>Leituras pontuais com local, horário e intervalos identificados. São diferentes das estimativas por modelo.</p>
 </div>
 <section id="campus-station" class="campus-station" aria-labelledby="campus-title">
-<div class="campus-heading"><h2 id="campus-title">Observações no campus</h2><a href="https://mytb.fabricadesoftware.ifc.edu.br/dashboard/6c46c4f0-5613-11f0-ac33-dfcfe81f8a64?publicId=f2146870-34a4-11f0-ac33-dfcfe81f8a64" target="_blank" rel="noopener noreferrer">Estação IFC Araquari ↗</a></div>
+<div class="campus-heading"><h2 id="campus-title">Observações no campus</h2><a href="https://mytb.fabricadesoftware.ifc.edu.br/dashboard/421b5150-dcf9-11f1-87e4-35fbd30ce4f4?publicId=f2146870-34a4-11f0-ac33-dfcfe81f8a64" target="_blank" rel="noopener noreferrer">Estação IFC Araquari ↗</a></div>
 <p id="campus-status" role="status">Consultando a estação do campus…</p><div id="campus-values" class="campus-values"></div>
-<div class="campus-controls"><label for="campus-variable">Histórico da estação · últimas 24 h</label><select id="campus-variable"></select></div>
+<div class="campus-controls"><label for="campus-variable">Variável observada</label><select id="campus-variable"></select><label for="campus-period">Período</label><select id="campus-period"><option value="24">24 h</option><option value="72">72 h</option><option value="168">7 dias</option></select></div>
 <div id="campus-plot" class="campus-plot"></div><output id="campus-readout" class="campus-readout" aria-live="off"></output>
-<p id="campus-chart-note"></p><p id="campus-extra"></p><p id="campus-reference">Medições locais; participação com pesos iguais nas variáveis comparáveis.</p>
+<p id="campus-chart-note"></p><p id="campus-extra"></p><details><summary>Indicadores e qualidade das medições</summary><div id="campus-context"></div></details><p id="campus-reference">Medições locais; participação com pesos iguais nas variáveis comparáveis.</p>
 </section>
 <section class="panel" aria-labelledby="cemaden-title">
         <div class="panel-top">
