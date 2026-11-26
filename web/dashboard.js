@@ -274,6 +274,7 @@ function getChartSeries(data,history,mode,variable,hours,now=Date.now(),observed
         field:key,identity:r.source+':'+r.station,points:[],gapMs:r.source==='ifc'?2160000:r.source==='metar'?5400000:3600000,kind:'observation'});
       grouped.get(id).points.push({time:r.observed_at,value:r[key],distance_km:r.distance_km,
         gapMs:r.intervalMinutes?Math.round(r.intervalMinutes*1.2*60000):undefined,
+        rainQuality:r.rainQuality,
         qualifier:r.crosschecked?(r.rainQuality==='estimated'?'estimativa por agregados · '+(r.estimatedMinutes||0)+' min estimados':r.rainQuality==='validated'?'leituras brutas conferidas · aprox. 5 min':'contador total conferido · aprox. 5 min'):r.approximate?'intervalo aproximado':r.count?`${r.intervalMinutes} min${r.intervalMinutes===30?' · '+r.count+'/6 intervalos':''}`:undefined,
         start_at:key.startsWith('rain_')?new Date(t-(key==='rain_24h_mm'?24:1)*3600000).toISOString():null});
     }
@@ -304,7 +305,7 @@ function drawStationSnapshot(target,legend,tooltip,series,unit) {
   const root=svg('svg',{viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':`Último acumulado de chuva por estação, em ${unit}. Use as setas para consultar; Enter fixa e Escape libera.`,tabindex:0});
   latest.forEach(({s,p},i)=>{
     const y=top+i*rowHeight,barY=y+48,name=s.name.length>28?s.name.slice(0,27)+'…':s.name;
-    root.append(svg('text',{x:L,y:y+15,class:'snapshot-name'},name),svg('text',{x:L,y:y+35,class:'snapshot-time'},chartUtils.date(p.time)),
+    root.append(svg('text',{x:L,y:y+15,class:'snapshot-name'},name),svg('text',{x:L,y:y+35,class:'snapshot-time'},chartUtils.date(p.time)+(p.rainQuality==='estimated'?' · estimativa':'')),
       svg('rect',{x:L,y:barY,width,height:10,rx:4,class:'snapshot-track'}));
     const bar=svg('rect',{x:L,y:barY,width:Math.max(0,x(p.value)-L),height:10,rx:4,fill:s.color,class:'station-bar'});bar.append(svg('title',{},pointDescription(s,p,unit,anchor)));
     root.append(bar,svg('text',{x:W-2,y:barY+10,'text-anchor':'end',class:'snapshot-value'},num(p.value)+' '+unit));
@@ -323,7 +324,7 @@ function chartDescription(series,unit,cumulative=false) {
   if(!points.length)return '';
   const peak=points.reduce((a,b)=>a.value>=b.value?a:b);
   const prefix=cumulative?'Maior acumulado amostrado':'Maior valor no recorte';
-  return `${prefix}: ${num(peak.value)} ${unit} · ${peak.series.name} · ${chartUtils.date(peak.time)}.`;
+  return `${prefix}: ${num(peak.value)} ${unit} · ${peak.series.name} · ${chartUtils.date(peak.time)}${peak.rainQuality==='estimated'?' · estimativa por agregados':''}.`;
 }
 function renderChart() {
   panel.chartExpired=!dashboardCurrent(panel.data);panel.chartValidity=chartValidity();
@@ -377,7 +378,8 @@ function renderChart() {
   const reference=forecastSource?.reference_at||data?.forecast?.reference_at||data?.forecast?.collected_at;
   el('forecast-status').textContent=validForecast?`${result.coverage} Referência da previsão: ${date(reference)}.`:'Sem previsão horária vigente.';
   el('observed-caption').textContent=rain?(snapshot?`Acumulado de ${panel.rainWindow} h por estação.`:`Cada ponto representa as ${panel.rainWindow} h anteriores ao horário da leitura. Janelas móveis não se somam; cinza indica falta de amostras.`):'Leituras por estação. Traço contínuo: vento; tracejado: rajada.';
-  if(observed.some(s=>s.source==='ifc'))el('observed-caption').textContent+=' IFC: referências de 5 min nas últimas 24 h; histórico anterior resumido em 30 min.'+(rain?' Acumulados IFC derivados do contador têm referência aproximada em 5 min; quando disponíveis, passam por conferência de consistência.':'');
+  if(rain&&observed.some(s=>s.points.some(p=>p.rainQuality==='estimated')))el('observed-heading').textContent=`Chuva · acumulado de ${panel.rainWindow} h (inclui estimativas IFC)`;
+  if(observed.some(s=>s.source==='ifc'))el('observed-caption').textContent+=' IFC: referências de 5 min nas últimas 24 h; histórico anterior resumido em 30 min.'+(rain?' Acumulados IFC derivados do contador têm referência aproximada em 5 min; quando disponíveis, passam por conferência de consistência. Estimativas por agregados são identificadas na consulta e não participam dos critérios de risco.':'');
   el('forecast-caption').textContent=forecastRain?(result.block>1?`Somente blocos completos de ${result.block} h recebem barras. Os valores horários originais estão na tabela.`:'Barras de 1 h. Marcas na base representam zero; faixas cinza indicam lacunas.'):'Previsão horária. Interrupções indicam ausência de amostras.';
   el('observed-chart-summary').textContent=chartDescription(observedForTable,unit,rain);
   el('forecast-chart-summary').textContent=chartDescription(result.series,forecastUnit,forecastRain);

@@ -189,6 +189,24 @@ class RainTests(unittest.TestCase):
         _,again=merge_rain(archive,current,t)
         self.assertFalse(again["intervals"])
 
+    def test_raw_gap_can_only_be_repaired_with_recovered_raw_readings(self):
+        from urllib.parse import parse_qs,urlsplit
+        target=END-2*3600000
+        prev={"anchor_at":iso(NOW-timedelta(hours=2)),
+              "rejected_intervals":[{"time":iso(NOW-timedelta(hours=2)),"reason":"raw_gap"}]}
+        calls=[]
+        def source(path,**kwargs):
+            q=parse_qs(urlsplit(path).query);a=int(q["startTs"][0]);b=int(q["endTs"][0]);agg=q["agg"][0]
+            calls.append((agg,a,b))
+            if agg!="NONE" or b-a>20*60000:return {}
+            return {k:[{"ts":ts,"value":"10" if k=="rain_total" else "0"} for ts in range(a,b+1,5000)]
+                    for k in ("rain_total","rain_daily","rain_suspects_total")}
+        product=collect_rain(source,"public","/telemetry",NOW,prev,budget_seconds=45)
+        self.assertEqual(product["diagnostics"]["raw_gap_repairs_attempted"],1)
+        self.assertTrue(any(r["time"]==iso(NOW-timedelta(hours=2)) and r["quality"]==RAW_QUALITY for r in product["intervals"]))
+        _,archive=merge_rain(prev,product,iso(NOW))
+        self.assertFalse(any(r["time"]==iso(NOW-timedelta(hours=2)) for r in archive["rejected_intervals"]))
+
     def test_backfill_chunk_limits_and_resume(self):
         from urllib.parse import parse_qs,urlsplit
         g=fixture();queries=[]

@@ -503,6 +503,21 @@ def collect_rain(requester,token,telemetry,now,previous=None,*,budget_seconds=RE
         recent=aggregate_query(requester,token,telemetry,recent_start,end,now)
         reconcile(records,blocked,recent,now_ms)
     initial=not attempts
+    # A verified raw gap is never filled with aggregate estimates. Attempt
+    # one small retrospective raw repair (late telemetry may have arrived).
+    raw_repairs=0
+    repairable=[t for t,r in blocked.items() if r=="raw_gap" and end-6*3600000<=t<raw_start+STEP
+                and now_ms-attempts.get(str(t),0)>=RETRY_MS]
+    if repairable and monotonic()-started<budget_seconds:
+        t=max(repairable);a=t-2*STEP;b=min(end,t+STEP)
+        attempts[str(t)]=now_ms;raw_repairs=1
+        try:
+            data=query(requester,token,telemetry,("rain_total","rain_daily","rain_suspects_total","rain_increment"),
+                       a,b,"NONE",RAW_LIMIT)
+            repair=raw_rain(data,a,b,now)
+            reconcile(records,blocked,repair,now_ms)
+        except (SourceError,OSError,ValueError,TypeError,KeyError):
+            pass
     limit=MAX_INITIAL_CHUNKS if initial else MAX_REPAIR_CHUNKS
     recovered=available=0
     oldest=end-WINDOW_HOURS*3600000
@@ -533,6 +548,7 @@ def collect_rain(requester,token,telemetry,now,previous=None,*,budget_seconds=RE
     result["diagnostics"]={"retrieval_method":"hybrid_raw_and_aggregated","raw":raw["diagnostics"],
                            "recent_aggregate":recent["diagnostics"],
                            "historical_chunks_attempted":recovered,"historical_chunks_available":available,
+                           "raw_gap_repairs_attempted":raw_repairs,
                            "raw_bins":sum(q==RAW_QUALITY for _,q in records.values()),
                            "aggregate_bins":sum(q==AGG_QUALITY for _,q in records.values()),
                            "rejected_bins":len(blocked),"query_budget_seconds":budget_seconds}
@@ -589,9 +605,14 @@ def validate_rain(product, stamp):
     now=moment(stamp)
     if len(product["windows"])>len(WINDOWS) or set(product["series"])-{"rain_1h","rain_24h"} or len(product.get("intervals",[]))>LIMIT:
         raise ValueError("Unbounded IFC rain reconstruction")
+    previous_time=None
     for row in product.get("intervals",[]):
-        if not isinstance(row,dict) or row.get("quality",LEGACY_QUALITY) not in QUALITIES:
+        t=moment(row.get("time")) if isinstance(row,dict) else None
+        if (not t or not now-timedelta(hours=WINDOW_HOURS)<=t<=now or int(t.timestamp()*1000)%STEP
+                or (previous_time and t<=previous_time) or row.get("quality",LEGACY_QUALITY) not in QUALITIES
+                or not valid_number(row.get("value"),0,500)):
             raise ValueError("Invalid IFC interval provenance")
+        previous_time=t
     if len(product.get("rejected_intervals",[]))>LIMIT or len(product.get("attempts",{}))>MAX_INITIAL_CHUNKS+4:
         raise ValueError("Unbounded IFC recovery metadata")
     seen=set()
@@ -617,7 +638,8 @@ def validate_rain(product, stamp):
             t=moment(r.get("time"))
             if (not t or not now-timedelta(hours=73)<=t<=now or (last and t<=last)
                     or not valid_number(r.get("value"),0,144000)
-                    or r.get("interval_minutes") not in (5,30)):
+                    or r.get("interval_minutes") not in (5,30)
+                    or r.get("quality","estimated") not in ("validated","estimated")):
                 raise ValueError("Invalid IFC rain series")
             last=t
     if product["status"]!="available" and any(r["complete"] for r in product["windows"]):
