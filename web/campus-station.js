@@ -102,9 +102,10 @@
     const target = el('campus-plot'), readout = el('campus-readout'), keepFocus = target.contains(document.activeElement); target.replaceChildren();
     const key = selection.value || 'temperature', metric = feed?.metrics?.[key], hours=Number(period?.value||24), end=Math.min(Date.now(),Date.parse(feed?.history?.generated_at||feed?.window_end||feed?.checked_at)), start=end-hours*3600000;
     const total=feed?.context?.rain_reconstruction?.series?.[key]||[];
-    const legacy=feed?.history?.series?.[key];
+    const boundary=key==='rain_1h'||key==='rain_24h'?Date.parse(feed?.context?.rain_reconstruction?.authoritative_from):NaN;
+    const legacy=feed?.history?.series?.[key]?.filter(r=>!Number.isFinite(boundary)||Date.parse(r.time)<boundary);
     const totalTimes=new Set(total.map(r=>Date.parse(r.time)));
-    const archived=total.length?[...(legacy||[]).filter(r=>!totalTimes.has(Date.parse(r.time))),...total]:legacy;
+    const archived=total.length||Number.isFinite(boundary)?[...(legacy||[]).filter(r=>!totalTimes.has(Date.parse(r.time))),...total]:legacy;
     const points = (Array.isArray(archived)?archived:Array.isArray(metric?.series)?metric.series:[]).filter(p => pointValid(p, key, start, end)&&!suspect(key,p)).sort((a,b) => Date.parse(a.time)-Date.parse(b.time)).slice(0,600);
     el('campus-chart-note').textContent = key === 'rain_daily' ? 'Máximo em cada intervalo de 5 minutos. Contador diário informado; pode reiniciar. Não é chuva das últimas 24 h.' :
       metric?.aggregation === 'MAX' ? 'Máximo informado em cada intervalo de 5 minutos.'+(key==='wind_gust'?' O intervalo de medição original da rajada ainda precisa de confirmação.':'') : 'Média das leituras disponíveis em intervalos de 5 minutos. Lacunas não são interpoladas.';

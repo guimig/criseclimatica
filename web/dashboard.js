@@ -246,7 +246,9 @@ function getChartSeries(data,history,mode,variable,hours,now=Date.now(),observed
     const earliest=new Map();
     for(const field of fields){
       const total=data?.synthesis?.campus_context?.rain_reconstruction?.series?.[field==='rain_24h_mm'?'rain_24h':field==='rain_1h_mm'?'rain_1h':'']||[];
-      const original=data?.synthesis?.campus_history?.series?.[mapping[field]]||[];
+      const reconstruction=data?.synthesis?.campus_context?.rain_reconstruction;
+      const boundary=field.startsWith('rain_')?Date.parse(reconstruction?.authoritative_from):NaN;
+      const original=(data?.synthesis?.campus_history?.series?.[mapping[field]]||[]).filter(r=>!Number.isFinite(boundary)||Date.parse(r.time)<boundary);
       const totalTimes=new Set(total.map(r=>Date.parse(r.time)));
       const dense=[...original.filter(r=>!totalTimes.has(Date.parse(r.time))),...total.map(r=>({...r,crosschecked:true}))].sort((a,b)=>Date.parse(a.time)-Date.parse(b.time));
       if(dense.length)earliest.set(field,Date.parse(dense[0].time));
@@ -254,7 +256,7 @@ function getChartSeries(data,history,mode,variable,hours,now=Date.now(),observed
         intervalMinutes:r.interval_minutes,count:r.count,approximate:field==='rain_1h_mm'||field==='rain_24h_mm',crosschecked:r.crosschecked});
     }
     for(const r of data?.synthesis?.observation_history||[]){
-      if(r.source==='ifc'&&fields.includes(r.variable)&&(!earliest.has(r.variable)||Date.parse(r.end_at)<earliest.get(r.variable)))
+      if(r.source==='ifc'&&fields.includes(r.variable)&&(!earliest.has(r.variable)||Date.parse(r.end_at)<earliest.get(r.variable))&&(!r.variable.startsWith('rain_')||!Number.isFinite(Date.parse(data?.synthesis?.campus_context?.rain_reconstruction?.authoritative_from))||Date.parse(r.end_at)<Date.parse(data.synthesis.campus_context.rain_reconstruction.authoritative_from)))
         rows.push({source:'ifc',station:r.station,observed_at:r.end_at,[r.variable]:r.value,intervalMinutes:30,
           approximate:r.variable==='rain_1h_mm'||r.variable==='rain_24h_mm',crosschecked:r.method==='crosschecked_total_counter_5min_approximation'});
     }

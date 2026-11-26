@@ -18,6 +18,9 @@ STEP = 300_000
 WINDOW_HOURS = 73
 LIMIT = WINDOW_HOURS * 12 + 2
 QUERY_HOURS = 6
+RAW_HOURS = 1
+RAW_LIMIT = 1000
+RAW_MAX_GAP_MS = 30_000
 MIN_SAMPLES_PER_BIN = 2
 # Public dashboard 421b5150, device 948e1e60, verified 26/11/2026:
 # rain_total widget: Chuva Total, units mm. This is provider metadata,
@@ -243,6 +246,8 @@ def merge_rain(previous, current, stamp):
         a,b=int(start.timestamp()*1000),int(end.timestamp()*1000)
         # First bucket has no preceding counter in this query: preserve
         # the earlier validated delta at that boundary if present.
+        observed=moment(current.get("observed_start_at"))
+        if observed:a=max(a,int(observed.timestamp()*1000)//STEP*STEP)
         accepted={t:v for t,v in accepted.items() if not a+STEP<t<=b}
         accepted.update(collect_rows(current.get("intervals",[])))
     anchor=moment(current.get("anchor_at")) or moment(previous.get("anchor_at"))
@@ -253,6 +258,7 @@ def merge_rain(previous, current, stamp):
     product["diagnostics"]=current.get("diagnostics",{})
     product["diagnostics"]={**product["diagnostics"],"retained_valid_bins":len(accepted),
                             "query_status":current.get("status","unavailable")}
+    product["authoritative_from"]=iso(datetime.fromtimestamp(min(accepted)/1000,timezone.utc)) if accepted else current.get("query_start_at")
     if anchor and 0<=now_ms-anchor.timestamp()*1000<=90*60_000:
         product["status"]="available" if accepted else "no_valid_intervals"
         product.update(build_windows(accepted,int(anchor.timestamp()*1000),now))
@@ -311,11 +317,83 @@ def apply_quality(metrics, flags):
     return summary
 
 
+def raw_rain(raw, start, end, now):
+    """Pair original readings and require continuity at both boundaries."""
+    from bisect import bisect_right
+    def points(key):
+        rows=raw.get(key,[])
+        if not isinstance(rows,list) or len(rows)>RAW_LIMIT:return {}
+        out,conflicts={},set()
+        for r in rows:
+            if not isinstance(r,dict):continue
+            t,v=r.get("ts"),parse_number(r.get("value"))
+            if not isinstance(t,int) or isinstance(t,bool) or not start<=t<=end or v is None or v<0:continue
+            if t in out and out[t]!=v:conflicts.add(t)
+            out[t]=v
+        return {t:v for t,v in out.items() if t not in conflicts}
+    total,suspects,daily,increment=(points(k) for k in ("rain_total","rain_suspects_total","rain_daily","rain_increment"))
+    result=empty_rain()
+    d={"retrieval_method":"bounded_raw_pairs","total_samples":len(total),"suspect_samples":len(suspects),
+       "increment_samples":len(increment),"unit_evidence":{"documented_unit":TOTAL_UNIT,"status":"documented_mm"},
+       "accepted_bins":0,"increment_checked_bins":0,"rejected":{}}
+    result["diagnostics"]=d
+    if not total or not suspects:return result
+    times=sorted(total);anchor=(times[-1]//STEP)*STEP
+    if end-times[-1]<=RAW_MAX_GAP_MS:anchor=end
+    result["query_start_at"]=iso(datetime.fromtimestamp(start/1000,timezone.utc))
+    result["query_end_at"]=iso(datetime.fromtimestamp(end/1000,timezone.utc))
+    result["observed_start_at"]=iso(datetime.fromtimestamp(times[0]/1000,timezone.utc))
+    result["anchor_at"]=iso(datetime.fromtimestamp(anchor/1000,timezone.utc))
+    accepted={}
+    def reject(reason):
+        d["rejected"][reason]=d["rejected"].get(reason,0)+1
+    for t in range(start+STEP,anchor+1,STEP):
+        a=bisect_right(times,t-STEP)-1;b=bisect_right(times,t)-1
+        if a<0 or b<=a or t-STEP-times[a]>RAW_MAX_GAP_MS or t-times[b]>RAW_MAX_GAP_MS:
+            reject("missing_boundary");continue
+        sub=times[a:b+1]
+        if any(y-x>RAW_MAX_GAP_MS for x,y in zip(sub,sub[1:])):
+            reject("raw_gap");continue
+        if any(x not in suspects for x in sub) or any(suspects[x]!=suspects[sub[0]] for x in sub):
+            reject("suspect_counter_changed_or_missing");continue
+        if any(total[y]<total[x] for x,y in zip(sub,sub[1:])):
+            reject("counter_reset_or_decrease");continue
+        delta=total[sub[-1]]-total[sub[0]]
+        if not valid_number(delta,0,500):
+            reject("invalid_counter_difference");continue
+        first,last=sub[0],sub[-1]
+        if first in daily and last in daily and datetime.fromtimestamp(first/1000,timezone.utc).astimezone(TZ).date()==datetime.fromtimestamp(last/1000,timezone.utc).astimezone(TZ).date() and daily[last]>=daily[first] and not close(delta,daily[last]-daily[first]):
+            reject("daily_counter_mismatch");continue
+        if all(x in increment for x in sub[1:]):
+            if not close(delta,sum(increment[x] for x in sub[1:])):
+                reject("counter_increment_mismatch");continue
+            d["increment_checked_bins"]+=1
+        elif sum(increment[x] for x in sub[1:] if x in increment)>delta+.025:
+            reject("partial_increment_exceeds_counter");continue
+        accepted[t]=round(delta,5)
+    d["accepted_bins"]=len(accepted)
+    result["intervals"]=[{"time":iso(datetime.fromtimestamp(t/1000,timezone.utc)),"value":v} for t,v in sorted(accepted.items())]
+    result["status"]="available" if accepted else "no_valid_intervals"
+    if not 0<=now.timestamp()*1000-anchor<=90*60_000:
+        result["status"]="stale";return result
+    result.update(build_windows(accepted,anchor,now))
+    return result
+
+
 def collect_rain(requester,token,telemetry,now):
-    """Three short grouped counter queries, plus optional increment check."""
+    """Bounded raw stream first; aggregate fallback for raw failures."""
     from .campus_station import SourceError
     end=int(now.timestamp()*1000)//STEP*STEP
     start=end-QUERY_HOURS*3600000
+    raw_start=end-RAW_HOURS*3600000
+    try:
+        raw=query(requester,token,telemetry,("rain_total","rain_daily","rain_suspects_total","rain_increment"),
+                  raw_start,end,"NONE",RAW_LIMIT)
+        product=raw_rain(raw,raw_start,end,now)
+        if product["status"]!="unavailable":
+            return product
+    except (SourceError,OSError,ValueError,TypeError,KeyError):
+        pass
     groups={}
     requests={"MAX":("rain_total","rain_daily","rain_suspects_total"),
               "MIN":("rain_total","rain_suspects_total"),

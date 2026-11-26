@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"src"))
 from observatorio.campus_rain import (STEP, WINDOW_HOURS, summarize, reconstruct, quality_flags,
-                                     apply_quality, validate_rain, METHOD, merge_rain, preserve_quality)
+                                     apply_quality, validate_rain, METHOD, merge_rain, preserve_quality, raw_rain)
 from observatorio.analysis import iso
 from observatorio.multisource import build
 
@@ -90,6 +90,38 @@ class RainTests(unittest.TestCase):
         q=apply_quality(metrics,quality_flags(raw,START,END,1500))
         self.assertIsNone(metrics["pressure"]["latest"])
         self.assertIsNotNone(metrics["wind_gust"]["latest"])
+    def test_raw_actual_cadence_no_increment_and_midnight(self):
+        end=int(datetime(2026,11,26,3,30,tzinfo=timezone.utc).timestamp()*1000)
+        start=end-3600000
+        now=datetime.fromtimestamp(end/1000,timezone.utc)
+        raw={k:[] for k in ("rain_total","rain_daily","rain_suspects_total")}
+        total=10
+        for i,t in enumerate(range(start,end+1,5000)):
+            if i%120==5:total+=.28
+            values={"rain_total":total,"rain_daily":total if t<end-1800000 else total-10,
+                    "rain_suspects_total":0}
+            for key,v in values.items():raw[key].append({"ts":t,"value":str(v)})
+        p=raw_rain(raw,start,end,now)
+        self.assertEqual(p["status"],"available")
+        self.assertTrue(p["windows"][0]["complete"])
+        self.assertAlmostEqual(p["windows"][0]["value"],1.68)
+        self.assertEqual(p["diagnostics"]["increment_samples"],0)
+        validate_rain(p,iso(now))
+        raw["rain_total"]=[r for r in raw["rain_total"] if not end-600000<r["ts"]<end-540000]
+        p=raw_rain(raw,start,end,now)
+        self.assertFalse(p["windows"][0]["complete"])
+        self.assertGreater(p["diagnostics"]["rejected"]["raw_gap"],0)
+
+    def test_raw_suspect_and_reset_never_become_valid(self):
+        end=END;start=end-3600000
+        raw={k:[] for k in ("rain_total","rain_daily","rain_suspects_total")}
+        for t in range(start,end+1,5000):
+            for k,v in (("rain_total",10 if t<end-600000 else 0),("rain_daily",0),("rain_suspects_total",0 if t<end-300000 else 1)):
+                raw[k].append({"ts":t,"value":str(v)})
+        p=raw_rain(raw,start,end,NOW)
+        self.assertFalse(p["windows"][0]["complete"])
+        self.assertTrue(p["diagnostics"]["rejected"])
+
     def test_archive_merges_short_queries_without_fabricating_coverage(self):
         g=fixture()
         first=summarize(g,START,END,NOW)
@@ -98,7 +130,9 @@ class RainTests(unittest.TestCase):
         later=NOW+timedelta(minutes=30)
         product,new=merge_rain(archive,{},iso(later))
         self.assertEqual(product["windows"][-1]["end_at"],iso(NOW))
-        self.assertEqual(new,archive)
+        cutoff=iso(later-timedelta(hours=73))
+        self.assertEqual(new["intervals"],[r for r in archive["intervals"] if r["time"]>=cutoff])
+        self.assertEqual(new["anchor_at"],archive["anchor_at"])
         product,new=merge_rain(archive,{},iso(NOW+timedelta(days=4)))
         self.assertFalse(new["intervals"])
         self.assertEqual(product["windows"],[])
