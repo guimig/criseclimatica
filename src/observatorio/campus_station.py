@@ -110,7 +110,7 @@ def clean_points(raw: Any, key: str, start: datetime, end: datetime) -> tuple[li
 
 
 def collect(stamp: str, *, now: datetime | None = None,
-            requester: Callable = request_json) -> dict:
+            requester: Callable = request_json, previous_rain: dict | None = None) -> dict:
     now = now or datetime.now(timezone.utc)
     result = empty(iso(now))
     start = now - timedelta(hours=24)
@@ -162,7 +162,7 @@ def collect(stamp: str, *, now: datetime | None = None,
             result["diagnostics"]["conflicting_timestamps"] += conflicts + history_conflicts
         from .campus_rain import collect_rain, collect_quality
         result["quality"] = collect_quality(requester, token, TELEMETRY, now, result["metrics"])
-        result["rain_reconstruction"] = collect_rain(requester, token, TELEMETRY, now)
+        result["rain_reconstruction"] = collect_rain(requester, token, TELEMETRY, now, previous_rain)
         result["status"] = ("available" if any(row["fresh_at_collection"] for row in result["metrics"].values())
                             else "stale" if any(row["latest"] or row["series"] for row in result["metrics"].values())
                             else "no_recent_data")

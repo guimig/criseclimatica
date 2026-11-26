@@ -353,7 +353,7 @@ def build(
         cemaden_sensors = collect_cemaden_sensors(locations, stamp, session=ped_session,
                                                  on_request=ped_limiter.acquire)
     cemaden_sensors = annotate_units(cemaden_sensors)
-    campus = campus_empty(stamp, "fixture_mode") if fixture is not None else collect_campus(stamp)
+    campus = campus_empty(stamp, "fixture_mode") if fixture is not None else collect_campus(stamp, previous_rain=(previous_multisource or {}).get("campus_rain_archive"))
     print("Campus IFC station:", campus["status"])
     # Both sources publish forecasts/publications, not fresh station observations.
     cptec_fixture = (ROOT / "tests" / "fixtures" / "cptec.xml").read_bytes() if fixture is not None else None
@@ -427,6 +427,12 @@ def build(
     synthesis['unit_inference'] = cemaden_sensors.get('unit_inference', [])
     campus['history'] = synthesis['campus_history']
     campus['context'] = synthesis['campus_context']
+    if fixture is None:
+        rain_context=campus['context'].get('rain_reconstruction',{})
+        print('IFC rain coverage:', rain_context.get('status'), rain_context.get('diagnostics'),
+              [{k:r.get(k) for k in ('hours','covered_minutes','validated_minutes','estimated_minutes','quality')} for r in rain_context.get('windows',[])])
+        print('IFC sensor quality:', campus.get('quality',{}).get('status'),
+              {k:{'confirmed':campus.get('quality',{}).get('confirmed',{}).get(k,0),'unknown':campus.get('quality',{}).get('unknown',{}).get(k,0),'rejected':n} for k,n in campus.get('quality',{}).get('rejected',{}).items()})
     dashboard['synthesis'] = synthesis
     dashboard['forecast'] = synthesis['selected_forecast']
     dashboard['forecast_series'] = selected_detail['hourly']

@@ -27,7 +27,7 @@ class CampusTests(unittest.TestCase):
         self.assertNotIn("battery", query["keys"][0])
         self.assertEqual(int(query["startTs"][0]) % 300_000, 0)
         self.assertEqual(int(query["endTs"][0]) % 300_000, 0)
-        self.assertIn(int(query["endTs"][0])-int(query["startTs"][0]),(24*3600*1000,6*3600*1000,3600*1000))
+        self.assertIn(int(query["endTs"][0])-int(query["startTs"][0]),(24*3600*1000,6*3600*1000,3600*1000,3900000))
         values = {"temperature": 17.96, "humidity": 88.4, "pressure": 1002.09,
                   "rain_daily": 31.0134, "rain_intensity": 0, "wind_avg": 0, "wind_gust": 0, "wind_direction_deg": 337}
         return {key: [row(values[key])] for key in query["keys"][0].split(",") if key in values}

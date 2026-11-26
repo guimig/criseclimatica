@@ -5,7 +5,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"src"))
 from observatorio.campus_rain import (STEP, WINDOW_HOURS, summarize, reconstruct, quality_flags,
-                                     apply_quality, validate_rain, METHOD, merge_rain, preserve_quality, raw_rain)
+                                     apply_quality, validate_rain, METHOD, merge_rain, preserve_quality, raw_rain,
+                                     collect_rain, RAW_QUALITY, AGG_QUALITY, reconcile)
 from observatorio.analysis import iso
 from observatorio.multisource import build
 
@@ -25,7 +26,7 @@ def fixture(wet=True):
         fields={"MAX":{"rain_total":total,"rain_daily":daily,"rain_suspects_total":0},
                 "MIN":{"rain_total":before,"rain_suspects_total":0},
                 "SUM":{"rain_increment":amount},
-                "COUNT":{"rain_total":5,"rain_increment":5,"rain_suspects_total":5}}
+                "COUNT":{"rain_total":60,"rain_increment":60,"rain_suspects_total":60}}
         for agg,values in fields.items():
             for key,value in values.items():
                 groups[agg].setdefault(key,[]).append({"ts":t+STEP//2,"value":str(value)})
@@ -148,11 +149,64 @@ class RainTests(unittest.TestCase):
         rain=summarize(fixture(),START,END,NOW)
         c={"status":"available","checked_at":iso(NOW),"metrics":{},"rain_reconstruction":rain}
         d,_,_=build({"assessment":{}},{},c,{},{"records":[]},{},{},iso(NOW))
-        self.assertEqual(d["statistics"]["rain_24h_mm"]["station_count"],1)
-        r=d["statistics"]["rain_24h_mm"]["members"][0]
-        self.assertEqual(r["method"],METHOD)
-        self.assertFalse(r["threshold_eligible"])
+        self.assertEqual(d["statistics"]["rain_24h_mm"]["station_count"],0)
+        self.assertEqual(d["campus_context"]["rain_reconstruction"]["windows"][4]["quality"],"estimated")
         self.assertTrue(any(w["hours"]==72 for w in d["antecedent_rain"]["windows"]))
         self.assertFalse(any(s["variable"]=="rain_24h_mm" and s["source"]=="ifc" for s in d["signals"]))
+
+    def test_hybrid_estimates_do_not_overwrite_raw_or_hard_rejection(self):
+        t=iso(NOW);before=iso(NOW-timedelta(minutes=5))
+        raw={"intervals":[{"time":t,"value":.28,"quality":RAW_QUALITY}],
+             "rejected_intervals":[{"time":before,"reason":"raw_gap"}]}
+        aggregate={"intervals":[{"time":t,"value":.28,"quality":AGG_QUALITY},{"time":before,"value":0,"quality":AGG_QUALITY}]}
+        records,blocked={},{}
+        reconcile(records,blocked,raw,END);reconcile(records,blocked,aggregate,END)
+        self.assertEqual(records[END],(.28,RAW_QUALITY))
+        self.assertNotIn(END-STEP,records)
+        reconcile(records,blocked,{"intervals":[{"time":before,"value":0,"quality":RAW_QUALITY}]},END)
+        self.assertIn(END-STEP,records)
+        reconcile(records,blocked,{"intervals":[{"time":t,"value":2,"quality":AGG_QUALITY}]},END)
+        self.assertEqual(blocked[END],"source_conflict")
+        self.assertNotIn(END,records)
+
+    def test_complete_estimate_is_not_validated_coverage(self):
+        r=summarize(fixture(),START,END,NOW);w=r["windows"][0]
+        self.assertTrue(w["complete"]);self.assertFalse(w["validated_complete"])
+        self.assertEqual(w["quality"],"estimated");self.assertEqual(w["estimated_minutes"],60)
+        self.assertEqual(w["validated_minutes"],0)
+        self.assertEqual(r["series"]["rain_24h"][-1]["quality"],"estimated")
+
+    def test_archive_keeps_validated_reading_on_missing_requery(self):
+        t=iso(NOW)
+        previous={"intervals":[{"time":t,"value":.28,"quality":RAW_QUALITY}],"anchor_at":t}
+        current={"status":"available","query_start_at":iso(NOW-timedelta(hours=1)),"query_end_at":t,"anchor_at":t,"intervals":[]}
+        _,archive=merge_rain(previous,current,t)
+        self.assertEqual(archive["intervals"],previous["intervals"])
+        current["rejected_intervals"]=[{"time":t,"reason":"suspect_counter_changed"}]
+        _,archive=merge_rain(previous,current,t)
+        self.assertFalse(archive["intervals"])
+        current["rejected_intervals"]=[];current["intervals"]=previous["intervals"]
+        _,again=merge_rain(archive,current,t)
+        self.assertFalse(again["intervals"])
+
+    def test_backfill_chunk_limits_and_resume(self):
+        from urllib.parse import parse_qs,urlsplit
+        g=fixture();queries=[]
+        def source(path,**kwargs):
+            q=parse_qs(urlsplit(path).query);a=int(q["startTs"][0]);b=int(q["endTs"][0]);agg=q["agg"][0]
+            queries.append((agg,a,b))
+            if agg=="NONE":return {}
+            return {key:[r for r in g.get(agg,{}).get(key,[]) if a<=r["ts"]<b] for key in q["keys"][0].split(",")}
+        r=collect_rain(source,"public","/telemetry",NOW,budget_seconds=45)
+        validate_rain(r,iso(NOW))
+        self.assertGreater(r["diagnostics"]["historical_chunks_attempted"],0)
+        self.assertLessEqual(r["diagnostics"]["historical_chunks_attempted"],14)
+        self.assertTrue(all(b-a<=6*3600000 for agg,a,b in queries if agg!="NONE"))
+        product,archive=merge_rain({},r,iso(NOW))
+        self.assertTrue(product["windows"][-1]["complete"])
+        self.assertFalse(product["windows"][-1]["validated_complete"])
+        queries.clear()
+        new=collect_rain(source,"public","/telemetry",NOW,archive,budget_seconds=45)
+        self.assertLessEqual(new["diagnostics"]["historical_chunks_attempted"],2)
 
 if __name__=="__main__":unittest.main()
