@@ -261,7 +261,12 @@ def validate(output: Path, *, fixture: bool = False) -> None:
         raise ValueError("Manifest has no available operational source")
     if not available and overview.get("publication_status") != "partial":
         raise ValueError("Model outage must be marked as a partial publication")
-    validate_campus(json.loads((data / "campus_station.json").read_text(encoding="utf-8")), fixture=fixture)
+    campus = json.loads((data / "campus_station.json").read_text(encoding="utf-8"))
+    validate_campus(campus, fixture=fixture)
+    if (campus.get("history") != dashboard["synthesis"].get("campus_history")
+            or campus.get("history") != multisource_history.get("campus_history")
+            or campus.get("context") != dashboard["synthesis"].get("campus_context")):
+        raise ValueError("IFC instrumental products must share the same publication")
     coverage = json.loads((data / "coverage.json").read_text(encoding="utf-8"))
     expected_coverage = {row["id"] for row in overview["locations"]}
     if (coverage.get("schema_version") != 1 or coverage.get("kind") != "local_source_coverage_not_municipal_weather_measurement"

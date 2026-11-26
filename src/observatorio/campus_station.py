@@ -1,4 +1,4 @@
-"""Read-only public IFC station telemetry; never an input to risk classification."""
+"""Read-only IFC telemetry; risk eligibility is evaluated separately in the synthesis."""
 from __future__ import annotations
 
 import json
@@ -12,11 +12,14 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 BASE = "https://mytb.fabricadesoftware.ifc.edu.br"
 PUBLIC_ID = "f2146870-34a4-11f0-ac33-dfcfe81f8a64"
 DEVICE_ID = "948e1e60-5611-11f0-ac33-dfcfe81f8a64"
-SOURCE = BASE + "/dashboard/6c46c4f0-5613-11f0-ac33-dfcfe81f8a64?publicId=" + PUBLIC_ID
+DASHBOARD_ID = "421b5150-dcf9-11f1-87e4-35fbd30ce4f4"
+SOURCE = BASE + "/dashboard/" + DASHBOARD_ID + "?publicId=" + PUBLIC_ID
 TELEMETRY = "/api/plugins/telemetry/DEVICE/" + DEVICE_ID + "/values/timeseries"
 KIND = "ifc_araquari_campus_observations_not_risk_criteria"
 MAX_AGE_MINUTES = 90
 MAX_POINTS = 300
+TELEMETRY_KEYS = "/api/plugins/telemetry/DEVICE/" + DEVICE_ID + "/keys/timeseries"
+DASHBOARD_CONFIG = "/api/dashboard/" + DASHBOARD_ID
 # Ranges reject malformed/sentinel values, not establish risk thresholds.
 METRICS = {
     "temperature": ("Temperatura", "°C", -50, 65, "AVG"),
@@ -44,7 +47,7 @@ class _NoRedirect(HTTPRedirectHandler):
 
 
 def request_json(path: str, *, body: dict | None = None, token: str | None = None) -> Any:
-    if path.split("?")[0] not in ("/api/auth/login/public", TELEMETRY):
+    if path.split("?")[0] not in ("/api/auth/login/public", TELEMETRY, TELEMETRY_KEYS, DASHBOARD_CONFIG):
         raise SourceError("invalid_request")
     headers = {"Accept": "application/json", "User-Agent": "criseclimatica/1.1"}
     if token:
@@ -126,13 +129,26 @@ def collect(stamp: str, *, now: datetime | None = None,
         # the source and win that query even when current history is healthy.
         latest = requester(TELEMETRY + "?" + urlencode({**common, "keys": ",".join(METRICS), "agg": "NONE", "limit": 20}), token=token)
         history = {}
+        failed_groups = []
         for aggregation in ("AVG", "MAX"):
             keys = [key for key, config in METRICS.items() if config[4] == aggregation]
-            group = requester(TELEMETRY + "?" + urlencode({**common, "keys": ",".join(keys), "agg": aggregation,
-                                                        "interval": 300_000, "limit": MAX_POINTS}), token=token)
-            if not isinstance(group, dict):
-                raise SourceError("invalid_telemetry_shape")
-            history.update(group)
+            try:
+                group = requester(TELEMETRY + "?" + urlencode({**common, "keys": ",".join(keys), "agg": aggregation,
+                                                            "interval": 300_000, "limit": MAX_POINTS}), token=token)
+                if not isinstance(group, dict):
+                    raise SourceError("invalid_telemetry_shape")
+                history.update(group)
+            except (SourceError, HTTPError, URLError, TimeoutError, OSError, ValueError, TypeError):
+                failed_groups.append(aggregation)
+        try:
+            direction = requester(TELEMETRY + "?" + urlencode({**common, "keys": "wind_direction_deg",
+                                                                 "agg": "NONE", "limit": MAX_POINTS}), token=token)
+            if not isinstance(direction, dict):
+                raise SourceError("invalid_direction_shape")
+            history["wind_direction_deg"] = direction.get("wind_direction_deg", [])
+        except (SourceError, HTTPError, URLError, TimeoutError, OSError, ValueError, TypeError):
+            failed_groups.append("direction")
+        result["diagnostics"]["failed_history_groups"] = failed_groups
         if not isinstance(latest, dict):
             raise SourceError("invalid_telemetry_shape")
         for key, (label, unit, _, _, aggregation) in METRICS.items():
@@ -195,3 +211,34 @@ def validate_product(feed: dict, *, fixture: bool = False) -> None:
             any_fresh |= fresh
         if (feed["status"] == "available") is not any_fresh:
             raise ValueError("Invalid campus availability")
+
+
+def audit_public_schema(requester=request_json):
+    """Inspect only public configuration and key names; never log authentication or raw metadata."""
+    import re
+    auth = requester("/api/auth/login/public", body={"publicId": PUBLIC_ID})
+    token = auth.get("token") if isinstance(auth, dict) else None
+    if not isinstance(token, str) or not 1 <= len(token) <= 8192 or any(c.isspace() for c in token):
+        raise SourceError("invalid_public_session")
+    result = {"dashboard_id": DASHBOARD_ID, "device_id": DEVICE_ID}
+    try:
+        keys = requester(TELEMETRY_KEYS, token=token)
+        result["telemetry_keys"] = sorted(k for k in keys if isinstance(k, str) and re.fullmatch(r"[A-Za-z0-9_.-]{1,80}", k))[:100] if isinstance(keys, list) else []
+        result["unintegrated_keys"] = sorted(set(result["telemetry_keys"])-set(METRICS))
+    except (SourceError, HTTPError, URLError, TimeoutError, OSError, ValueError, TypeError):
+        result["keys_status"] = "unavailable"
+    try:
+        config = requester(DASHBOARD_CONFIG, token=token)
+        widgets = config.get("configuration", {}).get("widgets", {}) if isinstance(config, dict) else {}
+        fields = set()
+        for widget in widgets.values() if isinstance(widgets, dict) else []:
+            for source in widget.get("config", {}).get("datasources", []):
+                for field in source.get("dataKeys", []):
+                    name = field.get("name")
+                    if isinstance(name, str) and re.fullmatch(r"[A-Za-z0-9_.-]{1,80}", name):
+                        fields.add(name)
+        result["dashboard_fields"] = sorted(fields)[:100]
+        result["dashboard_status"] = "available"
+    except (SourceError, HTTPError, URLError, TimeoutError, OSError, ValueError, TypeError, AttributeError):
+        result["dashboard_status"] = "unavailable"
+    return result

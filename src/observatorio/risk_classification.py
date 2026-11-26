@@ -52,7 +52,8 @@ def classify(dashboard, detail, stamp):
         forms = ('previstas','observadas') if s['variable']=='gust_kmh' else ('previsto','observado') if s['variable']=='wind_kmh' else ('prevista','observada')
         nature = forms[0 if s['nature']=='forecast' else 1]
         variable = VARIABLES[s['variable']]
-        add('amarelo', f"{variable}{' no entorno' if s.get('scope') == 'regional_not_araquari_station' else ''}: {value} {s['unit']} ({nature}).", 'numeric_attention', [s['valid_until']], [s])
+        detail_label = ' · IFC, pico em série de 5 min (intervalo instrumental a confirmar)' if s.get('support') == 'five_minute_peak' else ''
+        add('amarelo', f"{variable}{' no entorno' if s.get('scope') == 'regional_not_araquari_station' else ''}: {value} {s['unit']} ({nature}){detail_label}.", 'numeric_attention', [s['valid_until']], [s])
 
     # An approximate counter interval cannot support a severe coincidence, but
     # a high value must not be hidden behind a green average from other stations.

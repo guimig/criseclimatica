@@ -7,7 +7,7 @@ Integração implantada em 09/11/2026 para acompanhamento local. **Participa da 
 
 ## Acesso e coleta
 
-- [Painel público da estação](https://mytb.fabricadesoftware.ifc.edu.br/dashboard/6c46c4f0-5613-11f0-ac33-dfcfe81f8a64?publicId=f2146870-34a4-11f0-ac33-dfcfe81f8a64), hospedado no ThingsBoard da Fábrica de Software do IFC.
+- [Painel público da estação](https://mytb.fabricadesoftware.ifc.edu.br/dashboard/421b5150-dcf9-11f1-87e4-35fbd30ce4f4?publicId=f2146870-34a4-11f0-ac33-dfcfe81f8a64), hospedado no ThingsBoard da Fábrica de Software do IFC.
 - Dispositivo observado no painel: `948e1e60-5611-11f0-ac33-dfcfe81f8a64`.
 - `src/observatorio/campus_station.py` abre uma sessão pública em `POST /api/auth/login/public`, usando somente o `publicId` já presente no link público. Não exige senha administrativa, token do dispositivo, alteração de permissões ou credencial nova.
 - O JWT público é temporário, permanece somente na memória do coletor e nunca é publicado, registrado ou enviado ao navegador. As chamadas seguintes são exclusivamente de leitura de telemetria desse dispositivo.
@@ -62,3 +62,13 @@ A API pública foi testada diretamente; sua continuidade depende de a instituiç
 - O build offline não consulta a estação. A validação do artefato verifica esquema, unidades, intervalos, valores, limite das séries e proibição de `risk_criteria: true`.
 
 Reversão: reverter o commit desta integração, removendo seu coletor, JSON e seção compartilhada. Não há migração de banco de dados, escrita no ThingsBoard ou alteração nos registros originais.
+
+## Evolução do aproveitamento instrumental (26/11/2026)
+
+O novo link público é o informado em 26/11; o dispositivo conhecido não é trocado automaticamente. A sondagem pública do CI consulta os nomes das chaves e, quando acessível, os campos configurados no dashboard, sem divulgar JWT nem ativar sensores não validados. São até cinco chamadas por coleta (a direção tem consulta bruta limitada a 300 pontos); falhas de um grupo de histórico não invalidam a leitura dos demais.
+
+O histórico instrumental separado permanece em `multisource_history.json` e é publicado também na síntese e em `campus_station.json`. Até 600 registros por variável, sete dias, resolução de 5 min no trecho recente e resumos de 30 min no trecho antigo, com mínimo/máximo e quantidade de intervalos. Não aumenta a cadência de coleta, não soma acumulados móveis e não interpola lacunas. O gráfico detalhado permite 24 h, 72 h e sete dias. A direção é amostrada, nunca recebe média aritmética de graus; a distribuição usa somente pares com vento não nulo e a cobertura é explícita. As novas séries não representam extremos brutos de temperatura, mas médias instrumentais de 5 min.
+
+O maior valor válido de vento ou rajada da última hora já coletado pode fundamentar Atenção, sem duplicar estações nem permitir coincidência severa de intervalo não verificado. Os acumulados móveis de 1 h são aproximações do contador no mesmo dia, com intervalos consecutivos; as janelas de 1–24 h exibem incrementos parciais e minutos cobertos, sem afirmar total através de reinício. Não se habilitam acumulados de 24–72 h completos sem verificar o contador total, o fuso e os reinícios. Umidade/temperatura pareadas permitem ponto de orvalho e índice de calor estimado (T ≥ 26,7 °C e UR ≥ 40%; sem avaliação ocupacional); tendência de pressão em 3 h e direção são contexto, não novos critérios de risco. A calibração, exposição, intervalo original e identidade de eventuais novos dispositivos continuam pendentes de confirmação. A validação de previsões por horizonte requer séries equivalentes e permanece etapa futura, sem atribuição automática de pesos.
+
+Os resumos antigos de contador e chuva móvel mostram o último término efetivamente disponível, com extrema e cobertura registrados à parte; máximos de rajada e intensidade são preservados. Uma consulta histórica bem-sucedida substitui suas amostras no período; quando falha, as anteriores permanecem com seus horários originais. Janelas de chuva com qualquer intervalo de 5 min ausente não são completas.

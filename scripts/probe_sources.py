@@ -27,6 +27,11 @@ from observatorio.epagri_bulletins import collect as collect_bulletins  # noqa: 
 def main() -> int:
     now = datetime.now(timezone.utc)
     stamp = now.isoformat(timespec="seconds").replace("+00:00", "Z")
+    from observatorio.campus_station import audit_public_schema, SourceError
+    try:
+        print("IFC public schema:", audit_public_schema())
+    except (SourceError, OSError, ValueError, TypeError):
+        print("IFC public schema: unavailable; existing device mapping unchanged")
     locations = load_locations(ROOT / "config" / "locations.json")
     result = collect_defesa(locations, stamp)
     print(f"Defesa Civil SC: {result['status']}; method={result.get('retrieval_method', 'none')}; published={len(result.get('publications', []))}")
