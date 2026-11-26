@@ -218,7 +218,7 @@
       const rows=selected.slice(0,4),marks=rows.filter(r=>Number.isFinite(r.p?.value)&&r.p.rainQuality!=='partial').map(({s,p})=>({x:forecast&&rain?x(t):x(Date.parse(p.time)),y:y(p.value),color:s.color,shape:s.shape}));
       const text=[cumulativeHours?`Acumulado móvel de ${cumulativeHours} h · término da leitura`:displayLabel,...rows.map(({s,p})=>`${s.name}: ${valueText(p,unit)}${p?' · '+(forecast&&rain?date(p.start_at)+' a ':'')+date(p.time):''}`)];
       if(selected.length>4)text.push(`+${selected.length-4} séries · filtre por estação ou consulte a tabela`);
-      if(!marks.length)text.push('Ausência de amostra não significa zero.');return {text:text.join('\n'),marks};
+      if(!rows.some(r=>Number.isFinite(r.p?.value)))text.push('Ausência de amostra não significa zero.');return {text:text.join('\n'),marks};
     }});
     target.append(root);return result;
   }

@@ -25,7 +25,7 @@ class WebContract(unittest.TestCase):
         self.assertIn('Ler riscos e orientações do aviso', client)
         self.assertIn("const INMET_PUBLIC_PORTAL='https://avisos.inmet.gov.br/'", client)
         self.assertIn("'https://avisos.inmet.gov.br/'", detail_js)
-        self.assertIn('dashboard.js?v=ifc-graph-20261126', home)
+        self.assertIn('dashboard.js?v=ifc-inline-20261126', home)
         self.assertIn('id="notice-layout"', home)
         self.assertNotIn('href="https://alertas2.inmet.gov.br/', details)
 
