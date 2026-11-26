@@ -20,3 +20,14 @@ assert.equal(currentStats(data,'rain_24h_mm',now).mean,20);assert.equal(currentS
 console.log('Six-level classification: real categories, expiry, no false normality, official separation and preserved station extremes passed.');
 
 assert.equal(riskLevel({...product,method_version:'araquari-risk-v2',candidates:[yellow]},now).active,'amarelo');
+
+const {riskDetailModel}=window.WeatherSynthesis;
+const expired={...yellow,reason:'Referência anterior',valid_until:new Date(now-1000).toISOString()};
+const reqs=[{label:'Chuva prevista',available:true,valid_until:until},{label:'Vento',available:true,valid_until:expired.valid_until},{label:'Chuva observada',available:false}];
+const model=riskDetailModel({...product,candidates:[yellow,{...yellow},expired],requirements:reqs},now);
+assert.equal(model.risk.title,'Atenção');assert.equal(model.activeCount,2);
+assert.equal(model.active.length,1);assert.equal(model.active[0].entries.length,2);
+assert.equal(model.expiredCount,1);assert.equal(model.covered,1);assert.equal(model.requirements.length,3);
+assert.equal(model.validUntil,until);
+assert.equal(riskDetailModel({...product,candidates:[expired],requirements:reqs},now).risk.active,null);
+assert.equal(riskDetailModel({...product,candidates:[],requirements:[]},now).activeCount,0);
