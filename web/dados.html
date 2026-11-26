@@ -8,11 +8,11 @@
   <title>Dados meteorológicos | Tempo em Araquari</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <script src="./theme.js?v=period-20261107"></script><link rel="stylesheet" href="./style.css?v=period-20261107">
-  <script defer src="./chart-interaction.js?v=period-20261107"></script><script defer src="./publication-refresh.js?v=publication-recovery-20261109"></script><script defer src="./app.js?v=inmet-public-links-20261117"></script>
+  <script defer src="./chart-utils.js?v=charts-20261126"></script><script defer src="./chart-interaction.js?v=charts-20261126"></script><script defer src="./publication-refresh.js?v=publication-recovery-20261109"></script><script defer src="./app.js?v=charts-20261126"></script>
 <link rel="stylesheet" href="./explore.css?v=period-20261107">
 <script src="./explore.js?v=period-20261107" defer></script>
-<link rel="stylesheet" href="./forecasts.css?v=inmet-forecast-20261110"><script defer src="./forecasts.js?v=multisource-v1"></script>
-<link rel="stylesheet" href="./essential.css?v=telegram-header-20261117">
+<link rel="stylesheet" href="./forecasts.css?v=inmet-forecast-20261110"><script defer src="./forecasts.js?v=charts-20261126"></script>
+<link rel="stylesheet" href="./essential.css?v=charts-20261126">
 <link rel="stylesheet" href="./campus-station.css?v=campus-20261109"><script defer src="./campus-station.js?v=multisource-v1"></script>
 <link rel="stylesheet" href="./weather-synthesis.css?v=multisource-v1"><script defer src="./weather-synthesis.js?v=clear-home-v2"></script>
 </head>
@@ -179,10 +179,10 @@
 <button type="button" class="active" data-metric="temperature_c" aria-pressed="true">Temperatura</button><button type="button" data-metric="precipitation_mm" aria-pressed="false">Chuva</button><button type="button" data-metric="gust_kmh" aria-pressed="false">Rajadas</button>
 </div>
 </div>
-        <div class="chart-frame" id="chart" role="img" aria-label="Grafico das proximas 24 horas"><span class="loading-label">Carregando gráfico...</span></div>
+        <div class="chart-frame" id="chart"><span class="loading-label">Carregando gráfico...</span></div>
         <p id="detail-chart-tooltip" class="detail-chart-tooltip" aria-live="polite" hidden></p><p class="chart-hint">Mouse para consultar · clique/toque para fixar · Esc para soltar</p><div class="chart-footer">
-<span class="legend-dot"></span><span id="chart-legend">Dados de previsão, não de estação</span>
-</div>
+<div id="chart-legend" class="chart-legend">Dados de previsão, não de estação</div>
+</div><p id="detail-chart-status" class="chart-status"></p><div id="detail-chart-data"></div>
       </section>
       <section class="panel detail-panel" aria-labelledby="detail-title">
         <div class="panel-top">

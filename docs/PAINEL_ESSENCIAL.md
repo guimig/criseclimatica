@@ -1,5 +1,7 @@
 # Painel essencial — implementação
 
+**Atualização de 26/11/2026:** [Gráficos: leitura, intervalos e cobertura](GRAFICOS_E_LEITURA.md) documenta a representação atual dos acumulados por término da leitura, agrupamentos previstos, tabelas e verificações. Descrições de etapas anteriores abaixo não prevalecem sobre essa revisão.
+
 A composição aprovada na simulação passa a utilizar os dados publicados e as interações reais da aplicação. O retrato congelado, as datas, valores de exemplo e os textos promocionais da simulação não são incorporados. A inicial usa apenas o título **Tempo em Araquari**, sem marca, logo ou chamada acima dele. A barra superior reúne os links Painel e Dados e fontes e o botão de tema em uma única linha, inclusive a 320 px. A página detalhada usa o mesmo cabeçalho, cores, tipografia e controles.
 
 O tema claro combina fundo gelo acinzentado, superfícies suaves e verde como destaque. O escuro usa fundo grafite e superfícies neutras, com verde apenas nos detalhes. As cores dos seis níveis de risco mantêm os significados existentes.
@@ -55,7 +57,7 @@ Os testes de navegador verificam controles e expansões abertos/fechados nos sei
 
 O indicador de chuva observada abre o gráfico da própria inicial, como os indicadores previstos: seleciona chuva, acumulado de 24 h, Araquari e todas as estações na visão por estação. Não navega para a página detalhada.
 
-Na evolução temporal, acumulados móveis sobrepostos continuam desenhados com seus intervalos reais. O cursor mostra somente a leitura de cada série cujo fim do intervalo está mais próximo do horário consultado, entre os intervalos que contêm esse horário. O texto explicita o acumulado e o horário de referência de cada leitura; não soma, calcula média ou transforma o valor em chuva instantânea. Exibe no máximo quatro séries e informa quantas outras exigem filtro por estação. Marcadores acompanham somente as leituras descritas. O comportamento por teclado segue a mesma regra; sem amostra continua diferente de zero. Os registros, os títulos completos dos pontos e os filtros permanecem disponíveis.
+Na evolução temporal, acumulados móveis aparecem no término de cada leitura, sem ocupar toda a janela com retângulos sobrepostos. O cursor mostra somente a leitura de cada série cujo fim do intervalo está mais próximo do horário consultado, entre os intervalos que contêm esse horário. O texto explicita o acumulado e o horário de referência de cada leitura; não soma, calcula média ou transforma o valor em chuva instantânea. Exibe no máximo quatro séries e informa quantas outras exigem filtro por estação. Marcadores acompanham somente as leituras descritas. O comportamento por teclado segue a mesma regra; sem amostra continua diferente de zero. Os registros, os títulos completos dos pontos e os filtros permanecem disponíveis.
 
 A regressão inclui dezenas de faixas de 24 h por estação, consulta por mouse/toque/teclado, limite de tamanho do tooltip nos dois temas e navegação do indicador sem trocar de página.
 

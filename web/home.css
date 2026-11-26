@@ -3,6 +3,33 @@
 
 .home-page .analysis-link{display:inline-flex;align-items:center;min-height:44px}
 
+/* Shared rows align the plots without fixed-height control spacers. */
+.home-page .chart-panels { align-items: stretch; row-gap: 0; }
+.home-page .weather-panel { display: grid; grid-template-rows: subgrid; grid-row: span 10; row-gap: 0; align-content: start; }
+.home-page .weather-panel > * { grid-column: 1; min-width: 0; }
+.home-page .weather-panel > .panel-heading { grid-row: 1; align-items: flex-start; flex-wrap: wrap; gap: 8px 12px; }
+.home-page .weather-panel .panel-heading h3 { font-size: 19px; }
+.home-page .weather-panel .panel-heading .badge { font-size: 13px; }
+.home-page .weather-panel > .small { grid-row: 2; margin-bottom: 8px; min-height: 0; font-size: 13px; }
+.home-page .weather-panel > .plot-tools { grid-row: 3; min-height: 0; }
+.home-page .weather-panel > .plot { grid-row: 4; margin-top: 0; }
+.home-page .weather-panel > .chart-tooltip { grid-row: 4; }
+.home-page .weather-panel > .chart-legend { grid-row: 5; font-size: 14px; }
+.home-page .weather-panel > .chart-hint { grid-row: 6; font-size: 13px; }
+.home-page .weather-panel > .chart-status { grid-row: 7; }
+.home-page .weather-panel > .chart-caption { grid-row: 8; font-size: 14px; }
+.home-page .weather-panel > .chart-accessible-summary { grid-row: 9; }
+.home-page :is(#observed-chart-data, #forecast-chart-data) { grid-row: 10; }
+.home-page .weather-panel .interactive-tooltip { max-width: min(360px, calc(100% - 20px)); }
+@media (max-width: 1023px) {
+  .home-page .chart-panels { grid-template-columns: 1fr; row-gap: 24px; }
+  .home-page .weather-panel { display: block; grid-row: auto; }
+}
+@media (max-width: 620px) {
+  .essential-page .interactive-tooltip { position: static; max-width: 100%; margin-block: 12px; }
+  .home-page .weather-panel .interactive-tooltip { max-width: 100%; }
+}
+
 .home-page #level-explain{font-size:14px;max-width:100%;white-space:normal;text-align:left}
 .home-page .home-notice{margin:16px 0}.home-page .home-notice-item{overflow-wrap:anywhere}.home-notice-item+.home-notice-item{border-top:1px solid var(--line);margin-top:16px;padding-top:16px}
 .home-page .home-notice-item h3{font-size:17px;margin:0 0 10px}.home-page .home-notice-item p{font-size:14px;line-height:1.6;margin:0 0 10px}.home-page .home-notice-item a{display:inline-flex;align-items:center;min-height:44px;font-size:14px}
@@ -26,7 +53,7 @@
 .home-page .observed-chart-options .station-filter{margin:0;flex:1 1 auto}
 .home-page .observed-chart-options .station-filter[open]{flex-basis:100%}
 .home-page .observed-chart-options .station-filter>summary{min-height:44px}
-.home-page .chart-unit{fill:var(--muted);font-family:inherit;font-size:11px;font-weight:600}
+.home-page .chart-unit{fill:var(--muted);font-family:inherit;font-size:13px;font-weight:600}
 
 /* Two charts need desktop width; intermediate screens use the mobile flow. */
 @media(min-width:801px) and (max-width:1023px){

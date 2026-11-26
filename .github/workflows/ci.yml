@@ -28,6 +28,7 @@ jobs:
           node --check web/theme.js
           node --check web/explore.js
           node --check web/chart-interaction.js
+          node --check web/chart-utils.js
           node --check web/forecasts.js
           node --check web/publication-refresh.js
           node --check web/campus-station.js
@@ -36,6 +37,7 @@ jobs:
         run: |
           node tests/web_reliability.cjs
           node tests/dashboard_behavior.cjs
+          node tests/chart_utils.cjs
           node tests/dashboard_loading.cjs
           node tests/campus_station.cjs
           node tests/publication_refresh.cjs

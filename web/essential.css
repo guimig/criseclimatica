@@ -453,6 +453,25 @@
   margin: 0;
 }
 .essential-page .tooltip-pinned { display: block; color: var(--green); font-size: var(--text-label); font-weight: 650; margin-top: var(--space-2); }
+.essential-page :is(.weather-chart .chart-label, .plot .chart-label) { font-size: 13px; font-weight: 500; fill: var(--muted); }
+.essential-page .chart-unit { font-size: 13px; font-weight: 600; fill: var(--muted); }
+.essential-page :is(.chart-legend, .comparison-legend) { font-size: 14px; }
+.essential-page .legend-item { display: inline-flex; align-items: center; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+.essential-page .legend-swatch { flex: none; width: 30px; height: 16px; overflow: visible; }
+.essential-page .chart-sample { stroke: var(--surface); stroke-width: 1; }
+.essential-page .chart-gap { fill: var(--surface-soft); stroke: var(--border-strong); stroke-width: .75; stroke-dasharray: 3 4; }
+.essential-page .chart-gap-label { fill: var(--muted); font-size: 13px; font-weight: 600; }
+.essential-page :is(.chart-status, .chart-filter-summary) { color: var(--muted); font-size: 13px; line-height: 1.6; margin: 8px 0; }
+.essential-page .chart-accessible-summary { color: var(--ink); font-size: 14px; line-height: 1.65; margin: 10px 0; max-width: 72ch; }
+.essential-page .chart-data { border-top: 1px solid var(--line); margin-top: 12px; min-width: 0; }
+.essential-page .chart-data > summary { min-height: 44px; color: var(--green); font-size: 14px; font-weight: 600; padding-block: 8px; }
+.essential-page .chart-table-scroll { overflow: auto; max-height: 420px; margin-block: 8px; }
+.essential-page .chart-table-scroll table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.essential-page .chart-table-scroll caption { text-align: left; padding: 8px 0; color: var(--ink); }
+.essential-page .chart-table-pages { display: flex; gap: 8px 12px; align-items: center; flex-wrap: wrap; padding-bottom: 12px; }
+.essential-page .chart-table-pages button { min-height: 44px; min-width: 44px; padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: var(--control-radius); background: var(--surface); color: var(--green); font-size: 14px; font-weight: 600; }
+.essential-page .chart-table-scroll:focus-visible { outline: 3px solid var(--green); outline-offset: 3px; }
+.essential-page .chart-table-pages span { font-size: 13px; color: var(--muted); }
 .essential-page .comparison-table-wrap { overflow-x: auto; }
 .essential-page :is(.comparison-table, .data-table, .station-details table, .synthesis-table) { font-size: var(--text-body); }
 .essential-page :is(.comparison-table, .data-table, .station-details table, .synthesis-table) :is(th, td) { padding: var(--space-3); border-color: var(--line); }
@@ -505,6 +524,7 @@
   .essential-page .plot-tools { min-height: 0; }
 }
 @media (max-width: 620px) {
+  .essential-page .interactive-tooltip { position: static; max-width: 100%; margin-block: 12px; }
   :root { --page-gutter: 16px; --panel-padding: 16px; --title-page: 27px; --title-panel: 19px; }
   .sitebar-inner { gap: var(--space-2); }
   .site-nav { gap: var(--space-1); }

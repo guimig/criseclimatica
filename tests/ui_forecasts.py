@@ -65,7 +65,7 @@ def main():
                         for selector in ['.level-reason','.coverage-copy','.weather-panel .chart-caption']:
                             assert page.locator(selector).first.evaluate('el=>parseFloat(getComputedStyle(el).fontSize)')>=14,selector
                     page.screenshot(path=str(OUTPUT/f'comparison-home-{theme}-{width}.png'),full_page=True)
-                page.goto(url+'dados.html#model-comparison');page.locator('#model-comparison svg').wait_for()
+                page.goto(url+'dados.html#model-comparison');page.locator('#model-comparison svg.weather-chart').wait_for()
                 if page.locator('html').get_attribute('data-theme')=='dark':page.locator('#theme-toggle').click()
                 assert page.get_by_role('tab',name='Previsões',exact=True).get_attribute('aria-selected')=='true'
                 assert page.locator('#model-comparison .inmet-forecast-day').count()==2
@@ -76,7 +76,7 @@ def main():
                 for field in ['temperature_c','gust_kmh','precipitation_mm']:
                     page.get_by_label('Variável da comparação',exact=True).select_option(field)
                     page.get_by_label('Período da comparação',exact=True).select_option('72')
-                    page.locator('#model-comparison svg').focus();page.keyboard.press('Home')
+                    page.locator('#model-comparison svg.weather-chart').focus();page.keyboard.press('Home')
                     assert page.locator('.comparison-tooltip').is_visible()
                     assert 'ECMWF' in page.locator('.comparison-tooltip').inner_text()
                 assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),f'Details overflow {width}'

@@ -23,6 +23,7 @@ class Clock extends Date { static now() { return clock; } }
 const context = vm.createContext({ document, Date: Clock, Intl, console, AbortController,
   setTimeout() { return 1; }, clearTimeout() {}, setInterval() {},
   fetch() { return new Promise(() => {}); } });
+context.window=context;context.addEventListener=()=>{};vm.runInContext(fs.readFileSync(path.join(__dirname,'../web/chart-utils.js'),'utf8'),context);
 vm.runInContext(fs.readFileSync(path.join(__dirname, '../web/app.js'), 'utf8'), context);
 const run = code => vm.runInContext(code, context);
 const text = id => document.getElementById(id).text;

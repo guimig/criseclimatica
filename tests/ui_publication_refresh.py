@@ -82,7 +82,7 @@ def main():
         # an interaction to repaint the historical charts.
         offline=True
         page.clock.fast_forward(3*3600000+61000)
-        page.wait_for_function("document.getElementById('chart-caption').textContent.includes('Atualização vencida')")
+        page.wait_for_function("document.getElementById('chart-caption').textContent.includes('Publicação desatualizada')")
         # The detailed multi-model comparison has an independent loader. It
         # must follow publication changes too, retaining the chosen controls.
         details=datasets();comp=comparison_fixture(details['data/latest.json']['generated_at']);fail_cemaden=True
@@ -95,7 +95,7 @@ def main():
             request.fulfill(content_type='application/json',body=json.dumps(details.get(key,{})))
         context.route('**/data/**',detailed_route)
         detail=context.new_page();detail.clock.install(time=datetime.now(timezone.utc))
-        detail.goto(url+'dados.html#model-comparison');detail.locator('#model-comparison svg').wait_for()
+        detail.goto(url+'dados.html#model-comparison');detail.locator('#model-comparison svg.weather-chart').wait_for()
         detail.wait_for_function('state.incompletePublication')
         fail_cemaden=False
         detail.clock.fast_forward(61000)
@@ -138,7 +138,7 @@ def main():
         details['data/forecast_comparison.json']={**replacement,'windows':None}
         detail.clock.fast_forward(61000)
         detail.wait_for_function("document.getElementById('model-comparison').textContent.includes('última leitura preservada')")
-        assert detail.locator('#model-comparison svg').count()==1
+        assert detail.locator('#model-comparison svg.weather-chart').count()==1
         assert detail.get_by_label('Período da comparação',exact=True).input_value()=='72'
         context.close()
         browser.close()

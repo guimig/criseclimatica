@@ -103,7 +103,7 @@ def main():
                     page.locator('#chart-range').select_option(period)
                     assert page.locator('#observed-panel').is_visible() and page.locator('#forecast-panel').is_visible()
                     assert page.locator('#chart-range').input_value()==period
-                    if period=='240':assert 'até 7 dias' in page.locator('#observed-caption').inner_text()
+                    if period=='240':assert 'até 7 dias' in page.locator('#observed-status').inner_text()
                 probe=page.locator('#forecast-plot [data-chart-hit]');probe.scroll_into_view_if_needed();rect=probe.bounding_box()
                 page.mouse.move(rect['x']+rect['width']*.2,rect['y']+rect['height']*.4)
                 assert page.locator('#forecast-tooltip').is_visible()
@@ -145,15 +145,16 @@ def main():
                 stamp=datetime.fromisoformat(home['dashboard.json']['generated_at'].replace('Z','+00:00'))
                 home['observation_history.json']['records']=[{**row,'observed_at':(stamp-timedelta(hours=i)).isoformat(),'rain_24h_mm':round(row['rain_24h_mm']+i/10,1)} for row in original for i in range(24)]
                 page.reload();page.locator('#plot [data-chart-hit]').wait_for()
-                assert page.locator('#plot .rain-interval').count()>=60
+                assert page.locator('#plot .rain-interval').count()==0
+                assert page.locator('#plot .accumulation-line').count()==3
                 for theme in ('light','dark'):
                     if page.locator('html').get_attribute('data-theme')!=theme:page.locator('#theme-toggle').click()
                     hit=page.locator('#plot [data-chart-hit]');hit.scroll_into_view_if_needed();box=hit.bounding_box()
                     page.mouse.move(box['x']+box['width']*.5,box['y']+box['height']*.4)
                     reading=page.locator('#chart-tooltip').inner_text()
                     for name in ('Rainha','Porto Grande','Centro'):assert reading.count(name+':')==1, reading
-                    assert len(reading.splitlines())==5, reading
-                    assert page.locator('#plot [data-chart-markers] circle').count()==3
+                    assert 'término da leitura' in reading and len(reading.splitlines())==4, reading
+                    assert page.locator('#plot [data-chart-markers] .chart-point-ring').count()==3
                     if width<800:page.touchscreen.tap(box['x']+box['width']*.5,box['y']+box['height']*.4)
                     else:page.mouse.click(box['x']+box['width']*.5,box['y']+box['height']*.4)
                     popup=page.locator('#chart-tooltip').bounding_box()
@@ -189,7 +190,7 @@ def main():
                 page.locator('#theme-toggle').click();check_compact_header(page,width)
                 page.screenshot(path=str(OUTPUT/f'essential-details-dark-{width}.png'),full_page=True)
                 page.goto(url+'dados.html#model-comparison');page.locator('#model-comparison [data-chart-hit]').wait_for()
-                page.locator('#model-comparison svg').focus();page.keyboard.press('Home')
+                page.locator('#model-comparison svg.weather-chart').focus();page.keyboard.press('Home')
                 assert 'ECMWF' in page.locator('.comparison-tooltip').inner_text()
                 assert page.locator('#model-comparison [data-chart-cursor]').count()==1
                 if width==390:
