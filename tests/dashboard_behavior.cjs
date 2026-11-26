@@ -488,3 +488,18 @@ console.log('Official-warning validity survived stale publication; precise end r
   delete global.location;
 }
 console.log('Bordering official danger context: separate severity, exact time, official link and local isolation.');
+
+const instrumental={...data,synthesis:{campus_history:{series:{
+  temperature:[{time:'2026-11-06T19:45:00Z',value:21,interval_minutes:5,count:1},{time:'2026-11-05T19:55:00Z',value:19,interval_minutes:30,count:6}],
+  rain_1h:[{time:'2026-11-06T19:45:00Z',value:3,interval_minutes:5,count:1}],
+  wind_gust:[{time:'2026-11-06T19:45:00Z',value:78,interval_minutes:5,count:1}]
+}},observation_history:[{source:'ifc',station:'ifc-araquari',variable:'temperature_c',end_at:'2026-11-06T19:45:00Z',value:21}]}};
+instrumental.synthesis.campus_history.series.temperature.reverse();
+const denseIFC=getChartSeries(instrumental,null,'observed','temperature_c',72,now)[0];
+assert.equal(denseIFC.points.length,2);
+assert.equal(denseIFC.points[1].gapMs,360000);
+assert.equal(denseIFC.points[0].gapMs,2160000);
+assert.equal(getChartSeries(instrumental,null,'observed','gust_kmh',24,now)[0].points[0].value,78);
+assert.equal(getChartSeries(instrumental,null,'observed','precipitation_mm',24,now,'rain_1h_mm')[0].points[0].qualifier,'intervalo aproximado');
+assert.equal(getChartSeries(instrumental,null,'observed','precipitation_mm',24,now,'rain_1h_mm',false).length,0);
+assert.equal(getChartSeries(instrumental,null,'observed','precipitation_mm',24,now,'rain_24h_mm').length,0);

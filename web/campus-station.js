@@ -99,7 +99,7 @@
       metric?.aggregation === 'MAX' ? 'Máximo informado em cada intervalo de 5 minutos.'+(key==='wind_gust'?' O intervalo de medição original da rajada ainda precisa de confirmação.':'') : 'Média das leituras disponíveis em intervalos de 5 minutos. Lacunas não são interpoladas.';
     if(key==='wind_direction_deg')el('campus-chart-note').textContent='Direções em graus; não se ligam pontos nem se faz média aritmética.';
     if(key==='rain_1h')el('campus-chart-note').textContent='Diferença aproximada do contador diário em 1 h, somente em intervalos contínuos do mesmo dia.';
-    if(Array.isArray(archived))el('campus-chart-note').textContent+=' Últimas 24 h: 5 min; anteriores: resumos de 30 min (máximos preservados para rajadas e chuva).';
+    if(Array.isArray(archived))el('campus-chart-note').textContent+=' Últimas 24 h: 5 min; anteriores: resumos de 30 min (máximos de rajada e intensidade; acumulados no último horário válido).';
     if(points.length)el('campus-chart-note').textContent += ' '+points.length+' intervalos com dados na janela consultada.';
     if (!points.length) {target.append(create('p', 'Sem série válida nesta publicação.', 'campus-empty')); readout.textContent = 'Nenhum valor selecionado.'; return;}
     const width = Math.max(280, Math.round(target.clientWidth || 700)), height = 220, left = 48, right = width-12, top = 16, bottom = 188;
@@ -109,7 +109,7 @@
     const x = stamp => left+(Date.parse(stamp)-start)/(end-start)*(right-left), y = value => bottom-(value-lo)/(hi-lo)*(bottom-top);
     const svg = svgNode('svg', {viewBox: `0 0 ${width} ${height}`, role: 'img', 'aria-label': definitions[key][0]+' no campus nas últimas '+hours+' horas. Use as setas para consultar valores.', tabindex: '0'});
     for (let index=0; index<=3; index++) {const value=lo+(hi-lo)*index/3, yy=y(value); svg.append(svgNode('line',{x1:left,x2:right,y1:yy,y2:yy,class:'campus-grid'}),svgNode('text',{x:left-6,y:yy+4,'text-anchor':'end',class:'campus-axis'},number(value)));}
-    for (let index=0; index<=3; index++) {const stamp=start+(end-start)*index/3, xx=left+(right-left)*index/3; svg.append(svgNode('text',{x:xx,y:211,'text-anchor':index===0?'start':index===3?'end':'middle',class:'campus-axis'},hours===24?time(stamp):date(stamp)));}
+    for (let index=0; index<=3; index++) {const stamp=start+(end-start)*index/3, xx=left+(right-left)*index/3; svg.append(svgNode('text',{x:xx,y:211,'text-anchor':index===0?'start':index===3?'end':'middle',class:'campus-axis'},hours===24?time(stamp):new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit'}).format(new Date(stamp))));}
     let path='', previous=null;
     for (const point of points) {const gap = !previous || Date.parse(point.time)-Date.parse(previous.time)>Math.max(point.interval_minutes||5,previous.interval_minutes||5)*1.2*60000 || key==='wind_direction_deg' || (key==='rain_daily' && point.value<previous.value); path += (gap?'M':'L')+x(point.time).toFixed(1)+','+y(point.value).toFixed(1)+' '; previous=point;}
     svg.append(svgNode('path',{d:path,fill:'none',class:'campus-line'}));

@@ -45,3 +45,10 @@ assert.ok(observationGaps([{points:[sample],gapMs:HOUR}],start-24*HOUR,start+HOU
 const marks=ticks(start,start+168*HOUR,300);assert.equal(marks[0],start);assert.equal(marks.at(-1),start+168*HOUR);
 assert.ok(marks.length<=6);
 console.log('Chart data checks passed: exact intervals, zero, partial/missing hours, conflicts, stable identity, responsive resolution, extrema, gaps and unchanged raw values.');
+
+const fiveMin = 5*60000, halfHour=30*60000;
+const mixedGap = [0,5,15,20].map(i=>({time:new Date(start+i*60000).toISOString(),value:1,gapMs:6*60000}));
+assert.equal(segments(mixedGap,36*60000).length,2,'a missing five-minute bin must not be joined by the archive tolerance');
+assert.equal(readingAt({points:[mixedGap[0]],gapMs:36*60000},start+fiveMin),null);
+const coarse = [0,1].map(i=>({time:new Date(start+i*halfHour).toISOString(),value:2,gapMs:36*60000}));
+assert.equal(segments(coarse).length,1);

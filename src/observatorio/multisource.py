@@ -133,7 +133,7 @@ def counter_window(records, hours, stamp):
     start = end-timedelta(hours=hours)
     if not fresh(iso(end), now, 1 if hours == 1 else 1.5) or start not in points: return None
     selected = sorted(t for t in points if start <= t <= end)
-    if any((b-a).total_seconds() > 720 or points[b] < points[a] for a, b in zip(selected, selected[1:])): return None
+    if len(selected) != hours*12+1 or any((b-a).total_seconds() != 300 or points[b] < points[a] for a, b in zip(selected, selected[1:])): return None
     if start.astimezone(TZ).date() != end.astimezone(TZ).date(): return None
     # MAX buckets provide an interval approximation, explicitly excluded from
     # institutional threshold matching until the source reset/interval is known.
@@ -274,13 +274,16 @@ def build(dashboard, primary, campus, sensors, comparison, inmet, bulletins, sta
     observations, rejected = local_observations(primary, campus, sensors, stamp)
     observations = [r for r in observations if moment(r["end_at"]) <= moment(stamp)]
     history = merge_history(previous, observations, campus, stamp)
-    instrumental = merge_campus_history((previous or {}).get('campus_history'), campus, stamp)
+    counter_conflicts = {moment(r["end_at"]) for r in history["conflicts"]
+                         if r["station"] == "ifc-araquari" and r["variable"] == "rain_daily_mm"
+                         and r["method"] == "five_minute_counter_max"}
+    instrumental = merge_campus_history((previous or {}).get('campus_history'), campus, stamp, counter_conflicts)
     for hours in (1, 24):
         derived = counter_window(history['records'], hours, stamp)
         if derived: observations.append(derived)
     history = merge_history(history, observations, campus, stamp)
     history['campus_history'] = instrumental
-    context_campus = campus_context(campus, stamp)
+    context_campus = campus_context(campus, stamp, counter_conflicts)
     variables = ('rain_1h_mm', 'rain_24h_mm', 'rain_daily_mm', 'rain_intensity_mmh', 'wind_kmh', 'gust_kmh', 'temperature_c', 'humidity_pct', 'pressure_hpa')
     stats = {k: statistics(observations, k, stamp) for k in variables}
     forecast, detail = select_forecast(comparison, stamp, forecast_archive)
@@ -300,7 +303,7 @@ def build(dashboard, primary, campus, sensors, comparison, inmet, bulletins, sta
                r['value'] >= peak['value'] and moment(r['end_at']) >= moment(peak['time']) for r in signals):
             continue
         r = evidence('ifc', 'ifc-araquari', variable, peak['value'], peak['time'], unit='km/h',
-                     method='reported_interval_unverified', interval_uncertainty_minutes=5,
+                     method='reported_interval_unverified', ttl=1, interval_uncertainty_minutes=5,
                      support='five_minute_peak', aggregation='MAX' if key == 'wind_gust' else 'AVG')
         signals.append({**r, 'band': b})
     regional = []
@@ -360,7 +363,7 @@ def build(dashboard, primary, campus, sensors, comparison, inmet, bulletins, sta
               'sensor_inventory':sensor_inventory(sensors,stamp),
               'selected_forecast': forecast, 'campus_history': instrumental, 'campus_context': context_campus,
               'observation_history': [r for r in history['records']
-                   if r['source'] == 'ifc' and r['variable'] in ('rain_1h_mm','rain_24h_mm','temperature_c','wind_kmh','gust_kmh')
+                   if r['variable'] in ('rain_1h_mm','rain_24h_mm','temperature_c','wind_kmh','gust_kmh')
                    and moment(r['end_at']) >= moment(stamp)-timedelta(days=7)],
               'formal_level': None, 'notice_weighting': 'equal_meteorological_relevance_not_institutional_color_conversion',
               'normative_assessment': deepcopy(dashboard['assessment']), 'institutional_decision_automated': False}

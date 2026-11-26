@@ -30,7 +30,7 @@ def sample(t, value, minutes=5, count=1, minimum=None, maximum=None):
 
 def circular(values):
     x, y = mean(cos(radians(v)) for v in values), mean(sin(radians(v)) for v in values)
-    return degrees(atan2(y, x)) % 360 if hypot(x, y) > 1e-6 else None
+    return round(degrees(atan2(y, x)) % 360, 4) % 360 if hypot(x, y) > 1e-6 else None
 
 
 def validate_history(history, stamp):
@@ -54,11 +54,12 @@ def validate_history(history, stamp):
     return history
 
 
-def recent_bins(campus, now):
+def recent_bins(campus, now, excluded=None):
     """The provider reports five-minute aggregates; direction is sampled, not averaged."""
     if campus.get("status") not in ("available", "stale"):
         return {}
     metrics = campus.get("metrics", {})
+    excluded = excluded or set()
     data = {}
     for key in METRICS:
         by_bin = defaultdict(list)
@@ -68,6 +69,8 @@ def recent_bins(campus, now):
                 by_bin[bucket(t, 5)].append((t, p["value"]))
         values = {}
         for t, pairs in by_bin.items():
+            if key == "rain_daily" and t in excluded:
+                continue
             if key == "wind_direction_deg":
                 latest = max(p[0] for p in pairs)
                 unique = {v for at, v in pairs if at == latest}
@@ -110,13 +113,13 @@ def aggregate(key, rows, start):
         return sample(start+timedelta(minutes=25), value, 30, len(rows), 0, 360)
     # Rolling accumulations are sampled at their last available termination,
     # never summed or averaged. Other MAX fields retain their observed peak.
-    if key == "rain_1h":
+    if key in ("rain_1h", "rain_daily"):
         return sample(moment(rows[-1]["time"]), values[-1], 30, len(rows), min(values), max(values))
     value = max(values) if METRICS[key][4] == "MAX" else mean(values)
     return sample(start+timedelta(minutes=25), value, 30, len(rows), min(values), max(values))
 
 
-def merge(previous, campus, stamp):
+def merge(previous, campus, stamp, excluded=None):
     now = moment(stamp)
     previous = previous or {"version": 1, "series": {}}
     # Previous product was already validated at its own publication; reject
@@ -125,12 +128,28 @@ def merge(previous, campus, stamp):
         raise ValueError("Invalid previous IFC instrumental history")
     if previous.get("generated_at"):
         validate_history(previous, previous["generated_at"])
-    recent = recent_bins(campus, now)
+    excluded = excluded or set()
+    recent = recent_bins(campus, now, excluded)
+    # Refresh the queried interval only if its aggregation group succeeded.
+    # A failed query preserves old validated points; an explicit gap does not
+    # silently resurrect an old or now-rejected reading.
+    window_start = moment(campus.get("window_start"))
+    window_end = moment(campus.get("window_end"))
+    failed = campus.get("diagnostics", {}).get("failed_history_groups", [])
+    authoritative = {key for key in METRICS
+                     if key != "wind_direction_deg" and key in campus.get("metrics", {})
+                     and METRICS[key][4] not in failed and window_start and window_end
+                     and campus.get("status") in ("available", "stale")}
+    def refreshed(key, t):
+        if key == "rain_1h":
+            return "rain_daily" in authoritative and window_start+timedelta(hours=1) <= t <= window_end
+        return key in authoritative and window_start <= t <= window_end
     cutoff = bucket(now-timedelta(hours=HOURS), 30)
     earliest = now-timedelta(days=DAYS)
     old_series = previous["series"]
     counter = {moment(r["time"]): r for r in old_series.get("rain_daily", [])
-               if r.get("interval_minutes") == 5 and moment(r["time"]) >= cutoff-timedelta(hours=1)}
+               if r.get("interval_minutes") == 5 and moment(r["time"]) >= cutoff-timedelta(hours=1)
+               and moment(r["time"]) not in excluded and not refreshed("rain_daily", moment(r["time"]))}
     counter.update(recent.get("rain_daily", {}))
     recent["rain_1h"] = rolling_hour(counter, now)
     series = {}
@@ -142,6 +161,10 @@ def merge(previous, campus, stamp):
             if not t or not earliest <= t <= now:
                 continue
             if row["interval_minutes"] == 5:
+                if refreshed(key, t) or (key == "rain_daily" and t in excluded):
+                    continue
+                if key == "rain_1h" and any(t-timedelta(hours=1) <= x <= t for x in excluded):
+                    continue
                 fine[t] = row
             else:
                 coarse[bucket(t, 30)] = row
@@ -201,9 +224,9 @@ def rain_context(counter, now):
     return result
 
 
-def contextual(campus, stamp):
+def contextual(campus, stamp, excluded=None):
     now = moment(stamp)
-    bins = recent_bins(campus, now)
+    bins = recent_bins(campus, now, excluded)
     def rows(key):
         return sorted(bins.get(key, {}).values(), key=lambda r: r["time"])
     result = {"generated_at": stamp, "coverage": {}, "rain_windows": rain_context(bins.get("rain_daily", {}), now),
@@ -251,7 +274,7 @@ def contextual(campus, stamp):
 def recent_wind_peaks(campus, stamp):
     """Retrieve positive extrema between collection cycles; do not verify sensor interval."""
     now = moment(stamp)
-    if campus.get("status") != "available":
+    if campus.get("status") != "available" or not moment(campus.get("checked_at")) or not now-timedelta(minutes=90) <= moment(campus["checked_at"]) <= now:
         return []
     rows = recent_bins(campus, now)
     peaks = []

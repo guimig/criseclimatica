@@ -74,6 +74,20 @@ class CampusTests(unittest.TestCase):
         self.assertFalse(feed["metrics"]["pressure"]["fresh_at_collection"])
         validate_product(feed)
 
+    def test_partial_history_failure_preserves_other_metrics_and_latest(self):
+        def source(path, **kwargs):
+            if "agg=MAX" in path:
+                raise SourceError("history offline")
+            return self.source(path, **kwargs)
+        feed = collect(STAMP, now=NOW, requester=source)
+        validate_product(feed)
+        self.assertEqual(feed["status"], "available")
+        self.assertEqual(feed["diagnostics"]["failed_history_groups"], ["MAX"])
+        self.assertEqual(feed["metrics"]["rain_daily"]["series"], [])
+        self.assertEqual(feed["metrics"]["rain_daily"]["latest"]["value"], 31.0134)
+        self.assertTrue(feed["metrics"]["temperature"]["series"])
+        self.assertTrue(feed["metrics"]["wind_direction_deg"]["series"])
+
     def test_failure_empty_and_fixture_are_distinct(self):
         def fail(*args, **kwargs): raise SourceError("offline")
         self.assertEqual(collect(STAMP, now=NOW, requester=fail)["status"], "unavailable")
