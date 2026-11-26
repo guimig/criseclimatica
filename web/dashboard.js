@@ -253,7 +253,7 @@ function getChartSeries(data,history,mode,variable,hours,now=Date.now(),observed
       const dense=[...original.filter(r=>!totalTimes.has(Date.parse(r.time))),...total.map(r=>({...r,crosschecked:true}))].sort((a,b)=>Date.parse(a.time)-Date.parse(b.time));
       if(dense.length)earliest.set(field,Date.parse(dense[0].time));
       for(const r of dense)rows.push({source:'ifc',station:'ifc-araquari',observed_at:r.time,[field]:r.value,
-        intervalMinutes:r.interval_minutes,count:r.count,approximate:field==='rain_1h_mm'||field==='rain_24h_mm',crosschecked:r.crosschecked});
+        intervalMinutes:r.interval_minutes,count:r.count,approximate:field==='rain_1h_mm'||field==='rain_24h_mm',crosschecked:r.crosschecked,rainQuality:r.quality,validatedMinutes:r.validated_minutes,estimatedMinutes:r.estimated_minutes});
     }
     for(const r of data?.synthesis?.observation_history||[]){
       if(r.source==='ifc'&&fields.includes(r.variable)&&(!earliest.has(r.variable)||Date.parse(r.end_at)<earliest.get(r.variable))&&(!r.variable.startsWith('rain_')||!Number.isFinite(Date.parse(data?.synthesis?.campus_context?.rain_reconstruction?.authoritative_from))||Date.parse(r.end_at)<Date.parse(data.synthesis.campus_context.rain_reconstruction.authoritative_from)))
@@ -274,7 +274,7 @@ function getChartSeries(data,history,mode,variable,hours,now=Date.now(),observed
         field:key,identity:r.source+':'+r.station,points:[],gapMs:r.source==='ifc'?2160000:r.source==='metar'?5400000:3600000,kind:'observation'});
       grouped.get(id).points.push({time:r.observed_at,value:r[key],distance_km:r.distance_km,
         gapMs:r.intervalMinutes?Math.round(r.intervalMinutes*1.2*60000):undefined,
-        qualifier:r.crosschecked?'contador total conferido · aprox. 5 min':r.approximate?'intervalo aproximado':r.count?`${r.intervalMinutes} min${r.intervalMinutes===30?' · '+r.count+'/6 intervalos':''}`:undefined,
+        qualifier:r.crosschecked?(r.rainQuality==='estimated'?'estimativa por agregados · '+(r.estimatedMinutes||0)+' min estimados':r.rainQuality==='validated'?'leituras brutas conferidas · aprox. 5 min':'contador total conferido · aprox. 5 min'):r.approximate?'intervalo aproximado':r.count?`${r.intervalMinutes} min${r.intervalMinutes===30?' · '+r.count+'/6 intervalos':''}`:undefined,
         start_at:key.startsWith('rain_')?new Date(t-(key==='rain_24h_mm'?24:1)*3600000).toISOString():null});
     }
   }
