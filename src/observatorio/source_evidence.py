@@ -107,7 +107,7 @@ def model_evidence(comparison, archive, stamp, *, observed_signals=(), matches=N
     return signals,ranges,temperatures
 
 
-def antecedent_rain(primary, stamp):
+def antecedent_rain(primary, stamp, campus_windows=()):
     now=moment(stamp); groups=[]; lower_bounds=[]
     for h in (3,6,12,48,72):
         field=f'rain_{h}h_mm'; rows=[]
@@ -123,6 +123,11 @@ def antecedent_rain(primary, stamp):
             rows.append(row)
             if h<=12 and (band(value,'rain_24h_mm') or 0)>0 and not valid_number(s.get('rain_24h_mm'),0,5500):
                 lower_bounds.append({**row,'kind':'lower_bound_of_24h_not_reconstructed_total'})
+        for r in campus_windows:
+            if r.get('hours')!=h or not r.get('complete') or not moment(r.get('end_at')) or not now-timedelta(minutes=90)<=moment(r['end_at'])<=now:continue
+            rows.append({'source':'ifc','station':'ifc-araquari','variable':field,'value':r['value'],'unit':'mm','hours':h,
+                         'start_at':r['start_at'],'end_at':r['end_at'],'valid_until':iso(moment(r['end_at'])+timedelta(hours=1.5)),
+                         'method':r['method'],'threshold_eligible':False,'weight':1})
         if rows:
             groups.append({'hours':h,'members':rows,'maximum':max(r['value'] for r in rows),
                            'station_count':len({r['station'] for r in rows}),'equal_station_weight':True})
