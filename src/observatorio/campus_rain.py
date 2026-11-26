@@ -188,8 +188,9 @@ def empty_rain(status="unavailable"):
             "windows":[],"series":{},"diagnostics":{},"intervals":[]}
 
 
-def build_windows(accepted, anchor, now, qualities=None):
+def build_windows(accepted, anchor, now, qualities=None, *, graph=False, bridge_times=()):
     qualities=qualities or {}
+    bridge_times=set(bridge_times)
     result={"windows":[],"series":{}}
     if not anchor or not 0<=now.timestamp()*1000-anchor<=90*60_000:
         return result
@@ -199,7 +200,8 @@ def build_windows(accepted, anchor, now, qualities=None):
         present=[v for v in values if v is not None]
         validated=sum(1 for i,v in enumerate(values) if v is not None and qualities.get(t-i*STEP)==RAW_QUALITY)
         estimated=len(present)-validated
-        return {"hours":hours,"value":round(sum(present),3) if present else None,
+        extra={"bridge_minutes":sum(t-i*STEP in bridge_times for i in range(n))*5} if graph else {}
+        return {**extra,"hours":hours,"value":round(sum(present),3) if present else None,
                 "covered_minutes":len(present)*5,"expected_minutes":hours*60,
                 "complete":len(present)==n,"validated_complete":validated==n,
                 "validated_minutes":validated*5,"estimated_minutes":estimated*5,
@@ -211,12 +213,15 @@ def build_windows(accepted, anchor, now, qualities=None):
     for h in (1,24):
         rows=[]
         start=max(anchor-72*3600000,min(accepted,default=anchor))
-        for t in range(start+(h*12-1)*STEP,anchor+1,STEP):
+        first=start+(h*12-1)*STEP
+        if graph:first=min(first,anchor)
+        for t in range(first,anchor+1,STEP):
             if anchor-t>24*3600000 and t%(6*STEP):
                 continue
             row=window(t,h)
-            if row["complete"]:
-                rows.append({"time":row["end_at"],"value":row["value"],
+            if row["complete"] or (graph and row["covered_minutes"] and (t==anchor or t%(6*STEP)==0)):
+                extra={"covered_minutes":row["covered_minutes"],"expected_minutes":h*60,"bridge_minutes":row["bridge_minutes"]} if graph else {}
+                rows.append({**extra,"time":row["end_at"],"value":row["value"],
                              "interval_minutes":5 if anchor-t<=24*3600000 else 30,
                              "count":1 if anchor-t<=24*3600000 else 6,
                              "quality":row["quality"],"validated_minutes":row["validated_minutes"],
@@ -257,6 +262,51 @@ def parse_intervals(rows, now_ms):
         if now_ms-WINDOW_HOURS*3600000<=ms<=now_ms and ms%STEP==0 and quality in QUALITIES:
             result[ms]=(v,quality)
     return result
+
+
+def parse_bridges(rows, now_ms):
+    """Only display estimates from close, paired endpoints in one 5-minute bin."""
+    out={}
+    if not isinstance(rows,list) or len(rows)>LIMIT:return out
+    for row in rows:
+        if not isinstance(row,dict):continue
+        times=[moment(row.get(k)) for k in ("time","first_at","last_at")]
+        if not all(times):continue
+        t,a,b=[int(v.timestamp()*1000) for v in times]
+        values=[row.get(k) for k in ("value","total_first","total_last","daily_first","daily_last","suspects")]
+        if (not now_ms-WINDOW_HOURS*3600000<=t<=now_ms or t%STEP
+                or not 0<=t-STEP-a<=RAW_MAX_GAP_MS or not 0<t-b<=RAW_MAX_GAP_MS
+                or not a<b or times[1].astimezone(TZ).date()!=times[2].astimezone(TZ).date()
+                or not all(valid_number(v,0,1e12) for v in values)):continue
+        value,first,last,daily_first,daily_last,_=values
+        if (not valid_number(value,0,500) or last<first or daily_last<daily_first
+                or not close(value,last-first) or not close(value,daily_last-daily_first)):continue
+        out[t]=row
+    return out
+
+
+def merge_bridges(previous, current, records, blocked, now_ms):
+    old=parse_bridges(previous,now_ms)
+    new=parse_bridges(current,now_ms)
+    for t,row in new.items():
+        if t in old and not close(old[t]["value"],row["value"]):
+            old.pop(t,None)
+        else:old[t]=row
+    return [row for t,row in sorted(old.items()) if t not in records and blocked.get(t) not in HARD_REASONS][-LIMIT:]
+
+
+def add_graph(product, records, bridges, anchor, now):
+    """Graph-only data; never writes a bridge to strict records/windows."""
+    if not anchor:return
+    recovered=parse_bridges(bridges,int(now.timestamp()*1000))
+    values={t:v for t,(v,_) in records.items()}
+    quality={t:q for t,(_,q) in records.items()}
+    for t,row in recovered.items():
+        if t not in values:
+            values[t]=row["value"];quality[t]=AGG_QUALITY
+    graph=build_windows(values,anchor,now,quality,graph=True,bridge_times=set(recovered)-set(records))
+    product["graph_windows"]=[r for r in graph["windows"] if r["hours"] in (1,24)]
+    product["graph_series"]=graph["series"]
 
 
 def rejected_intervals(rows, now_ms):
@@ -326,6 +376,8 @@ def merge_rain(previous, current, stamp):
     archive={"intervals":serialize_intervals(records),"rejected_intervals":serialize_rejected(blocked),
              "anchor_at":iso(anchor) if anchor else None}
     if attempts:archive["attempts"]=attempts
+    bridges=merge_bridges(previous.get("counter_bridges",[]),current.get("counter_bridges",[]),records,blocked,now_ms)
+    if bridges:archive["counter_bridges"]=bridges
     product=empty_rain(current.get("status","unavailable"))
     quality_counts={q:sum(1 for _,kind in records.values() if kind==q) for q in QUALITIES}
     product["diagnostics"]={**current.get("diagnostics",{}),"retained_valid_bins":len(records),
@@ -337,6 +389,8 @@ def merge_rain(previous, current, stamp):
         product["status"]="available" if records else "no_valid_intervals"
         product.update(build_windows({t:v for t,(v,_) in records.items()},int(anchor.timestamp()*1000),now,
                                      {t:q for t,(_,q) in records.items()}))
+        add_graph(product,records,bridges,int(anchor.timestamp()*1000),now)
+        product["diagnostics"]["graph_bridge_bins"]=len(bridges)
     elif anchor:product["status"]="stale"
     return product,archive
 
@@ -415,6 +469,7 @@ def raw_rain(raw, start, end, now):
        "accepted_bins":0,"increment_checked_bins":0,"rejected":{}}
     result["diagnostics"]=d
     result["rejected_intervals"]=[]
+    result["counter_bridges"]=[]
     if not total or not suspects:return result
     times=sorted(total);anchor=(times[-1]//STEP)*STEP
     if end-times[-1]<=RAW_MAX_GAP_MS:anchor=end
@@ -435,8 +490,7 @@ def raw_rain(raw, start, end, now):
         sub=times[a:b+1]
         if any(sub[0]<=x<=sub[-1] for k in ("rain_total","rain_suspects_total","rain_daily","rain_increment") for x in conflicts_by_key.get(k,set())):
             reject("raw_conflict");continue
-        if any(y-x>RAW_MAX_GAP_MS for x,y in zip(sub,sub[1:])):
-            reject("raw_gap");continue
+        gap=any(y-x>RAW_MAX_GAP_MS for x,y in zip(sub,sub[1:]))
         if any(x not in suspects for x in sub) or any(suspects[x]!=suspects[sub[0]] for x in sub):
             reject("suspect_counter_changed_or_missing");continue
         if any(total[y]<total[x] for x,y in zip(sub,sub[1:])):
@@ -453,6 +507,18 @@ def raw_rain(raw, start, end, now):
             d["increment_checked_bins"]+=1
         elif sum(increment[x] for x in sub[1:] if x in increment)>delta+.025:
             reject("partial_increment_exceeds_counter");continue
+        if gap:
+            # Same-day independent daily counter corroboration is mandatory;
+            # the strict raw gap veto is retained. No bridging midnight/reset.
+            if (first in daily and last in daily and
+                    datetime.fromtimestamp(first/1000,timezone.utc).astimezone(TZ).date()==datetime.fromtimestamp(last/1000,timezone.utc).astimezone(TZ).date()
+                    and daily[last]>=daily[first] and close(delta,daily[last]-daily[first])):
+                result["counter_bridges"].append({"time":iso(datetime.fromtimestamp(t/1000,timezone.utc)),
+                    "first_at":iso(datetime.fromtimestamp(first/1000,timezone.utc)),
+                    "last_at":iso(datetime.fromtimestamp(last/1000,timezone.utc)),
+                    "value":round(delta,5),"total_first":total[first],"total_last":total[last],
+                    "daily_first":daily[first],"daily_last":daily[last],"suspects":suspects[first]})
+            reject("raw_gap");continue
         accepted[t]=round(delta,5)
     d["accepted_bins"]=len(accepted)
     result["intervals"]=[{"time":iso(datetime.fromtimestamp(t/1000,timezone.utc)),"value":v,"quality":RAW_QUALITY} for t,v in sorted(accepted.items())]
@@ -498,13 +564,14 @@ def collect_rain(requester,token,telemetry,now,previous=None,*,budget_seconds=RE
     except (SourceError,OSError,ValueError,TypeError,KeyError):
         pass
     reconcile(records,blocked,raw,now_ms)
+    bridges=merge_bridges(previous.get("counter_bridges",[]),raw.get("counter_bridges",[]),records,blocked,now_ms)
     initial=not attempts
     # Repair holes within the known recent history before spending the budget
     # on older aggregate chunks. Raw gaps require original evidence; hard vetoes
     # remain permanent. Bound each repair to a small query and the shared budget.
     raw_repairs=missing_repairs=0
     def repair_recent():
-        nonlocal raw_repairs,missing_repairs
+        nonlocal raw_repairs,missing_repairs,bridges
         if raw_repairs+missing_repairs>=MAX_RAW_REPAIRS or monotonic()-started>=budget_seconds:
             return
         floor=max(end-RAW_REPAIR_HOURS*3600000,min(list(records)+list(blocked),default=end))
@@ -527,6 +594,7 @@ def collect_rain(requester,token,telemetry,now,previous=None,*,budget_seconds=RE
             repair["intervals"]=[r for r in repair.get("intervals",[]) if r["time"]==target]
             repair["rejected_intervals"]=[r for r in repair.get("rejected_intervals",[]) if r["time"]==target]
             reconcile(records,blocked,repair,now_ms)
+            bridges=merge_bridges(bridges,[r for r in repair.get("counter_bridges",[]) if r["time"]==target],records,blocked,now_ms)
         except (SourceError,OSError,ValueError,TypeError,KeyError):
             pass
     repair_recent()
@@ -565,6 +633,7 @@ def collect_rain(requester,token,telemetry,now,previous=None,*,budget_seconds=RE
     result["intervals"]=serialize_intervals(records)
     result["rejected_intervals"]=serialize_rejected(blocked)
     result["attempts"]=clean_attempts(attempts,now_ms)
+    result["counter_bridges"]=merge_bridges(bridges,[],records,blocked,now_ms)
     result["diagnostics"]={"retrieval_method":"hybrid_raw_and_aggregated","raw":raw["diagnostics"],
                            "recent_aggregate":recent["diagnostics"],
                            "historical_chunks_attempted":recovered,"historical_chunks_available":available,
@@ -662,6 +731,33 @@ def validate_rain(product, stamp):
                     or r.get("quality","estimated") not in ("validated","estimated")):
                 raise ValueError("Invalid IFC rain series")
             last=t
+    bridges=product.get("counter_bridges",[])
+    if not isinstance(bridges,list) or len(parse_bridges(bridges,int(now.timestamp()*1000)))!=len(bridges):
+        raise ValueError("Invalid IFC graph counter bridge")
+    graph_windows=product.get("graph_windows",[])
+    graph_series=product.get("graph_series",{})
+    if not isinstance(graph_windows,list) or len(graph_windows)>2 or not isinstance(graph_series,dict) or set(graph_series)-{"rain_1h","rain_24h"}:
+        raise ValueError("Unbounded IFC graph rain")
+    def check_graph(row,h):
+        n,v,e,b=(row.get(k) for k in ("covered_minutes","validated_minutes","estimated_minutes","bridge_minutes"))
+        if (h not in (1,24) or row.get("expected_minutes")!=h*60 or
+                not all(isinstance(x,int) and not isinstance(x,bool) and x>=0 and x%5==0 for x in (n,v,e,b)) or
+                n!=v+e or b>e or n>h*60 or row.get("quality")!=("partial" if n<h*60 else "validated" if v==n else "estimated") or
+                (n>0 and not valid_number(row.get("value"),0,500*n/5)) or (n==0 and row.get("value") is not None)):
+            raise ValueError("Invalid IFC graph rain provenance")
+    for r in graph_windows:
+        check_graph(r,r.get("hours"))
+        if r.get("threshold_eligible") is not False or r.get("complete") is not (r["covered_minutes"]==r["hours"]*60):
+            raise ValueError("Invalid IFC graph-only window")
+    for key,rows in graph_series.items():
+        if not isinstance(rows,list) or len(rows)>600:raise ValueError("Unbounded IFC graph series")
+        previous=None
+        for row in rows:
+            check_graph(row,1 if key=="rain_1h" else 24)
+            t=moment(row.get("time"))
+            if not t or not now-timedelta(hours=73)<=t<=now or (previous and t<=previous) or row["covered_minutes"]==0 or row.get("interval_minutes") not in (5,30):
+                raise ValueError("Invalid IFC graph sample")
+            previous=t
     if product["status"]!="available" and any(r["complete"] for r in product["windows"]):
         raise ValueError("Unavailable IFC rain cannot be complete")
     return product

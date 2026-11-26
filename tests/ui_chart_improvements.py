@@ -146,19 +146,33 @@ def main():
             context.route('**/data/*.json*', lambda route: route.fulfill(content_type='application/json', body=json.dumps(data[route.request.url.split('/')[-1].split('?')[0]])))
             page = context.new_page()
             page.goto(url)
-            status = page.locator('#ifc-rain-status')
-            status.wait_for()
-            assert status.get_attribute('data-quality') == 'partial'
-            assert '97,9%' in status.inner_text() and '1,4 mm' in status.inner_text()
+            page.locator('#plot .chart-partial-sample').first.wait_for()
+            assert page.locator('#ifc-rain-status').count() == 0
+            assert '4 estações' in page.locator('#station-coverage').inner_text()
+            assert 'IFC Araquari' in page.locator('#chart-legend').inner_text()
             page.locator('.station-filter summary').click()
             page.locator('#station-select').select_option('ifc:ifc-araquari')
-            assert page.locator('#plot svg').count() == 0
-            assert status.is_visible()
+            page.get_by_role('button', name='Por estação', exact=True).click()
+            assert page.locator('#plot .station-partial').count() == 1
+            assert page.locator('#plot .station-bar').count() == 0
+            assert 'parcial 97,9%' in page.locator('#plot').inner_text()
+            page.get_by_role('button', name='Ao longo do tempo', exact=True).click()
+            assert page.locator('#plot .chart-partial-sample').count() == 1
+            assert page.locator('#plot .accumulation-line').count() == 0
+            graph = page.locator('#plot svg')
+            graph.focus()
+            page.keyboard.press('End')
+            assert '97,9%' in page.locator('#chart-tooltip').inner_text()
+            assert '1,4 mm' in page.locator('#chart-tooltip').inner_text()
+            assert 'soma parcial' in page.locator('#chart-tooltip').inner_text()
+            assert page.locator('#ifc-rain-status').count() == 0
             page.locator('#rain-window').select_option('1')
-            assert status.get_attribute('data-quality') == 'missing'
+            page.get_by_role('button', name='Por estação', exact=True).click()
+            assert 'Acumulado indisponível' in page.locator('#plot').inner_text()
             page.locator('#rain-window').select_option('24')
             page.locator('#rain-scope').select_option('nearby')
-            assert not status.count()
+            assert page.locator('#ifc-rain-status').count() == 0
+            assert page.locator('#plot .station-partial').count() == 0
             assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
             context.close()
         # Only the gust source expires: rain and observed samples remain usable.

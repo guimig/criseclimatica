@@ -523,3 +523,15 @@ assert.equal(campusRainState(coverageData,24).value,0);
 coverageWindow.covered_minutes=0;coverageWindow.validated_minutes=0;coverageWindow.complete=false;coverageWindow.value=null;
 assert.equal(campusRainState(coverageData,24).quality,'missing');
 assert.equal(campusRainState(coverageData,24).value,null);
+
+coverageWindow.covered_minutes=1410;coverageWindow.validated_minutes=55;coverageWindow.estimated_minutes=1355;coverageWindow.value=1.4;
+const partialSeries=getChartSeries(coverageData,null,'observed','precipitation_mm',24,now,'rain_24h_mm');
+assert.equal(partialSeries[0].points[0].rainQuality,'partial');
+assert.equal(partialSeries[0].points[0].value,1.4);
+assert.match(partialSeries[0].points[0].qualifier,/97,9%/);
+assert.equal(comparableReadings(partialSeries,Date.parse(data.generated_at),24).cohort.length,0);
+const bridged={...coverageWindow,covered_minutes:1440,estimated_minutes:1385,bridge_minutes:30,complete:true,quality:'estimated',value:1.7};
+coverageData.synthesis.campus_context.rain_reconstruction.graph_windows=[bridged];
+assert.equal(campusRainState(coverageData,24).bridgeMinutes,30);
+assert.equal(campusRainState(coverageData,24).value,1.7);
+assert.match(getChartSeries(coverageData,null,'observed','precipitation_mm',24,now,'rain_24h_mm')[0].points[0].qualifier,/diferença do contador/);

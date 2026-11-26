@@ -191,9 +191,5 @@
   .home-page .notice-entry-body{padding:12px}
 }
 
-/* Partial rain is a separate descriptive value, never a bar on the full-window scale. */
-.home-page .ifc-rain-status{display:grid;gap:4px;margin:10px 0 2px;padding:9px 11px;border:1px solid var(--line);border-left:3px solid var(--muted);border-radius:5px;color:var(--ink);font-size:13px;line-height:1.5;overflow-wrap:anywhere}
-.home-page .ifc-rain-status strong{font-size:14px;font-weight:650}
-.home-page .ifc-rain-status[data-quality="validated"]{border-left-color:var(--green)}
-.home-page .ifc-rain-status .ifc-rain-value{font-weight:600}
-.home-page .ifc-rain-status .ifc-rain-detail{color:var(--muted)}
+
+.home-page .station-partial,.home-page .chart-partial-sample{vector-effect:non-scaling-stroke}
