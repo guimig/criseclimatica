@@ -81,13 +81,15 @@
     if(Number.isFinite(c.pressure_change_3h))add('Variação da pressão em aproximadamente 3 h: '+number(c.pressure_change_3h)+' hPa. Não é previsão isolada.');
     if(Number.isFinite(c.dew_point_c))add('Ponto de orvalho estimado: '+number(c.dew_point_c)+' °C · '+date(c.thermohygrometric_at)+'.');
     if(Number.isFinite(c.heat_index_c))add('Índice de calor estimado: '+number(c.heat_index_c)+' °C · referência à sombra; não é avaliação de exposição ocupacional.');
-    for(const r of c.rain_windows||[])add('Chuva · '+r.hours+' h: '+(Number.isFinite(r.value)?number(r.value)+' mm':'sem dado')+' '+(r.complete?'(intervalo aproximado)':'(cobertura parcial, não acumulado integral)')+' · '+r.covered_minutes+'/'+r.expected_minutes+' min · '+date(r.end_at)+(r.method?.startsWith('crosschecked')?' · contador total conferido':'')+'.');
+    for(const r of c.rain_windows||[])add('Chuva · '+r.hours+' h: '+(Number.isFinite(r.value)?number(r.value)+' mm':'sem dado')+' '+(r.complete?(r.quality==='estimated'?'(estimado por agregados)':'(intervalo aproximado)'):'(cobertura parcial, não acumulado integral)')+' · '+r.covered_minutes+'/'+r.expected_minutes+' min'+(Number.isFinite(r.validated_minutes)?' · '+r.validated_minutes+' min validados / '+r.estimated_minutes+' min estimados':'')+' · '+date(r.end_at)+(r.method?.startsWith('crosschecked')?' · contador total conferido':'')+'.');
     const rain=c.rain_reconstruction;
-    if(rain){const d=rain.diagnostics||{};add('Contador total: '+(rain.status==='available'?'unidade declarada em mm; '+(d.retained_valid_bins||0)+' intervalos válidos na janela retida':rain.status==='unverified'?'unidade/consistência ainda não demonstrada':'sem reconstrução válida')+'. Sem novos limiares de risco.');}
+    if(rain){const d=rain.diagnostics||{};add('Contador total: '+(rain.status==='available'?'unidade declarada em mm; '+(d.retained_valid_bins||0)+' intervalos aproveitáveis na janela retida':rain.status==='unverified'?'unidade/consistência ainda não demonstrada':'sem reconstrução válida')+'. Sem novos limiares de risco.');}
+    if(rain?.diagnostics?.retained_by_quality){const q=rain.diagnostics.retained_by_quality;add('Histórico de chuva: '+(q.raw_validated||0)+' intervalos validados por leituras brutas; '+((q.aggregate_estimated||0)+(q.legacy_unverified||0))+' estimados ou sem origem detalhada; '+(rain.diagnostics.blocked_bins||0)+' bloqueados.');}
     const q=c.quality;
     if(q){const names={humidity_valid:'Validade da umidade',bme_stale:'Sensor desatualizado',bme_cal_ok:'Calibração informada',bme_consec_fails:'Falhas consecutivas informadas'};
       for(const [key,f] of Object.entries(q.flags||{}))add((names[key]||key)+': '+(f.latest===null?'sem dado':f.latest?'sim':'não')+(f.time?' · '+date(f.time):'')+' · '+f.bins+' intervalos informados.');
       for(const [key,n] of Object.entries(q.rejected||{}))if(n)add((definitions[key]?.[0]||key)+': '+n+' referências descartadas por sinal instrumental.');
+      for(const [key,n] of Object.entries(q.unknown||{}))add((definitions[key]?.[0]||key)+': '+(q.confirmed?.[key]||0)+' referências com todas as flags favoráveis; '+n+' sem confirmação integral.');
       add('Sem flag coincidente: qualidade não confirmada. As demais verificações continuam aplicadas.');
     }
     const rose=c.wind_sectors;
@@ -110,7 +112,7 @@
     el('campus-chart-note').textContent = key === 'rain_daily' ? 'Máximo em cada intervalo de 5 minutos. Contador diário informado; pode reiniciar. Não é chuva das últimas 24 h.' :
       metric?.aggregation === 'MAX' ? 'Máximo informado em cada intervalo de 5 minutos.'+(key==='wind_gust'?' O intervalo de medição original da rajada ainda precisa de confirmação.':'') : 'Média das leituras disponíveis em intervalos de 5 minutos. Lacunas não são interpoladas.';
     if(key==='wind_direction_deg')el('campus-chart-note').textContent='Direções em graus; não se ligam pontos nem se faz média aritmética.';
-    if(key==='rain_1h'||key==='rain_24h')el('campus-chart-note').textContent='Acumulado móvel aproximado; contador total conferido quanto à continuidade e suspeitas. O contador diário só permite intervalos contínuos no mesmo dia. Lacunas não são zero.';
+    if(key==='rain_1h'||key==='rain_24h')el('campus-chart-note').textContent='Acumulado móvel aproximado; leituras brutas conferidas ou estimativa por agregados identificada na consulta. O contador diário só permite intervalos contínuos no mesmo dia. Lacunas não são zero.';
     if(Array.isArray(archived))el('campus-chart-note').textContent+=' Últimas 24 h: 5 min; anteriores: resumos de 30 min (máximos de rajada e intensidade; acumulados no último horário válido).';
     if(points.length)el('campus-chart-note').textContent += ' '+points.length+' intervalos com dados na janela consultada.';
     if (!points.length) {target.append(create('p', 'Sem série válida nesta publicação.', 'campus-empty')); readout.textContent = 'Nenhum valor selecionado.'; return;}
@@ -129,7 +131,7 @@
     const cursor = svgNode('line',{x1:0,x2:0,y1:top,y2:bottom,class:'campus-cursor'}), dot=svgNode('circle',{r:4,class:'campus-dot'});
     svg.append(cursor,dot); target.append(svg);
     let selected=selectedKey===key?points.findIndex(p=>p.time===selectedTime):-1; if(selected<0)selected=points.length-1;
-    function show(index) {selected=Math.max(0,Math.min(points.length-1,index)); const point=points[selected], xx=x(point.time);selectedTime=point.time;selectedKey=key; cursor.setAttribute('x1',xx);cursor.setAttribute('x2',xx);dot.setAttribute('cx',xx);dot.setAttribute('cy',y(point.value));readout.textContent=date(point.time)+' · '+number(point.value)+' '+definitions[key][1]+(point.interval_minutes===30?' · '+point.count+'/6 intervalos':'');}
+    function show(index) {selected=Math.max(0,Math.min(points.length-1,index)); const point=points[selected], xx=x(point.time);selectedTime=point.time;selectedKey=key; cursor.setAttribute('x1',xx);cursor.setAttribute('x2',xx);dot.setAttribute('cx',xx);dot.setAttribute('cy',y(point.value));readout.textContent=date(point.time)+' · '+number(point.value)+' '+definitions[key][1]+(point.interval_minutes===30?' · '+point.count+'/6 intervalos':'')+(point.quality==='estimated'?' · estimativa ('+point.estimated_minutes+' min)':point.quality==='validated'?' · leituras brutas conferidas':'');}
     svg.addEventListener('pointermove', event => {const box=svg.getBoundingClientRect(), xx=(event.clientX-box.left)/box.width*width; let nearest=0; for(let i=1;i<points.length;i++)if(Math.abs(x(points[i].time)-xx)<Math.abs(x(points[nearest].time)-xx))nearest=i;show(nearest);});
     svg.addEventListener('keydown',event=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();show(event.key==='Home'?0:event.key==='End'?points.length-1:selected+(event.key==='ArrowLeft'?-1:1));}});
     show(selected);if(keepFocus)svg.focus();

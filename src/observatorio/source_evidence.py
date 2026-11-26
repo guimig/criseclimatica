@@ -127,7 +127,7 @@ def antecedent_rain(primary, stamp, campus_windows=()):
             if r.get('hours')!=h or not r.get('complete') or not moment(r.get('end_at')) or not now-timedelta(minutes=90)<=moment(r['end_at'])<=now:continue
             rows.append({'source':'ifc','station':'ifc-araquari','variable':field,'value':r['value'],'unit':'mm','hours':h,
                          'start_at':r['start_at'],'end_at':r['end_at'],'valid_until':iso(moment(r['end_at'])+timedelta(hours=1.5)),
-                         'method':r['method'],'threshold_eligible':False,'weight':1})
+                         'method':r['method'],'quality':r.get('quality','estimated'),'threshold_eligible':False,'weight':1})
         if rows:
             groups.append({'hours':h,'members':rows,'maximum':max(r['value'] for r in rows),
                            'station_count':len({r['station'] for r in rows}),'equal_station_weight':True})

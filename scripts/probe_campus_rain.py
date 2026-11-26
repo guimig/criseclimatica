@@ -33,7 +33,7 @@ def main():
         values=Counter(str(r["value"]) for r in rows)
         print("RAW",key,"n",len(rows),"cadence",delta.most_common(4),"first",rows[:2],"last",rows[-4:],"frequent",values.most_common(4))
     from observatorio.campus_rain import collect_rain
-    live=collect_rain(request_json,token,TELEMETRY,now)
+    live=collect_rain(request_json,token,TELEMETRY,now,budget_seconds=25)
     print("LIVE_RECONSTRUCTION",live["status"],live["diagnostics"],"windows",live["windows"])
     for agg,fields in [("MAX",["rain_total","rain_daily","rain_suspects_total"]),("MIN",["rain_total","rain_suspects_total"]),("COUNT",["rain_increment","rain_total","rain_suspects_total"]),("SUM",["rain_increment"])]:
         try:data=query(fields,6,agg,74)

@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from math import isfinite
+from time import monotonic
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
@@ -21,7 +22,19 @@ QUERY_HOURS = 6
 RAW_HOURS = 1
 RAW_LIMIT = 1000
 RAW_MAX_GAP_MS = 30_000
-MIN_SAMPLES_PER_BIN = 2
+MIN_SAMPLES_PER_BIN = 40  # observed 5 s cadence; counts do not prove continuity
+RAW_QUALITY = 'raw_validated'
+AGG_QUALITY = 'aggregate_estimated'
+LEGACY_QUALITY = 'legacy_unverified'
+QUALITIES = (RAW_QUALITY, AGG_QUALITY, LEGACY_QUALITY)
+HARD_REASONS = frozenset(('suspect_counter_changed','suspect_counter_changed_or_missing','counter_reset_or_decrease',
+                          'invalid_counter_difference','daily_counter_mismatch','counter_increment_mismatch',
+                          'partial_increment_exceeds_counter','raw_conflict','source_conflict'))
+RECOVERY_BUDGET_SECONDS = 45
+RETRY_MS = 3*3600000
+CHUNK_MS = (QUERY_HOURS*12-1)*STEP
+MAX_INITIAL_CHUNKS = 14
+MAX_REPAIR_CHUNKS = 2
 # Public dashboard 421b5150, device 948e1e60, verified 26/11/2026:
 # rain_total widget: Chuva Total, units mm. This is provider metadata,
 # not metrological certification or proof of uninterrupted transmission.
@@ -129,10 +142,11 @@ def reconstruct(groups, start, end):
     units["status"]="documented_mm"
     diagnostics={"unit_evidence":units,"total_bins":len(maximum),"increment_bins":len(inc),
                  "suspect_bins":len(suspect_hi),"accepted_bins":0,"increment_checked_bins":0,
-                 "rejected":{}}
+                 "rejected":{}, "rejected_intervals":[]}
     accepted={}
     def reject(reason):
         diagnostics["rejected"][reason]=diagnostics["rejected"].get(reason,0)+1
+        diagnostics["rejected_intervals"].append({"time":iso(datetime.fromtimestamp((t+STEP)/1000,timezone.utc)),"reason":reason})
     for t in sorted(maximum):
         p=t-STEP
         if p not in maximum or t not in minimum or t not in ct or p not in ct:
@@ -141,7 +155,7 @@ def reconstruct(groups, start, end):
             reject("insufficient_counter_samples");continue
         if not all(k in series for k,series in ((p,suspect_hi),(t,suspect_hi),(t,suspect_lo),(t,cs),(p,cs))) or cs[t]!=ct[t] or cs[p]!=ct[p]:
             reject("suspect_counter_unverified");continue
-        if not close(suspect_hi[p],suspect_lo[t]) or not close(suspect_lo[t],suspect_hi[t]):
+        if suspect_hi[p]!=suspect_lo[t] or suspect_lo[t]!=suspect_hi[t]:
             reject("suspect_counter_changed");continue
         delta=maximum[t]-maximum[p]
         if minimum[t]>maximum[t] or minimum[t]<maximum[p] or delta<0:
@@ -171,7 +185,8 @@ def empty_rain(status="unavailable"):
             "windows":[],"series":{},"diagnostics":{},"intervals":[]}
 
 
-def build_windows(accepted, anchor, now):
+def build_windows(accepted, anchor, now, qualities=None):
+    qualities=qualities or {}
     result={"windows":[],"series":{}}
     if not anchor or not 0<=now.timestamp()*1000-anchor<=90*60_000:
         return result
@@ -179,9 +194,14 @@ def build_windows(accepted, anchor, now):
         n=hours*12
         values=[accepted.get(t-i*STEP) for i in range(n)]
         present=[v for v in values if v is not None]
+        validated=sum(1 for i,v in enumerate(values) if v is not None and qualities.get(t-i*STEP)==RAW_QUALITY)
+        estimated=len(present)-validated
         return {"hours":hours,"value":round(sum(present),3) if present else None,
                 "covered_minutes":len(present)*5,"expected_minutes":hours*60,
-                "complete":len(present)==n,"method":METHOD,"threshold_eligible":False,
+                "complete":len(present)==n,"validated_complete":validated==n,
+                "validated_minutes":validated*5,"estimated_minutes":estimated*5,
+                "quality":"partial" if len(present)<n else "validated" if validated==n else "estimated",
+                "method":METHOD,"threshold_eligible":False,
                 "start_at":iso(datetime.fromtimestamp((t-hours*3600000)/1000,timezone.utc)),
                 "end_at":iso(datetime.fromtimestamp(t/1000,timezone.utc))}
     result["windows"]=[window(anchor,h) for h in WINDOWS]
@@ -195,7 +215,9 @@ def build_windows(accepted, anchor, now):
             if row["complete"]:
                 rows.append({"time":row["end_at"],"value":row["value"],
                              "interval_minutes":5 if anchor-t<=24*3600000 else 30,
-                             "count":1 if anchor-t<=24*3600000 else 6})
+                             "count":1 if anchor-t<=24*3600000 else 6,
+                             "quality":row["quality"],"validated_minutes":row["validated_minutes"],
+                             "estimated_minutes":row["estimated_minutes"]})
         result["series"][f"rain_{h}h"]=rows[-600:]
     return result
 
@@ -205,65 +227,114 @@ def summarize(groups, start, end, now):
     totals=bucket_series(groups.get("MAX",{}).get("rain_total",[]),start,end,LIMIT)
     result=empty_rain("no_valid_intervals")
     result["diagnostics"]=diagnostics
+    result["rejected_intervals"]=diagnostics.pop("rejected_intervals",[])
     if not totals or not diagnostics["suspect_bins"]:
         result["status"]="unavailable";return result
     result["query_start_at"]=iso(datetime.fromtimestamp(start/1000,timezone.utc))
     result["query_end_at"]=iso(datetime.fromtimestamp(end/1000,timezone.utc))
     anchor=max(totals)+STEP
     result["anchor_at"]=iso(datetime.fromtimestamp(anchor/1000,timezone.utc))
-    result["intervals"]=[{"time":iso(datetime.fromtimestamp(t/1000,timezone.utc)),"value":v} for t,v in sorted(accepted.items())]
+    result["intervals"]=[{"time":iso(datetime.fromtimestamp(t/1000,timezone.utc)),"value":v,"quality":AGG_QUALITY} for t,v in sorted(accepted.items())]
     result["status"]="available" if accepted else "no_valid_intervals"
     if not 0<=now.timestamp()*1000-anchor<=90*60_000:
         result["status"]="stale";return result
-    result.update(build_windows(accepted,anchor,now))
+    result.update(build_windows(accepted,anchor,now,{t:AGG_QUALITY for t in accepted}))
     return result
 
 
-def merge_rain(previous, current, stamp):
-    """Retain only validated 5-min increments for 73h, replacing queried bins.
+def parse_intervals(rows, now_ms):
+    """Old archives lack provenance and remain contextual estimates."""
+    result={}
+    if not isinstance(rows,list) or len(rows)>LIMIT:return result
+    for row in rows:
+        if not isinstance(row,dict):continue
+        t=moment(row.get("time"));v=row.get("value")
+        if not t or not valid_number(v,0,500):continue
+        ms=int(t.timestamp()*1000);quality=row.get("quality",LEGACY_QUALITY)
+        if now_ms-WINDOW_HOURS*3600000<=ms<=now_ms and ms%STEP==0 and quality in QUALITIES:
+            result[ms]=(v,quality)
+    return result
 
-    Old measurements preserve their timestamps. No need for a large 72h
-    request to the provider on every collection cycle.
-    """
-    now=moment(stamp)
-    now_ms=int(now.timestamp()*1000)
-    oldest=now_ms-WINDOW_HOURS*3600000
-    previous=previous or {}
-    current=current or empty_rain()
-    def collect_rows(rows):
-        result={}
-        if not isinstance(rows,list) or len(rows)>LIMIT:return result
-        for r in rows:
-            if not isinstance(r,dict):continue
-            t=moment(r.get("time"));v=r.get("value")
-            if not t or not valid_number(v,0,500):continue
+
+def rejected_intervals(rows, now_ms):
+    result={}
+    if not isinstance(rows,list) or len(rows)>LIMIT:return result
+    for r in rows:
+        if not isinstance(r,dict):continue
+        t=moment(r.get("time"));reason=r.get("reason")
+        if t and reason in HARD_REASONS|{"raw_gap"}:
             ms=int(t.timestamp()*1000)
-            if oldest<=ms<=now_ms and ms%STEP==0:result[ms]=v
-        return result
-    accepted=collect_rows(previous.get("intervals",[]))
-    start=moment(current.get("query_start_at"));end=moment(current.get("query_end_at"))
-    if start and end and current.get("status")!="unavailable":
-        a,b=int(start.timestamp()*1000),int(end.timestamp()*1000)
-        # First bucket has no preceding counter in this query: preserve
-        # the earlier validated delta at that boundary if present.
-        observed=moment(current.get("observed_start_at"))
-        if observed:a=max(a,int(observed.timestamp()*1000)//STEP*STEP)
-        accepted={t:v for t,v in accepted.items() if not a+STEP<t<=b}
-        accepted.update(collect_rows(current.get("intervals",[])))
-    anchor=moment(current.get("anchor_at")) or moment(previous.get("anchor_at"))
-    archive={"intervals":[{"time":iso(datetime.fromtimestamp(t/1000,timezone.utc)),"value":v}
-                         for t,v in sorted(accepted.items())][-LIMIT:],
-             "anchor_at":iso(anchor) if anchor and oldest<=anchor.timestamp()*1000<=now_ms else None}
+            if now_ms-WINDOW_HOURS*3600000<=ms<=now_ms and ms%STEP==0:result[ms]=reason
+    return result
+
+
+def serialize_intervals(records):
+    return [{"time":iso(datetime.fromtimestamp(t/1000,timezone.utc)),"value":v,"quality":q}
+            for t,(v,q) in sorted(records.items())][-LIMIT:]
+
+
+def serialize_rejected(blocked):
+    return [{"time":iso(datetime.fromtimestamp(t/1000,timezone.utc)),"reason":r}
+            for t,r in sorted(blocked.items())][-LIMIT:]
+
+
+def reconcile(records, blocked, product, now_ms):
+    """Strong raw evidence outranks estimates; actual conflicts never vanish."""
+    incoming=parse_intervals(product.get("intervals",[]),now_ms)
+    for t,reason in rejected_intervals(product.get("rejected_intervals",[]),now_ms).items():
+        if blocked.get(t) not in HARD_REASONS:blocked[t]=reason
+        records.pop(t,None)
+    for t,(v,q) in incoming.items():
+        reason=blocked.get(t)
+        if reason in HARD_REASONS or (reason=="raw_gap" and q!=RAW_QUALITY):continue
+        if reason=="raw_gap":blocked.pop(t,None)
+        old=records.get(t)
+        if old:
+            oldv,oldq=old
+            if oldq==LEGACY_QUALITY:records[t]=(v,q);continue
+            if not close(oldv,v):
+                blocked[t]="source_conflict";records.pop(t,None);continue
+            if oldq==RAW_QUALITY and q!=RAW_QUALITY:continue
+        records[t]=(v,q)
+
+
+def clean_attempts(attempts, now_ms):
+    out={}
+    if not isinstance(attempts,dict):return out
+    for key,value in attempts.items():
+        try:t=int(key);at=int(value)
+        except (TypeError,ValueError):continue
+        if t%STEP==0 and now_ms-WINDOW_HOURS*3600000<=t<=now_ms and now_ms-WINDOW_HOURS*3600000<=at<=now_ms:
+            out[str(t)]=at
+    return dict(sorted(out.items(),key=lambda item:int(item[0]))[-MAX_INITIAL_CHUNKS-4:])
+
+
+def merge_rain(previous, current, stamp):
+    """Bounded provenance-aware archive; missing responses do not erase it."""
+    now=moment(stamp);now_ms=int(now.timestamp()*1000)
+    previous=previous or {};current=current or empty_rain()
+    records=parse_intervals(previous.get("intervals",[]),now_ms)
+    blocked=rejected_intervals(previous.get("rejected_intervals",[]),now_ms)
+    reconcile(records,blocked,current,now_ms)
+    for t in blocked:records.pop(t,None)
+    anchors=[t for t in (moment(current.get("anchor_at")),moment(previous.get("anchor_at"))) if t and t<=now and now-t<=timedelta(hours=WINDOW_HOURS)]
+    anchor=max(anchors,default=None)
+    attempts=clean_attempts({**previous.get("attempts",{}),**current.get("attempts",{})},now_ms)
+    archive={"intervals":serialize_intervals(records),"rejected_intervals":serialize_rejected(blocked),
+             "anchor_at":iso(anchor) if anchor else None}
+    if attempts:archive["attempts"]=attempts
     product=empty_rain(current.get("status","unavailable"))
-    product["diagnostics"]=current.get("diagnostics",{})
-    product["diagnostics"]={**product["diagnostics"],"retained_valid_bins":len(accepted),
+    quality_counts={q:sum(1 for _,kind in records.values() if kind==q) for q in QUALITIES}
+    product["diagnostics"]={**current.get("diagnostics",{}),"retained_valid_bins":len(records),
+                            "retained_by_quality":quality_counts,"blocked_bins":len(blocked),
                             "query_status":current.get("status","unavailable")}
-    product["authoritative_from"]=iso(datetime.fromtimestamp(min(accepted)/1000,timezone.utc)) if accepted else current.get("query_start_at")
+    bounds=list(records)+list(blocked)
+    product["authoritative_from"]=iso(datetime.fromtimestamp(min(bounds)/1000,timezone.utc)) if bounds else current.get("query_start_at")
     if anchor and 0<=now_ms-anchor.timestamp()*1000<=90*60_000:
-        product["status"]="available" if accepted else "no_valid_intervals"
-        product.update(build_windows(accepted,int(anchor.timestamp()*1000),now))
-    elif anchor:
-        product["status"]="stale"
+        product["status"]="available" if records else "no_valid_intervals"
+        product.update(build_windows({t:v for t,(v,_) in records.items()},int(anchor.timestamp()*1000),now,
+                                     {t:q for t,(_,q) in records.items()}))
+    elif anchor:product["status"]="stale"
     return product,archive
 
 
@@ -288,17 +359,17 @@ def quality_flags(raw, start, end, limit):
 
 def apply_quality(metrics, flags):
     summary={"status":"available" if any(flags.values()) else "unavailable",
-             "flags":{},"rejected":{},"unknown":{},"rejected_bins":{}}
+             "flags":{},"rejected":{},"unknown":{},"confirmed":{},"rejected_bins":{}}
     for key,rows in flags.items():
         t=max(rows,default=None)
         summary["flags"][key]={"bins":len(rows),"latest":rows[t] if t is not None else None,
                               "time":iso(datetime.fromtimestamp(t/1000,timezone.utc)) if t is not None else None}
     for key,requirements in AFFECTED.items():
         if key not in metrics:continue
-        rejected, unknown=0,0
+        rejected, unknown, confirmed=0,0,0
         blocked=set()
         def usable(p):
-            nonlocal rejected,unknown
+            nonlocal rejected,unknown,confirmed
             if not p:return False
             t=moment(p.get("time"))
             if not t:return False
@@ -307,19 +378,21 @@ def apply_quality(metrics, flags):
             if any(v is not None and v!=FLAGS[f] for f,v in zip(requirements,values)):
                 rejected+=1;blocked.add(t);return False
             if any(v is None for v in values):unknown+=1
+            else:confirmed+=1
             return True
         m=metrics[key]
         m["series"]=[p for p in m.get("series",[]) if usable(p)]
         if m.get("latest") and not usable(m["latest"]):
             m["latest"]=None;m["fresh_at_collection"]=False
-        summary["rejected"][key]=rejected;summary["unknown"][key]=unknown
+        summary["rejected"][key]=rejected;summary["unknown"][key]=unknown;summary["confirmed"][key]=confirmed
         summary["rejected_bins"][key]=[iso(datetime.fromtimestamp(t/1000,timezone.utc)) for t in sorted(blocked)]
     return summary
 
 
 def raw_rain(raw, start, end, now):
     """Pair original readings and require continuity at both boundaries."""
-    from bisect import bisect_right
+    from bisect import bisect_left
+    conflicts_by_key={}
     def points(key):
         rows=raw.get(key,[])
         if not isinstance(rows,list) or len(rows)>RAW_LIMIT:return {}
@@ -330,6 +403,7 @@ def raw_rain(raw, start, end, now):
             if not isinstance(t,int) or isinstance(t,bool) or not start<=t<=end or v is None or v<0:continue
             if t in out and out[t]!=v:conflicts.add(t)
             out[t]=v
+        conflicts_by_key[key]=conflicts
         return {t:v for t,v in out.items() if t not in conflicts}
     total,suspects,daily,increment=(points(k) for k in ("rain_total","rain_suspects_total","rain_daily","rain_increment"))
     result=empty_rain()
@@ -337,6 +411,7 @@ def raw_rain(raw, start, end, now):
        "increment_samples":len(increment),"unit_evidence":{"documented_unit":TOTAL_UNIT,"status":"documented_mm"},
        "accepted_bins":0,"increment_checked_bins":0,"rejected":{}}
     result["diagnostics"]=d
+    result["rejected_intervals"]=[]
     if not total or not suspects:return result
     times=sorted(total);anchor=(times[-1]//STEP)*STEP
     if end-times[-1]<=RAW_MAX_GAP_MS:anchor=end
@@ -347,11 +422,16 @@ def raw_rain(raw, start, end, now):
     accepted={}
     def reject(reason):
         d["rejected"][reason]=d["rejected"].get(reason,0)+1
+        result["rejected_intervals"].append({"time":iso(datetime.fromtimestamp(t/1000,timezone.utc)),"reason":reason})
     for t in range(start+STEP,anchor+1,STEP):
-        a=bisect_right(times,t-STEP)-1;b=bisect_right(times,t)-1
+        # Match MAX bins: last sample strictly before each boundary.
+        a=bisect_left(times,t-STEP)-1;b=bisect_left(times,t)-1
+        if a<0 and times[0]==t-STEP:a=0
         if a<0 or b<=a or t-STEP-times[a]>RAW_MAX_GAP_MS or t-times[b]>RAW_MAX_GAP_MS:
             reject("missing_boundary");continue
         sub=times[a:b+1]
+        if any(sub[0]<=x<=sub[-1] for k in ("rain_total","rain_suspects_total","rain_daily","rain_increment") for x in conflicts_by_key.get(k,set())):
+            reject("raw_conflict");continue
         if any(y-x>RAW_MAX_GAP_MS for x,y in zip(sub,sub[1:])):
             reject("raw_gap");continue
         if any(x not in suspects for x in sub) or any(suspects[x]!=suspects[sub[0]] for x in sub):
@@ -372,28 +452,16 @@ def raw_rain(raw, start, end, now):
             reject("partial_increment_exceeds_counter");continue
         accepted[t]=round(delta,5)
     d["accepted_bins"]=len(accepted)
-    result["intervals"]=[{"time":iso(datetime.fromtimestamp(t/1000,timezone.utc)),"value":v} for t,v in sorted(accepted.items())]
+    result["intervals"]=[{"time":iso(datetime.fromtimestamp(t/1000,timezone.utc)),"value":v,"quality":RAW_QUALITY} for t,v in sorted(accepted.items())]
     result["status"]="available" if accepted else "no_valid_intervals"
     if not 0<=now.timestamp()*1000-anchor<=90*60_000:
         result["status"]="stale";return result
-    result.update(build_windows(accepted,anchor,now))
+    result.update(build_windows(accepted,anchor,now,{t:RAW_QUALITY for t in accepted}))
     return result
 
 
-def collect_rain(requester,token,telemetry,now):
-    """Bounded raw stream first; aggregate fallback for raw failures."""
+def aggregate_query(requester,token,telemetry,start,end,now):
     from .campus_station import SourceError
-    end=int(now.timestamp()*1000)//STEP*STEP
-    start=end-QUERY_HOURS*3600000
-    raw_start=end-RAW_HOURS*3600000
-    try:
-        raw=query(requester,token,telemetry,("rain_total","rain_daily","rain_suspects_total","rain_increment"),
-                  raw_start,end,"NONE",RAW_LIMIT)
-        product=raw_rain(raw,raw_start,end,now)
-        if product["status"]!="unavailable":
-            return product
-    except (SourceError,OSError,ValueError,TypeError,KeyError):
-        pass
     groups={}
     requests={"MAX":("rain_total","rain_daily","rain_suspects_total"),
               "MIN":("rain_total","rain_suspects_total"),
@@ -401,12 +469,94 @@ def collect_rain(requester,token,telemetry,now):
     try:
         for agg,keys in requests.items():
             groups[agg]=query(requester,token,telemetry,keys,start,end,agg,QUERY_HOURS*12+2)
+            if agg=="MAX" and not groups[agg].get("rain_total"):return empty_rain()
         if groups["COUNT"].get("rain_increment"):
             try:groups["SUM"]=query(requester,token,telemetry,("rain_increment",),start,end,"SUM",QUERY_HOURS*12+2)
             except (SourceError,OSError,ValueError,TypeError,KeyError):groups["SUM"]={}
         return summarize(groups,start,end,now)
     except (SourceError,OSError,ValueError,TypeError,KeyError):
         return empty_rain()
+
+
+def collect_rain(requester,token,telemetry,now,previous=None,*,budget_seconds=RECOVERY_BUDGET_SECONDS):
+    """Raw + short aggregates, then bounded, resumable historical recovery."""
+    from .campus_station import SourceError
+    started=monotonic();now_ms=int(now.timestamp()*1000);end=now_ms//STEP*STEP
+    previous=previous or {}
+    records=parse_intervals(previous.get("intervals",[]),now_ms)
+    blocked=rejected_intervals(previous.get("rejected_intervals",[]),now_ms)
+    attempts=clean_attempts(previous.get("attempts",{}),now_ms)
+    raw=empty_rain()
+    raw_start=end-(RAW_HOURS*12+1)*STEP
+    try:
+        data=query(requester,token,telemetry,("rain_total","rain_daily","rain_suspects_total","rain_increment"),
+                   raw_start,end,"NONE",RAW_LIMIT)
+        raw=raw_rain(data,raw_start,end,now)
+    except (SourceError,OSError,ValueError,TypeError,KeyError):
+        pass
+    reconcile(records,blocked,raw,now_ms)
+    recent_start=end-QUERY_HOURS*3600000
+    missing_recent=any(t not in records for t in range(recent_start+2*STEP,end+1,STEP))
+    raw_full=any(w["hours"]==1 and w.get("validated_complete") for w in raw["windows"])
+    recent=empty_rain()
+    if (missing_recent or not raw_full) and monotonic()-started<budget_seconds:
+        recent=aggregate_query(requester,token,telemetry,recent_start,end,now)
+        reconcile(records,blocked,recent,now_ms)
+    initial=not attempts
+    # A verified raw gap is never filled with aggregate estimates. Attempt
+    # one small retrospective raw repair (late telemetry may have arrived).
+    raw_repairs=0
+    repairable=[t for t,r in blocked.items() if r=="raw_gap" and end-6*3600000<=t<raw_start+STEP
+                and now_ms-attempts.get(str(t),0)>=RETRY_MS]
+    if repairable and monotonic()-started<budget_seconds:
+        t=max(repairable);a=t-2*STEP;b=min(end,t+STEP)
+        attempts[str(t)]=now_ms;raw_repairs=1
+        try:
+            data=query(requester,token,telemetry,("rain_total","rain_daily","rain_suspects_total","rain_increment"),
+                       a,b,"NONE",RAW_LIMIT)
+            repair=raw_rain(data,a,b,now)
+            reconcile(records,blocked,repair,now_ms)
+        except (SourceError,OSError,ValueError,TypeError,KeyError):
+            pass
+    limit=MAX_INITIAL_CHUNKS if initial else MAX_REPAIR_CHUNKS
+    recovered=available=0
+    oldest=end-WINDOW_HOURS*3600000
+    anchors=[moment(r.get("anchor_at")) for r in (raw,recent,previous)]
+    if raw["status"]!="unavailable" or recent["status"]!="unavailable":
+        chunk_end=(end//CHUNK_MS)*CHUNK_MS
+        while chunk_end>oldest and recovered<limit and monotonic()-started<budget_seconds:
+            chunk_start=max(oldest,chunk_end-CHUNK_MS)
+            key=str(chunk_end)
+            if chunk_end>recent_start and chunk_start>=recent_start+STEP:
+                chunk_end-=CHUNK_MS;continue
+            if all(t in records or blocked.get(t) in HARD_REASONS for t in range(chunk_start+STEP,chunk_end+1,STEP)):
+                chunk_end-=CHUNK_MS;continue
+            if now_ms-attempts.get(key,0)<RETRY_MS:
+                chunk_end-=CHUNK_MS;continue
+            product=aggregate_query(requester,token,telemetry,chunk_start-STEP,chunk_end,now)
+            attempts[key]=now_ms;recovered+=1;available+=product["status"]!="unavailable"
+            anchors.append(moment(product.get("anchor_at")))
+            reconcile(records,blocked,product,now_ms)
+            chunk_end-=CHUNK_MS
+    for t in blocked:records.pop(t,None)
+    result=empty_rain()
+    anchor=max((t for t in anchors if t and t<=now and now-t<=timedelta(hours=WINDOW_HOURS)),default=None)
+    result["anchor_at"]=iso(anchor) if anchor else None
+    result["intervals"]=serialize_intervals(records)
+    result["rejected_intervals"]=serialize_rejected(blocked)
+    result["attempts"]=clean_attempts(attempts,now_ms)
+    result["diagnostics"]={"retrieval_method":"hybrid_raw_and_aggregated","raw":raw["diagnostics"],
+                           "recent_aggregate":recent["diagnostics"],
+                           "historical_chunks_attempted":recovered,"historical_chunks_available":available,
+                           "raw_gap_repairs_attempted":raw_repairs,
+                           "raw_bins":sum(q==RAW_QUALITY for _,q in records.values()),
+                           "aggregate_bins":sum(q==AGG_QUALITY for _,q in records.values()),
+                           "rejected_bins":len(blocked),"query_budget_seconds":budget_seconds}
+    if anchor:
+        result["status"]="available" if records else "no_valid_intervals"
+        if now-anchor>timedelta(minutes=90):result["status"]="stale"
+        else:result.update(build_windows({t:v for t,(v,_) in records.items()},int(anchor.timestamp()*1000),now,{t:q for t,(_,q) in records.items()}))
+    return result
 
 
 def collect_quality(requester,token,telemetry,now,metrics):
@@ -455,6 +605,16 @@ def validate_rain(product, stamp):
     now=moment(stamp)
     if len(product["windows"])>len(WINDOWS) or set(product["series"])-{"rain_1h","rain_24h"} or len(product.get("intervals",[]))>LIMIT:
         raise ValueError("Unbounded IFC rain reconstruction")
+    previous_time=None
+    for row in product.get("intervals",[]):
+        t=moment(row.get("time")) if isinstance(row,dict) else None
+        if (not t or not now-timedelta(hours=WINDOW_HOURS)<=t<=now or int(t.timestamp()*1000)%STEP
+                or (previous_time and t<=previous_time) or row.get("quality",LEGACY_QUALITY) not in QUALITIES
+                or not valid_number(row.get("value"),0,500)):
+            raise ValueError("Invalid IFC interval provenance")
+        previous_time=t
+    if len(product.get("rejected_intervals",[]))>LIMIT or len(product.get("attempts",{}))>MAX_INITIAL_CHUNKS+4:
+        raise ValueError("Unbounded IFC recovery metadata")
     seen=set()
     for r in product["windows"]:
         h=r.get("hours");a=moment(r.get("start_at"));b=moment(r.get("end_at"));n=r.get("covered_minutes")
@@ -464,6 +624,12 @@ def validate_rain(product, stamp):
                 or r.get("method")!=METHOD or (n>0 and not valid_number(r.get("value"),0,500*n/5))
                 or (n==0 and r.get("value") is not None)):
             raise ValueError("Invalid IFC rain window")
+        if "quality" in r:
+            v,e=r.get("validated_minutes"),r.get("estimated_minutes")
+            if (not isinstance(v,int) or not isinstance(e,int) or min(v,e)<0 or v%5 or e%5 or v+e!=n
+                    or r.get("validated_complete") is not (v==h*60)
+                    or r["quality"]!=("partial" if n<h*60 else "validated" if v==n else "estimated")):
+                raise ValueError("Invalid IFC rain coverage provenance")
         seen.add(h)
     for key,rows in product["series"].items():
         if not isinstance(rows,list) or len(rows)>600:raise ValueError("Unbounded IFC rain series")
@@ -472,7 +638,8 @@ def validate_rain(product, stamp):
             t=moment(r.get("time"))
             if (not t or not now-timedelta(hours=73)<=t<=now or (last and t<=last)
                     or not valid_number(r.get("value"),0,144000)
-                    or r.get("interval_minutes") not in (5,30)):
+                    or r.get("interval_minutes") not in (5,30)
+                    or r.get("quality","estimated") not in ("validated","estimated")):
                 raise ValueError("Invalid IFC rain series")
             last=t
     if product["status"]!="available" and any(r["complete"] for r in product["windows"]):

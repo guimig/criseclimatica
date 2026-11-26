@@ -503,3 +503,6 @@ assert.equal(getChartSeries(instrumental,null,'observed','gust_kmh',24,now)[0].p
 assert.equal(getChartSeries(instrumental,null,'observed','precipitation_mm',24,now,'rain_1h_mm')[0].points[0].qualifier,'intervalo aproximado');
 assert.equal(getChartSeries(instrumental,null,'observed','precipitation_mm',24,now,'rain_1h_mm',false).length,0);
 assert.equal(getChartSeries(instrumental,null,'observed','precipitation_mm',24,now,'rain_24h_mm').length,0);
+
+const hybrid={...data,synthesis:{campus_context:{rain_reconstruction:{authoritative_from:'2026-11-06T19:00:00Z',series:{rain_24h:[{time:'2026-11-06T19:45:00Z',value:12,interval_minutes:5,count:1,quality:'estimated',estimated_minutes:1440,validated_minutes:0}]}}}}};
+assert.match(getChartSeries(hybrid,null,'observed','precipitation_mm',24,now,'rain_24h_mm')[0].points[0].qualifier,/estimativa por agregados/);

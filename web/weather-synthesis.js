@@ -52,7 +52,7 @@
       const daily=(data.daily_quantitative||[]).filter(r=>live(r,now));
       if(daily.length){const box=group('Temperaturas diárias por fonte');for(const r of daily.slice(0,14))box.append(element('p','small',`${r.day.split('-').reverse().join('/')} · ${r.source}: ${number(r.minimum_c)}–${number(r.maximum_c)} °C${r.kind==='extremes_of_24_hourly_samples'?' · extremos de 24 amostras horárias':' · extremos diários informados'}.`));}
       if(data.antecedent_rain?.windows?.length){const box=group('Chuva antecedente');for(const r of data.antecedent_rain.windows){const members=r.members.filter(m=>live(m,now));if(!members.length)continue;
-        box.append(element('p','small',`${r.hours} h · ${members.length} estações · maior: ${number(Math.max(...members.map(m=>m.value)))} mm.`));
+        box.append(element('p','small',`${r.hours} h · ${members.length} estações · maior: ${number(Math.max(...members.map(m=>m.value)))} mm${members.some(m=>m.quality==='estimated')?' · inclui estimativa IFC':''}.`));
         for(const m of members)box.append(element('p','small',`${data.station_registry.find(s=>s.id===m.station)?.name||m.station}: ${number(m.value)} mm · ${date(m.end_at)}.`));
       }box.append(element('p','small','Janelas diferentes permanecem separadas. Não são novos limites da norma.'));}
       if(data.publication_evidence?.length||data.pending_publications?.length){const box=group('Boletins e publicações avaliados');
