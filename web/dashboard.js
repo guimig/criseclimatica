@@ -245,15 +245,20 @@ function getChartSeries(data,history,mode,variable,hours,now=Date.now(),observed
   if(includeCampus){
     const earliest=new Map();
     for(const field of fields){
-      const dense=data?.synthesis?.campus_history?.series?.[mapping[field]]||[];
+      const total=data?.synthesis?.campus_context?.rain_reconstruction?.series?.[field==='rain_24h_mm'?'rain_24h':field==='rain_1h_mm'?'rain_1h':'']||[];
+      const reconstruction=data?.synthesis?.campus_context?.rain_reconstruction;
+      const boundary=field.startsWith('rain_')?Date.parse(reconstruction?.authoritative_from):NaN;
+      const original=(data?.synthesis?.campus_history?.series?.[mapping[field]]||[]).filter(r=>!Number.isFinite(boundary)||Date.parse(r.time)<boundary);
+      const totalTimes=new Set(total.map(r=>Date.parse(r.time)));
+      const dense=[...original.filter(r=>!totalTimes.has(Date.parse(r.time))),...total.map(r=>({...r,crosschecked:true}))].sort((a,b)=>Date.parse(a.time)-Date.parse(b.time));
       if(dense.length)earliest.set(field,Date.parse(dense[0].time));
       for(const r of dense)rows.push({source:'ifc',station:'ifc-araquari',observed_at:r.time,[field]:r.value,
-        intervalMinutes:r.interval_minutes,count:r.count,approximate:field==='rain_1h_mm'});
+        intervalMinutes:r.interval_minutes,count:r.count,approximate:field==='rain_1h_mm'||field==='rain_24h_mm',crosschecked:r.crosschecked});
     }
     for(const r of data?.synthesis?.observation_history||[]){
-      if(r.source==='ifc'&&fields.includes(r.variable)&&(!earliest.has(r.variable)||Date.parse(r.end_at)<earliest.get(r.variable)))
+      if(r.source==='ifc'&&fields.includes(r.variable)&&(!earliest.has(r.variable)||Date.parse(r.end_at)<earliest.get(r.variable))&&(!r.variable.startsWith('rain_')||!Number.isFinite(Date.parse(data?.synthesis?.campus_context?.rain_reconstruction?.authoritative_from))||Date.parse(r.end_at)<Date.parse(data.synthesis.campus_context.rain_reconstruction.authoritative_from)))
         rows.push({source:'ifc',station:r.station,observed_at:r.end_at,[r.variable]:r.value,intervalMinutes:30,
-          approximate:r.variable==='rain_1h_mm'});
+          approximate:r.variable==='rain_1h_mm'||r.variable==='rain_24h_mm',crosschecked:r.method==='crosschecked_total_counter_5min_approximation'});
     }
   }
   for(const r of rows) {
@@ -269,7 +274,7 @@ function getChartSeries(data,history,mode,variable,hours,now=Date.now(),observed
         field:key,identity:r.source+':'+r.station,points:[],gapMs:r.source==='ifc'?2160000:r.source==='metar'?5400000:3600000,kind:'observation'});
       grouped.get(id).points.push({time:r.observed_at,value:r[key],distance_km:r.distance_km,
         gapMs:r.intervalMinutes?Math.round(r.intervalMinutes*1.2*60000):undefined,
-        qualifier:r.approximate?'intervalo aproximado':r.count?`${r.intervalMinutes} min${r.intervalMinutes===30?' · '+r.count+'/6 intervalos':''}`:undefined,
+        qualifier:r.crosschecked?'contador total conferido · aprox. 5 min':r.approximate?'intervalo aproximado':r.count?`${r.intervalMinutes} min${r.intervalMinutes===30?' · '+r.count+'/6 intervalos':''}`:undefined,
         start_at:key.startsWith('rain_')?new Date(t-(key==='rain_24h_mm'?24:1)*3600000).toISOString():null});
     }
   }
@@ -372,7 +377,7 @@ function renderChart() {
   const reference=forecastSource?.reference_at||data?.forecast?.reference_at||data?.forecast?.collected_at;
   el('forecast-status').textContent=validForecast?`${result.coverage} Referência da previsão: ${date(reference)}.`:'Sem previsão horária vigente.';
   el('observed-caption').textContent=rain?(snapshot?`Acumulado de ${panel.rainWindow} h por estação.`:`Cada ponto representa as ${panel.rainWindow} h anteriores ao horário da leitura. Janelas móveis não se somam; cinza indica falta de amostras.`):'Leituras por estação. Traço contínuo: vento; tracejado: rajada.';
-  if(observed.some(s=>s.source==='ifc'))el('observed-caption').textContent+=' IFC: referências de 5 min nas últimas 24 h; histórico anterior resumido em 30 min.'+(rain?' Chuva de 1 h derivada do contador é aproximada.':'');
+  if(observed.some(s=>s.source==='ifc'))el('observed-caption').textContent+=' IFC: referências de 5 min nas últimas 24 h; histórico anterior resumido em 30 min.'+(rain?' Acumulados IFC derivados do contador têm referência aproximada em 5 min; quando disponíveis, passam por conferência de consistência.':'');
   el('forecast-caption').textContent=forecastRain?(result.block>1?`Somente blocos completos de ${result.block} h recebem barras. Os valores horários originais estão na tabela.`:'Barras de 1 h. Marcas na base representam zero; faixas cinza indicam lacunas.'):'Previsão horária. Interrupções indicam ausência de amostras.';
   el('observed-chart-summary').textContent=chartDescription(observedForTable,unit,rain);
   el('forecast-chart-summary').textContent=chartDescription(result.series,forecastUnit,forecastRain);

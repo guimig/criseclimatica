@@ -271,6 +271,8 @@ def notices(dashboard, stamp):
 
 
 def build(dashboard, primary, campus, sensors, comparison, inmet, bulletins, stamp, previous=None, forecast_archive=None, supplemental=None):
+    from .campus_rain import merge_rain, preserve_quality
+    quality_memory=preserve_quality(campus,(previous or {}).get('campus_quality_memory'),stamp) if 'quality' in campus or (previous or {}).get('campus_quality_memory') else {}
     observations, rejected = local_observations(primary, campus, sensors, stamp)
     observations = [r for r in observations if moment(r["end_at"]) <= moment(stamp)]
     history = merge_history(previous, observations, campus, stamp)
@@ -278,12 +280,37 @@ def build(dashboard, primary, campus, sensors, comparison, inmet, bulletins, sta
                          if r["station"] == "ifc-araquari" and r["variable"] == "rain_daily_mm"
                          and r["method"] == "five_minute_counter_max"}
     instrumental = merge_campus_history((previous or {}).get('campus_history'), campus, stamp, counter_conflicts)
+    reconstructed_raw = campus.get('rain_reconstruction', {})
+    reconstructed, rain_archive = merge_rain((previous or {}).get('campus_rain_archive'), reconstructed_raw, stamp) if reconstructed_raw or (previous or {}).get('campus_rain_archive') else ({},{})
+    from .campus_rain import METHOD as TOTAL_METHOD, validate_rain
+    if reconstructed:
+        validate_rain(reconstructed, stamp)
+    complete = {r['hours']:r for r in reconstructed.get('windows', []) if r['complete']}
     for hours in (1, 24):
-        derived = counter_window(history['records'], hours, stamp)
+        r = complete.get(hours)
+        if r and fresh(r['end_at'], moment(stamp), 1 if hours == 1 else 1.5):
+            derived = evidence('ifc','ifc-araquari',f'rain_{hours}h_mm',r['value'],r['end_at'],
+                               hours=hours,unit='mm',ttl=LIFETIME[f'rain_{hours}h_mm'],method=TOTAL_METHOD,
+                               interval_uncertainty_minutes=5,threshold_eligible=False)
+        elif reconstructed_raw.get('status') not in ('available','no_valid_intervals'):
+            derived = counter_window(history['records'], hours, stamp)
+        else:
+            derived = None
         if derived: observations.append(derived)
     history = merge_history(history, observations, campus, stamp)
     history['campus_history'] = instrumental
+    history['campus_rain_archive'] = rain_archive
+    history['campus_quality_memory'] = quality_memory
     context_campus = campus_context(campus, stamp, counter_conflicts)
+    if reconstructed:
+        context_campus['rain_reconstruction'] = reconstructed
+        context_campus['quality'] = campus.get('quality', {})
+        if reconstructed.get('windows'):
+            fallback = {r['hours']:r for r in context_campus['rain_windows']}
+            for r in reconstructed['windows']:
+                if reconstructed_raw.get('status') in ('available','no_valid_intervals') or r['complete'] or not fallback.get(r['hours'], {}).get('complete'):
+                    fallback[r['hours']] = r
+            context_campus['rain_windows'] = [fallback[h] for h in sorted(fallback)]
     variables = ('rain_1h_mm', 'rain_24h_mm', 'rain_daily_mm', 'rain_intensity_mmh', 'wind_kmh', 'gust_kmh', 'temperature_c', 'humidity_pct', 'pressure_hpa')
     stats = {k: statistics(observations, k, stamp) for k in variables}
     forecast, detail = select_forecast(comparison, stamp, forecast_archive)
@@ -358,7 +385,7 @@ def build(dashboard, primary, campus, sensors, comparison, inmet, bulletins, sta
               'station_registry': [{'id': k, 'name': v, 'weight': 1} for k, v in STATIONS.items()],
               'observations': observations, 'regional_observations': regional, 'statistics': stats, 'rejected': rejected, 'signals': signals,
               'coverage': coverage, 'notices': advisory, 'forecast_context': context,
-              'antecedent_rain':antecedent_rain(primary,stamp),'forecast_ranges':model_ranges,'observation_model_matches':model_matches,
+              'antecedent_rain':antecedent_rain(primary,stamp,complete.values()),'forecast_ranges':model_ranges,'observation_model_matches':model_matches,
               'daily_quantitative':daily_numeric+daily_models,'publication_evidence':publications,'pending_publications':pending,
               'sensor_inventory':sensor_inventory(sensors,stamp),
               'selected_forecast': forecast, 'campus_history': instrumental, 'campus_context': context_campus,

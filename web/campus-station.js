@@ -5,7 +5,7 @@
     temperature: ['Temperatura', '°C', -50, 65], humidity: ['Umidade relativa', '%', 0, 100],
     pressure: ['Pressão atmosférica', 'hPa', 800, 1100], rain_daily: ['Chuva acumulada no dia', 'mm', 0, 2000],
     rain_intensity: ['Intensidade da chuva', 'mm/h', 0, 2000], wind_avg: ['Vento médio informado', 'km/h', 0, 400],
-    wind_gust: ['Rajada informada', 'km/h', 0, 400], wind_direction_deg: ['Direção do vento', '°', 0, 360], rain_1h: ['Chuva móvel de 1 h (aprox.)', 'mm', 0, 2000]
+    wind_gust: ['Rajada informada', 'km/h', 0, 400], wind_direction_deg: ['Direção do vento', '°', 0, 360], rain_1h: ['Chuva móvel de 1 h (aprox.)', 'mm', 0, 2000], rain_24h: ['Chuva móvel de 24 h (aprox.)', 'mm', 0, 144000]
   };
   const number = value => new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 2}).format(value);
   const date = value => new Intl.DateTimeFormat('pt-BR', {timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'}).format(new Date(value));
@@ -81,7 +81,15 @@
     if(Number.isFinite(c.pressure_change_3h))add('Variação da pressão em aproximadamente 3 h: '+number(c.pressure_change_3h)+' hPa. Não é previsão isolada.');
     if(Number.isFinite(c.dew_point_c))add('Ponto de orvalho estimado: '+number(c.dew_point_c)+' °C · '+date(c.thermohygrometric_at)+'.');
     if(Number.isFinite(c.heat_index_c))add('Índice de calor estimado: '+number(c.heat_index_c)+' °C · referência à sombra; não é avaliação de exposição ocupacional.');
-    for(const r of c.rain_windows||[])add('Chuva · '+r.hours+' h: '+number(r.value)+' mm '+(r.complete?'(intervalo aproximado)':'(soma parcial dos incrementos válidos, não acumulado integral)')+' · '+r.covered_minutes+'/'+r.expected_minutes+' min · '+date(r.end_at)+'.');
+    for(const r of c.rain_windows||[])add('Chuva · '+r.hours+' h: '+(Number.isFinite(r.value)?number(r.value)+' mm':'sem dado')+' '+(r.complete?'(intervalo aproximado)':'(cobertura parcial, não acumulado integral)')+' · '+r.covered_minutes+'/'+r.expected_minutes+' min · '+date(r.end_at)+(r.method?.startsWith('crosschecked')?' · contador total conferido':'')+'.');
+    const rain=c.rain_reconstruction;
+    if(rain){const d=rain.diagnostics||{};add('Contador total: '+(rain.status==='available'?'unidade declarada em mm; '+(d.retained_valid_bins||0)+' intervalos válidos na janela retida':rain.status==='unverified'?'unidade/consistência ainda não demonstrada':'sem reconstrução válida')+'. Sem novos limiares de risco.');}
+    const q=c.quality;
+    if(q){const names={humidity_valid:'Validade da umidade',bme_stale:'Sensor desatualizado',bme_cal_ok:'Calibração informada',bme_consec_fails:'Falhas consecutivas informadas'};
+      for(const [key,f] of Object.entries(q.flags||{}))add((names[key]||key)+': '+(f.latest===null?'sem dado':f.latest?'sim':'não')+(f.time?' · '+date(f.time):'')+' · '+f.bins+' intervalos informados.');
+      for(const [key,n] of Object.entries(q.rejected||{}))if(n)add((definitions[key]?.[0]||key)+': '+n+' referências descartadas por sinal instrumental.');
+      add('Sem flag coincidente: qualidade não confirmada. As demais verificações continuam aplicadas.');
+    }
     const rose=c.wind_sectors;
     if(rose?.sample_count){
       add('Direção informada · '+rose.sample_count+' amostras pareadas com vento não nulo (não ponderadas pela velocidade).');
@@ -93,12 +101,16 @@
   function renderChart() {
     const target = el('campus-plot'), readout = el('campus-readout'), keepFocus = target.contains(document.activeElement); target.replaceChildren();
     const key = selection.value || 'temperature', metric = feed?.metrics?.[key], hours=Number(period?.value||24), end=Math.min(Date.now(),Date.parse(feed?.history?.generated_at||feed?.window_end||feed?.checked_at)), start=end-hours*3600000;
-    const archived=feed?.history?.series?.[key];
+    const total=feed?.context?.rain_reconstruction?.series?.[key]||[];
+    const boundary=key==='rain_1h'||key==='rain_24h'?Date.parse(feed?.context?.rain_reconstruction?.authoritative_from):NaN;
+    const legacy=feed?.history?.series?.[key]?.filter(r=>!Number.isFinite(boundary)||Date.parse(r.time)<boundary);
+    const totalTimes=new Set(total.map(r=>Date.parse(r.time)));
+    const archived=total.length||Number.isFinite(boundary)?[...(legacy||[]).filter(r=>!totalTimes.has(Date.parse(r.time))),...total]:legacy;
     const points = (Array.isArray(archived)?archived:Array.isArray(metric?.series)?metric.series:[]).filter(p => pointValid(p, key, start, end)&&!suspect(key,p)).sort((a,b) => Date.parse(a.time)-Date.parse(b.time)).slice(0,600);
     el('campus-chart-note').textContent = key === 'rain_daily' ? 'Máximo em cada intervalo de 5 minutos. Contador diário informado; pode reiniciar. Não é chuva das últimas 24 h.' :
       metric?.aggregation === 'MAX' ? 'Máximo informado em cada intervalo de 5 minutos.'+(key==='wind_gust'?' O intervalo de medição original da rajada ainda precisa de confirmação.':'') : 'Média das leituras disponíveis em intervalos de 5 minutos. Lacunas não são interpoladas.';
     if(key==='wind_direction_deg')el('campus-chart-note').textContent='Direções em graus; não se ligam pontos nem se faz média aritmética.';
-    if(key==='rain_1h')el('campus-chart-note').textContent='Diferença aproximada do contador diário em 1 h, somente em intervalos contínuos do mesmo dia.';
+    if(key==='rain_1h'||key==='rain_24h')el('campus-chart-note').textContent='Acumulado móvel aproximado; contador total conferido quanto à continuidade e suspeitas. O contador diário só permite intervalos contínuos no mesmo dia. Lacunas não são zero.';
     if(Array.isArray(archived))el('campus-chart-note').textContent+=' Últimas 24 h: 5 min; anteriores: resumos de 30 min (máximos de rajada e intensidade; acumulados no último horário válido).';
     if(points.length)el('campus-chart-note').textContent += ' '+points.length+' intervalos com dados na janela consultada.';
     if (!points.length) {target.append(create('p', 'Sem série válida nesta publicação.', 'campus-empty')); readout.textContent = 'Nenhum valor selecionado.'; return;}

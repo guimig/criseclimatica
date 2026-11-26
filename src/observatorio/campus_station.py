@@ -160,6 +160,9 @@ def collect(stamp: str, *, now: datetime | None = None,
                                       "aggregation": aggregation, "series": points}
             result["diagnostics"]["rejected_readings"] += bad + history_bad
             result["diagnostics"]["conflicting_timestamps"] += conflicts + history_conflicts
+        from .campus_rain import collect_rain, collect_quality
+        result["quality"] = collect_quality(requester, token, TELEMETRY, now, result["metrics"])
+        result["rain_reconstruction"] = collect_rain(requester, token, TELEMETRY, now)
         result["status"] = ("available" if any(row["fresh_at_collection"] for row in result["metrics"].values())
                             else "stale" if any(row["latest"] or row["series"] for row in result["metrics"].values())
                             else "no_recent_data")
@@ -179,6 +182,9 @@ def validate_product(feed: dict, *, fixture: bool = False) -> None:
             or (feed.get("status") == "fixture_mode" and not fixture)
             or not isinstance(feed.get("metrics"), dict) or not set(feed["metrics"]).issubset(METRICS)):
         raise ValueError("Invalid campus station product")
+    if "rain_reconstruction" in feed:
+        from .campus_rain import validate_rain
+        validate_rain(feed["rain_reconstruction"], feed["checked_at"])
     now = datetime.fromisoformat(feed["checked_at"].replace("Z", "+00:00"))
     if now.tzinfo is None:
         raise ValueError("Campus station time must include timezone")
