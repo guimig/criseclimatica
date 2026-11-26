@@ -132,6 +132,35 @@ def main():
                 assert not errors, errors
             finally:
                 context.close()
+        # The IFC remains selectable even without a single complete rolling sum.
+        data = deepcopy(source)
+        stamp = data['dashboard.json']['generated_at']
+        end = datetime.fromisoformat(stamp.replace('Z', '+00:00'))
+        window = {'hours':24, 'start_at':(end-timedelta(hours=24)).isoformat(), 'end_at':stamp,
+                  'expected_minutes':1440, 'covered_minutes':1410, 'validated_minutes':55,
+                  'estimated_minutes':1355, 'complete':False, 'value':1.4, 'quality':'partial'}
+        data['dashboard.json'].setdefault('synthesis', {}).setdefault('campus_context', {})['rain_reconstruction'] = {
+            'windows':[window], 'series':{'rain_24h':[]}, 'authoritative_from':window['start_at']}
+        for width in (320, 1440):
+            context = browser.new_context(viewport={'width':width,'height':900})
+            context.route('**/data/*.json*', lambda route: route.fulfill(content_type='application/json', body=json.dumps(data[route.request.url.split('/')[-1].split('?')[0]])))
+            page = context.new_page()
+            page.goto(url)
+            status = page.locator('#ifc-rain-status')
+            status.wait_for()
+            assert status.get_attribute('data-quality') == 'partial'
+            assert '97,9%' in status.inner_text() and '1,4 mm' in status.inner_text()
+            page.locator('.station-filter summary').click()
+            page.locator('#station-select').select_option('ifc:ifc-araquari')
+            assert page.locator('#plot svg').count() == 0
+            assert status.is_visible()
+            page.locator('#rain-window').select_option('1')
+            assert status.get_attribute('data-quality') == 'missing'
+            page.locator('#rain-window').select_option('24')
+            page.locator('#rain-scope').select_option('nearby')
+            assert not status.count()
+            assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+            context.close()
         # Only the gust source expires: rain and observed samples remain usable.
         data = deepcopy(source)
         now = datetime.now(timezone.utc)
