@@ -71,3 +71,37 @@
   #weather-synthesis-detail .risk-summary-action{grid-column:1;grid-row:3;justify-self:start}
   #weather-synthesis-detail .risk-coverage-item{grid-template-columns:minmax(0,1fr)}
 }
+
+
+/* The introductory area is two compact disclosures, not a full dashboard.
+   Keep the consultative risk visible, with the weather analysis on demand. */
+#weather-synthesis-detail{padding:0;background:transparent;border:0;border-radius:0;margin-block:12px;min-width:0}
+#weather-synthesis-detail .risk-analysis{margin:0 0 8px}
+#weather-synthesis-detail .risk-summary{padding:10px 14px 10px 11px;gap:8px 16px}
+#weather-synthesis-detail .risk-summary-main{gap:2px}
+#weather-synthesis-detail .risk-summary-meta{gap:3px}
+#weather-synthesis-detail .risk-summary-level{font-size:18px}
+#weather-synthesis-detail .synthesis-overview{border:1px solid var(--border);border-radius:10px;background:var(--surface);overflow:hidden;min-width:0}
+#weather-synthesis-detail .synthesis-overview>summary{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px 10px;padding:10px 14px;min-height:48px;margin:0;color:var(--ink);cursor:pointer;font-size:14px;font-weight:650;line-height:1.45;list-style:none}
+#weather-synthesis-detail .synthesis-overview>summary::before{color:var(--green,var(--bright))}
+#weather-synthesis-detail .synthesis-overview>summary:hover,#weather-synthesis-detail .synthesis-overview[open]>summary{background:var(--surface-soft)}
+#weather-synthesis-detail .synthesis-overview-description{color:var(--muted);font-size:12px;font-weight:500;text-align:right}
+#weather-synthesis-detail .synthesis-overview-content{border-top:1px solid var(--border);padding:14px;min-width:0;overflow-wrap:anywhere}
+#weather-synthesis-detail .synthesis-overview-heading{font-size:16px;margin:0 0 12px;font-weight:650}
+#weather-synthesis-detail .synthesis-overview-content .synthesis-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+#weather-synthesis-detail .synthesis-overview-content .synthesis-item{border:1px solid var(--border);border-radius:8px;padding:12px;min-width:0}
+#weather-synthesis-detail .synthesis-overview-content .synthesis-item h4{font-size:15px;margin:0 0 6px}
+#weather-synthesis-detail .synthesis-overview-content .synthesis-item p{font-size:13px;line-height:1.55;margin:4px 0}
+#weather-synthesis-detail .synthesis-overview-content .synthesis-item p:first-of-type{font-size:15px;font-weight:650}
+#weather-synthesis-detail .synthesis-overview-content .synthesis-method{margin:0;border-top:1px solid var(--border)}
+#weather-synthesis-detail .synthesis-overview-content .synthesis-method>summary{min-height:44px;padding:8px 2px;margin:0;gap:8px}
+#weather-synthesis-detail .synthesis-overview-content .synthesis-method>p{margin:4px 0 8px}
+@media(max-width:950px){
+  #weather-synthesis-detail .synthesis-overview-content .synthesis-grid{grid-template-columns:1fr}
+}
+@media(max-width:650px){
+  #weather-synthesis-detail .synthesis-overview>summary{grid-template-columns:auto minmax(0,1fr);gap:2px 8px;padding:10px 12px}
+  #weather-synthesis-detail .synthesis-overview>summary::before{grid-row:1/span 2}
+  #weather-synthesis-detail .synthesis-overview-description{grid-column:2;text-align:left}
+  #weather-synthesis-detail .synthesis-overview-content{padding:10px}
+}

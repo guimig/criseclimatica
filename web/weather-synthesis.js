@@ -102,7 +102,6 @@
     const meta=element('span','risk-summary-meta');
     meta.append(element('span','risk-summary-kind','Araquari · '+risk.kind));
     if(model.validUntil)meta.append(element('span','','Válida até '+date(model.validUntil)));
-    if(model.requirements.length)meta.append(element('span','',model.covered+'/'+model.requirements.length+' requisitos de normalidade disponíveis'));
     const action=element('span','risk-summary-action');
     action.append(element('span','risk-closed-label','Ver detalhes'),element('span','risk-open-label','Recolher'));
     summary.append(main,meta,action);box.append(summary);
@@ -177,32 +176,46 @@
   function render(target,data,detailed=false){
     if(!target)return;
     const saved=new Map(Array.from(target.querySelectorAll('details[data-risk-panel]')).map(d=>[d.dataset.riskPanel,d.open]));
+    const savedSynthesis=new Map(Array.from(target.querySelectorAll('details[data-synthesis-panel]')).map(d=>[d.dataset.synthesisPanel,d.open]));
     const activeElement=document.activeElement,focused=activeElement?.tagName==='SUMMARY'&&target.contains(activeElement)?activeElement.parentElement?.dataset.riskPanel:null;
+    const focusedSynthesis=activeElement?.tagName==='SUMMARY'&&target.contains(activeElement)?activeElement.parentElement?.dataset.synthesisPanel:null;
     target.replaceChildren();
     if(!valid(data)){target.append(element('p','','Síntese local indisponível nesta publicação.'));return;}
     const now=Date.now();
     if(detailed&&data.risk_classification)renderRisk(target,data,now,saved,focused);
+    let content=target;
+    const evidenceGroups=element('div','synthesis-evidence-groups');
+    function disclosure(key,title,cls='synthesis-method'){
+      const d=element('details',cls);d.dataset.synthesisPanel=key;
+      d.open=savedSynthesis.get(key)===true;d.append(element('summary','',title));return d;
+    }
     if(detailed){
-      const group=(title)=>{const d=element('details','synthesis-method');d.append(element('summary','',title));target.append(d);return d;};
-      if(data.forecast_ranges?.length){const box=group('Concordância entre previsões');for(const r of data.forecast_ranges){
+      const overview=disclosure('overview','Síntese meteorológica de Araquari','synthesis-overview');
+      overview.id='local-synthesis-overview';
+      const heading=overview.querySelector('summary');
+      heading.replaceChildren(element('span','synthesis-overview-title','Síntese meteorológica de Araquari'),element('span','synthesis-overview-description','Observações, previsões, fontes e histórico'));
+      content=element('div','synthesis-overview-content');
+      overview.append(content);target.append(overview);
+      const group=(key,title)=>{const d=disclosure(key,title);evidenceGroups.append(d);return d;};
+      if(data.forecast_ranges?.length){const box=group('forecast-agreement','Concordância entre previsões');for(const r of data.forecast_ranges){
         const members=(r.members||[]).filter(m=>live(m,now));if(!members.length)continue;
         box.append(element('p','small',`${fieldNames[r.variable]||r.variable}: ${number(Math.min(...members.map(m=>m.value)))}–${number(Math.max(...members.map(m=>m.value)))} ${members[0].unit}${r.attention_disagreement?' · divergência sobre atenção':''}.`));
         for(const m of members)box.append(element('p','small',`${m.source}: ${number(m.value)} ${m.unit}${m.retained_previous?' · consulta anterior válida':''}.`));
       }box.append(element('p','small','Modelos compartilham o Open-Meteo. A faixa não representa probabilidade; um sinal válido de atenção não é diluído pelos demais.'));}
       const daily=(data.daily_quantitative||[]).filter(r=>live(r,now));
-      if(daily.length){const box=group('Temperaturas diárias por fonte');for(const r of daily.slice(0,14))box.append(element('p','small',`${r.day.split('-').reverse().join('/')} · ${r.source}: ${number(r.minimum_c)}–${number(r.maximum_c)} °C${r.kind==='extremes_of_24_hourly_samples'?' · extremos de 24 amostras horárias':' · extremos diários informados'}.`));}
-      if(data.antecedent_rain?.windows?.length){const box=group('Chuva antecedente');for(const r of data.antecedent_rain.windows){const members=r.members.filter(m=>live(m,now));if(!members.length)continue;
+      if(daily.length){const box=group('daily-temperature','Temperaturas diárias por fonte');for(const r of daily.slice(0,14))box.append(element('p','small',`${r.day.split('-').reverse().join('/')} · ${r.source}: ${number(r.minimum_c)}–${number(r.maximum_c)} °C${r.kind==='extremes_of_24_hourly_samples'?' · extremos de 24 amostras horárias':' · extremos diários informados'}.`));}
+      if(data.antecedent_rain?.windows?.length){const box=group('antecedent-rain','Chuva antecedente');for(const r of data.antecedent_rain.windows){const members=r.members.filter(m=>live(m,now));if(!members.length)continue;
         box.append(element('p','small',`${r.hours} h · ${members.length} estações · maior: ${number(Math.max(...members.map(m=>m.value)))} mm${members.some(m=>m.quality==='estimated')?' · inclui estimativa IFC':''}.`));
         for(const m of members)box.append(element('p','small',`${data.station_registry.find(s=>s.id===m.station)?.name||m.station}: ${number(m.value)} mm · ${date(m.end_at)}.`));
       }box.append(element('p','small','Janelas diferentes permanecem separadas. Não são novos limites da norma.'));}
-      if(data.publication_evidence?.length||data.pending_publications?.length){const box=group('Boletins e publicações avaliados');
+      if(data.publication_evidence?.length||data.pending_publications?.length){const box=group('publications','Boletins e publicações avaliados');
         for(const r of data.publication_evidence||[]){box.append(element('p','small',`${r.source}: ${r.title} · ${live(r,now)?'evidência válida':'vencida'} · ${r.scope==='municipality_explicit'?'Araquari':'referência regional'} · até ${date(r.valid_until)}.`));box.append(element('p','small',r.summary));
           if(/^https:\/\/(?:ciram\.epagri\.sc\.gov\.br|(?:www\.)?defesacivil\.sc\.gov\.br)\//.test(r.url)){const a=element('a','','Ler publicação completa ↗');a.href=r.url;a.target='_blank';a.rel='noopener noreferrer';box.append(a);}}
         for(const r of data.pending_publications||[])box.append(element('p','small',`${r.source}: ${r.title} · ${r.reason==='expired_event_window'?'janela do evento encerrada':'contexto; sem região, período ou indicação positiva suficientes para classificação'}.`));
       }
-      if(data.sensor_inventory?.length){const box=group('Sensores locais avaliados');for(const r of data.sensor_inventory)box.append(element('p','small',`${data.station_registry.find(s=>s.id===r.station)?.name||r.station} · ${r.name||'Sensor '+r.sensor_id}: ${number(r.value)} ${r.unit||'unidade não confirmada'} · ${r.use==='temperature_observation'?'temperatura na síntese':'contexto; unidade, intervalo ou referência de risco não confirmados'}.`));}
+      if(data.sensor_inventory?.length){const box=group('sensor-inventory','Sensores locais avaliados');for(const r of data.sensor_inventory)box.append(element('p','small',`${data.station_registry.find(s=>s.id===r.station)?.name||r.station} · ${r.name||'Sensor '+r.sensor_id}: ${number(r.value)} ${r.unit||'unidade não confirmada'} · ${r.use==='temperature_observation'?'temperatura na síntese':'contexto; unidade, intervalo ou referência de risco não confirmados'}.`));}
     }
-    target.append(element(detailed?'h2':'h3','','Observações e previsões'));
+    content.append(element('h3','synthesis-overview-heading','Observações e previsões'));
     const grid=element('div','synthesis-grid');
     for(const [name,fields] of Object.entries({rain:['rain_24h_mm','rain_1h_mm'],wind:['gust_kmh','wind_kmh'],temperature:['temperature_c']})){
       const box=element('article','synthesis-item');box.append(element('h4','',names[name]));
@@ -220,7 +233,7 @@
       }
       grid.append(box);
     }
-    target.append(grid);
+    content.append(grid);
     const parts=Object.fromEntries(new Intl.DateTimeFormat('en',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(now)).map(p=>[p.type,p.value]));
     const today=`${parts.year}-${parts.month}-${parts.day}`;
     const days=(data.forecast_context?.days||[]).filter(r=>live(r,now)&&r.day>=today);
@@ -229,11 +242,12 @@
       const periods={manha:'manhã',tarde:'tarde',noite:'noite',dia:'dia'};
       const grouped=new Map();for(const p of inmet.periods||[]){const text=`${p.summary}${p.wind_intensity_text?'; vento '+p.wind_intensity_text:''}`;if(!grouped.has(text))grouped.set(text,[]);grouped.get(text).push(periods[p.period]||p.period);}
       const descriptions=[...grouped].map(([text,labels])=>labels.join(', ')+': '+text).join(' · ');
-      target.append(element('p','synthesis-daily',`INMET · ${inmet.day.split('-').reverse().join('/')} · mín. ${number(inmet.minimum_c)} °C / máx. ${number(inmet.maximum_c)} °C${inmet.cached?' · consulta anterior':''}. `+descriptions));
+      content.append(element('p','synthesis-daily',`INMET · ${inmet.day.split('-').reverse().join('/')} · mín. ${number(inmet.minimum_c)} °C / máx. ${number(inmet.maximum_c)} °C${inmet.cached?' · consulta anterior':''}. `+descriptions));
     }
     const cp=days.find(r=>r.source==='CPTEC/INPE');
-    if(cp)target.append(element('p','small',`CPTEC/INPE · ${cp.day.split('-').reverse().join('/')} · ${cp.locality||'localidade de referência'}: ${number(cp.minimum_c)}–${number(cp.maximum_c)} °C. Previsão diária; não é série horária.`));
-    const details=element('details','synthesis-method');details.append(element('summary','','Fontes, cobertura e critérios'));
+    if(cp)content.append(element('p','small',`CPTEC/INPE · ${cp.day.split('-').reverse().join('/')} · ${cp.locality||'localidade de referência'}: ${number(cp.minimum_c)}–${number(cp.maximum_c)} °C. Previsão diária; não é série horária.`));
+    if(detailed&&evidenceGroups.childElementCount)content.append(evidenceGroups);
+    const details=disclosure('sources','Fontes, cobertura e critérios');
     details.append(element('p','small','Rainha, Porto Grande, Centro e IFC Araquari têm igual importância. Cada variável participa quando há leitura compatível e válida. Chuva diária e acumulado móvel de 24 h permanecem separados.'));
     details.append(element('p','small','Epagri/Ciram e INMET têm igual relevância meteorológica. A norma institucional cita Epagri/Ciram; avisos INMET não são convertidos em níveis institucionais.'));
     details.append(element('p','small','As previsões contribuem pelos períodos e variáveis disponíveis, sem média de textos ou votação. ECMWF, GFS e seleção automática compartilham o provedor Open-Meteo.'));
@@ -243,11 +257,15 @@
       for(const r of data.unit_inference||[])details.append(element('p','small',`Sensor ${r.sensor_id}: ${r.suggested_unit?'unidade provável '+r.suggested_unit:'unidade ainda ambígua'} · ${r.sample_count} leituras, ${r.nonzero_count} não nulas. Inferência não habilitada para limiares.`));
 
     }
-    target.append(details);
+    content.append(details);
     if(detailed&&data.alert_history?.episodes?.length){
-      const history=element('details','synthesis-method');history.append(element('summary','','Histórico de níveis'),element('p','small','Registros por coleta; os intervalos não representam duração contínua de um evento.'));
+      const history=disclosure('history','Histórico de níveis');history.append(element('p','small','Registros por coleta; os intervalos não representam duração contínua de um evento.'));
       for(const row of data.alert_history.episodes.slice(0,12))history.append(element('p','small',`${row.label||riskNames[row.state]||'Sem classificação'} · ${date(row.first_seen_at)} a ${date(row.last_seen_at)} · ${row.samples} coletas.`));
-      target.append(history);
+      content.append(history);
+    }
+    if(focusedSynthesis){
+      const panel=Array.from(target.querySelectorAll('details[data-synthesis-panel]')).find(d=>d.dataset.synthesisPanel===focusedSynthesis);
+      panel?.querySelector('summary')?.focus({preventScroll:true});
     }
   }
   window.WeatherSynthesis={valid,currentStats,presentation,riskLevel,riskDetailModel,render};
