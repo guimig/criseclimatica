@@ -81,11 +81,11 @@
     if(Number.isFinite(c.pressure_change_3h))add('Variação da pressão em aproximadamente 3 h: '+number(c.pressure_change_3h)+' hPa. Não é previsão isolada.');
     if(Number.isFinite(c.dew_point_c))add('Ponto de orvalho estimado: '+number(c.dew_point_c)+' °C · '+date(c.thermohygrometric_at)+'.');
     if(Number.isFinite(c.heat_index_c))add('Índice de calor estimado: '+number(c.heat_index_c)+' °C · referência à sombra; não é avaliação de exposição ocupacional.');
-    for(const r of c.rain_windows||[])add('Chuva · '+r.hours+' h: '+(Number.isFinite(r.value)?number(r.value)+' mm':'sem dado')+' '+(r.complete?'(intervalo aproximado)':'(cobertura parcial, não acumulado integral)')+' · '+r.covered_minutes+'/'+r.expected_minutes+' min · '+date(r.end_at)+(r.method?.startsWith('crosschecked')?' · contador total conferido com incrementos':'')+'.');
+    for(const r of c.rain_windows||[])add('Chuva · '+r.hours+' h: '+(Number.isFinite(r.value)?number(r.value)+' mm':'sem dado')+' '+(r.complete?'(intervalo aproximado)':'(cobertura parcial, não acumulado integral)')+' · '+r.covered_minutes+'/'+r.expected_minutes+' min · '+date(r.end_at)+(r.method?.startsWith('crosschecked')?' · contador total conferido':'')+'.');
     const rain=c.rain_reconstruction;
-    if(rain){const d=rain.diagnostics||{};add('Contador total: '+(rain.status==='available'?'unidade compatível com mm; '+(d.accepted_bins||0)+' intervalos conferidos':rain.status==='unverified'?'unidade/consistência ainda não demonstrada':'sem reconstrução válida')+'. Sem novos limiares de risco.');}
+    if(rain){const d=rain.diagnostics||{};add('Contador total: '+(rain.status==='available'?'unidade declarada em mm; '+(d.retained_valid_bins||0)+' intervalos válidos na janela retida':rain.status==='unverified'?'unidade/consistência ainda não demonstrada':'sem reconstrução válida')+'. Sem novos limiares de risco.');}
     const q=c.quality;
-    if(q){const names={humidity_valid:'Validade da umidade',bme_stale:'Sensor desatualizado',bme_cal_ok:'Calibração informada'};
+    if(q){const names={humidity_valid:'Validade da umidade',bme_stale:'Sensor desatualizado',bme_cal_ok:'Calibração informada',bme_consec_fails:'Falhas consecutivas informadas'};
       for(const [key,f] of Object.entries(q.flags||{}))add((names[key]||key)+': '+(f.latest===null?'sem dado':f.latest?'sim':'não')+(f.time?' · '+date(f.time):'')+' · '+f.bins+' intervalos informados.');
       for(const [key,n] of Object.entries(q.rejected||{}))if(n)add((definitions[key]?.[0]||key)+': '+n+' referências descartadas por sinal instrumental.');
       add('Sem flag coincidente: qualidade não confirmada. As demais verificações continuam aplicadas.');
@@ -109,7 +109,7 @@
     el('campus-chart-note').textContent = key === 'rain_daily' ? 'Máximo em cada intervalo de 5 minutos. Contador diário informado; pode reiniciar. Não é chuva das últimas 24 h.' :
       metric?.aggregation === 'MAX' ? 'Máximo informado em cada intervalo de 5 minutos.'+(key==='wind_gust'?' O intervalo de medição original da rajada ainda precisa de confirmação.':'') : 'Média das leituras disponíveis em intervalos de 5 minutos. Lacunas não são interpoladas.';
     if(key==='wind_direction_deg')el('campus-chart-note').textContent='Direções em graus; não se ligam pontos nem se faz média aritmética.';
-    if(key==='rain_1h'||key==='rain_24h')el('campus-chart-note').textContent='Acumulado móvel aproximado; contador total conferido com incrementos quando disponível. O contador diário só permite intervalos contínuos no mesmo dia. Lacunas não são zero.';
+    if(key==='rain_1h'||key==='rain_24h')el('campus-chart-note').textContent='Acumulado móvel aproximado; contador total conferido quanto à continuidade e suspeitas. O contador diário só permite intervalos contínuos no mesmo dia. Lacunas não são zero.';
     if(Array.isArray(archived))el('campus-chart-note').textContent+=' Últimas 24 h: 5 min; anteriores: resumos de 30 min (máximos de rajada e intensidade; acumulados no último horário válido).';
     if(points.length)el('campus-chart-note').textContent += ' '+points.length+' intervalos com dados na janela consultada.';
     if (!points.length) {target.append(create('p', 'Sem série válida nesta publicação.', 'campus-empty')); readout.textContent = 'Nenhum valor selecionado.'; return;}

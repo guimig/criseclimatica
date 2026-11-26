@@ -32,8 +32,8 @@ def main():
         delta=Counter(round((b["ts"]-a["ts"])/1000,1) for a,b in zip(rows,rows[1:]))
         values=Counter(str(r["value"]) for r in rows)
         print("RAW",key,"n",len(rows),"cadence",delta.most_common(4),"first",rows[:2],"last",rows[-4:],"frequent",values.most_common(4))
-    for agg,fields in [("MAX",["rain_total","rain_daily","rain_suspects_total"]),("MIN",["rain_total"]),("SUM",["rain_increment"]),("COUNT",["rain_increment","rain_total"])]:
-        data=query(fields,72,agg,900)
+    for agg,fields in [("MAX",["rain_total","rain_daily","rain_suspects_total"]),("MIN",["rain_total","rain_suspects_total"]),("SUM",["rain_increment"]),("COUNT",["rain_increment","rain_total","rain_suspects_total"])]:
+        data=query(fields,6,agg,74)
         for key,points in data.items():
             rows=sorted(points,key=lambda r:r["ts"])
             try: v=[float(r["value"]) for r in rows]; changes=[(r["ts"],round(b-a,5)) for r,a,b in zip(rows[1:],v,v[1:]) if b!=a]

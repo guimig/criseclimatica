@@ -256,7 +256,7 @@ function getChartSeries(data,history,mode,variable,hours,now=Date.now(),observed
     for(const r of data?.synthesis?.observation_history||[]){
       if(r.source==='ifc'&&fields.includes(r.variable)&&(!earliest.has(r.variable)||Date.parse(r.end_at)<earliest.get(r.variable)))
         rows.push({source:'ifc',station:r.station,observed_at:r.end_at,[r.variable]:r.value,intervalMinutes:30,
-          approximate:r.variable==='rain_1h_mm'||r.variable==='rain_24h_mm',crosschecked:r.method==='crosschecked_total_increment_5min_approximation'});
+          approximate:r.variable==='rain_1h_mm'||r.variable==='rain_24h_mm',crosschecked:r.method==='crosschecked_total_counter_5min_approximation'});
     }
   }
   for(const r of rows) {
@@ -272,7 +272,7 @@ function getChartSeries(data,history,mode,variable,hours,now=Date.now(),observed
         field:key,identity:r.source+':'+r.station,points:[],gapMs:r.source==='ifc'?2160000:r.source==='metar'?5400000:3600000,kind:'observation'});
       grouped.get(id).points.push({time:r.observed_at,value:r[key],distance_km:r.distance_km,
         gapMs:r.intervalMinutes?Math.round(r.intervalMinutes*1.2*60000):undefined,
-        qualifier:r.crosschecked?'contador + incrementos · aprox. 5 min':r.approximate?'intervalo aproximado':r.count?`${r.intervalMinutes} min${r.intervalMinutes===30?' · '+r.count+'/6 intervalos':''}`:undefined,
+        qualifier:r.crosschecked?'contador total conferido · aprox. 5 min':r.approximate?'intervalo aproximado':r.count?`${r.intervalMinutes} min${r.intervalMinutes===30?' · '+r.count+'/6 intervalos':''}`:undefined,
         start_at:key.startsWith('rain_')?new Date(t-(key==='rain_24h_mm'?24:1)*3600000).toISOString():null});
     }
   }
@@ -375,7 +375,7 @@ function renderChart() {
   const reference=forecastSource?.reference_at||data?.forecast?.reference_at||data?.forecast?.collected_at;
   el('forecast-status').textContent=validForecast?`${result.coverage} Referência da previsão: ${date(reference)}.`:'Sem previsão horária vigente.';
   el('observed-caption').textContent=rain?(snapshot?`Acumulado de ${panel.rainWindow} h por estação.`:`Cada ponto representa as ${panel.rainWindow} h anteriores ao horário da leitura. Janelas móveis não se somam; cinza indica falta de amostras.`):'Leituras por estação. Traço contínuo: vento; tracejado: rajada.';
-  if(observed.some(s=>s.source==='ifc'))el('observed-caption').textContent+=' IFC: referências de 5 min nas últimas 24 h; histórico anterior resumido em 30 min.'+(rain?' Acumulados IFC derivados do contador têm referência aproximada em 5 min; quando disponíveis, são conferidos com incrementos.':'');
+  if(observed.some(s=>s.source==='ifc'))el('observed-caption').textContent+=' IFC: referências de 5 min nas últimas 24 h; histórico anterior resumido em 30 min.'+(rain?' Acumulados IFC derivados do contador têm referência aproximada em 5 min; quando disponíveis, passam por conferência de consistência.':'');
   el('forecast-caption').textContent=forecastRain?(result.block>1?`Somente blocos completos de ${result.block} h recebem barras. Os valores horários originais estão na tabela.`:'Barras de 1 h. Marcas na base representam zero; faixas cinza indicam lacunas.'):'Previsão horária. Interrupções indicam ausência de amostras.';
   el('observed-chart-summary').textContent=chartDescription(observedForTable,unit,rain);
   el('forecast-chart-summary').textContent=chartDescription(result.series,forecastUnit,forecastRain);
