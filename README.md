@@ -147,3 +147,7 @@ Avisos do INMET no painel e em Dados e fontes exibem o texto estruturado da API 
 
 
 **Leitura rápida do painel:** os avisos oficiais podem ser consultados em painéis por fonte e em resumos individuais recolhíveis. Em telas largas, os blocos Epagri/Ciram e INMET dividem o espaço em duas colunas; no celular, são empilhados. O resumo identifica fenômeno, abrangência, período e severidade; os detalhes completos permanecem disponíveis, inclusive riscos, instruções e link oficial. A apresentação não altera o algoritmo nem o histórico dos avisos.
+
+### Leitura dos gráficos
+
+Acumulados móveis observados são apresentados no término das leituras; previsões usam intervalos completos, com agrupamento explícito nos períodos longos. Os gráficos compartilham eixos, identidade de séries, consulta por toque/teclado e tabelas dos valores originais. [Representação, cobertura, limites e testes](docs/GRAFICOS_E_LEITURA.md).

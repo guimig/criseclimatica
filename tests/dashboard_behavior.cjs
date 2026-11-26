@@ -32,7 +32,7 @@ const ids=new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]));
 for(const match of js.matchAll(/\bel\('([a-z][\w-]*)'\)/g))assert.ok(ids.has(match[1]),`Missing DOM id: ${match[1]}`);
 assert.match(html,/NÍVEL DE RISCO/);assert.doesNotMatch(html,/FOCO PRINCIPAL · IFC/);
 assert.match(html,/href="\.\/dados.html"/);
-assert.match(js,/ArrowRight/);assert.match(js,/pointermove/);assert.doesNotMatch(html,/id="(?:campus-station|weather-synthesis-home|forecast-comparison|memory)"/);
+const interaction=fs.readFileSync(path.join(__dirname,'../web/chart-interaction.js'),'utf8');assert.match(interaction,/ArrowRight/);assert.match(interaction,/pointermove/);assert.doesNotMatch(html,/id="(?:campus-station|weather-synthesis-home|forecast-comparison|memory)"/);
 console.log('Dashboard behavior passed: expiry, primary source, hourly intervals, separate stations, missing values, controls and DOM contract.');
 const {preference}=require('../web/theme.js');
 assert.equal(preference({getItem(){return 'dark';}},false),'dark');
@@ -168,10 +168,13 @@ console.log('Separate chart data passed: hourly windows, in-progress forecast ho
 // Exercise the real SVG renderer without network or a browser dependency.
 const vm=require('node:vm');
 class Element {
- constructor(tag){this.tag=tag;this.children=[];this.attributes={};this.listeners={};this.style={};this.dataset={};this.hidden=false;this.open=false;this.value='';this.textContent='';this.classList={toggle(){}};}
- append(...children){this.children.push(...children);}
- replaceChildren(...children){this.children=children;this.textContent='';}
+ constructor(tag){this.tag=tag;this.children=[];this.attributes={};this.listeners={};this.style={};this.dataset={};this.hidden=false;this.open=false;this.value='';this.textContent='';this.classList={toggle(){},add(){}};}
+ append(...children){for(const child of children)child.parentElement=this;this.children.push(...children);}
+ get textContent(){return (this._textContent||'')+this.children.map(n=>n.textContent||'').join('');}
+ set textContent(value){this._textContent=value;this.children=[];}
+ replaceChildren(...children){this._textContent='';this.children=[];this.append(...children);}
  setAttribute(k,v){this.attributes[k]=String(v);}
+ getAttribute(k){return this.attributes[k];}
  addEventListener(k,fn){this.listeners[k]=fn;}
  querySelectorAll(selector){
    const matches=[];
@@ -181,38 +184,40 @@ class Element {
    }};
    walk(this);return matches;
  }
- getBoundingClientRect(){return {left:0,width:600};}
+ getBoundingClientRect(){return {left:0,top:0,width:600,height:280};}
 }
-const elements=new Map([...ids].map(id=>[id,new Element('div')]));
+const elements=new Map([...ids].map(id=>[id,new Element('div')]));for(const n of elements.values())n.parentElement={getBoundingClientRect:()=>({left:0,top:0,width:600,height:600})};
 const context=vm.createContext({module:{exports:{}},console,Intl,Date,URL,location:{href:'https://guimig.github.io/criseclimatica/'}});
+context.window=context;vm.runInContext(fs.readFileSync(path.join(__dirname,'../web/chart-utils.js'),'utf8'),context);vm.runInContext(interaction,context);
 vm.runInContext(js,context); // No document yet: avoid application boot and network.
-context.document={querySelectorAll:()=>[],getElementById:id=>elements.get(id),createElement:t=>new Element(t),createElementNS:(_,t)=>new Element(t),documentElement:{dataset:{theme:'dark'}}};
-context.fixture=irregular;context.stationHistory=aligned;
+context.document={querySelectorAll:()=>[],getElementById:id=>elements.get(id),createElement:t=>new Element(t),createElementNS:(_,t)=>new Element(t),createTextNode:t=>{const e=new Element('text-node');e.textContent=t;return e;},documentElement:{dataset:{theme:'dark'}}};
+context.fixture={...irregular,forecast:{...irregular.forecast,sources_by_variable:Object.fromEntries(['precipitation_mm','gust_kmh','temperature_c'].map(field=>[field,{status:'available',valid_until:new Date(Date.now()+3600000).toISOString()}]))}};context.stationHistory=aligned;
 vm.runInContext('panel.data=fixture;panel.history=stationHistory;panel.rainWindow=1;panel.observedView="timeline";renderChart()',context);
 function descendants(n){return [n,...n.children.flatMap(descendants)];}
 function plotNodes(id,tag){return descendants(elements.get(id)).filter(n=>n.tag===tag);}
 assert.equal(elements.get('observed-panel').hidden,false);assert.equal(elements.get('forecast-panel').hidden,false);
 assert.equal(plotNodes('plot','svg').length,1);assert.equal(plotNodes('forecast-plot','svg').length,1);
-assert.equal(plotNodes('plot','path').length,0); // never connect sparse rain accumulations
-assert.equal(plotNodes('plot','rect').length,3);
-assert.equal(plotNodes('forecast-plot','rect').length,23); // null is a gap, not a zero bar
+assert.equal(plotNodes('plot','path').filter(n=>n.attributes.class==='accumulation-line').length,0); // sparse stations remain separate samples
+assert.equal(plotNodes('plot','rect').filter(n=>n.attributes.class==='rain-interval').length,0);
+assert.equal(plotNodes('forecast-plot','rect').filter(n=>n.attributes.class==='rain-interval').length,23); // missing hour remains a gap
+assert.equal(plotNodes('forecast-plot','rect').filter(n=>n.attributes.class==='chart-gap').length,1);
 assert.equal(ids.has('station-comparison'),false);
 assert.doesNotMatch(plotNodes('plot','text').map(n=>n.textContent).join(' '),/Publicação/);
 assert.equal(plotNodes('plot','text')[0].textContent,plotNodes('forecast-plot','text')[0].textContent);
 const observedSvg=plotNodes('plot','svg')[0];
 observedSvg.listeners.keydown({key:'Home',preventDefault(){}});
-assert.match(elements.get('chart-tooltip').textContent,/acumulado de 1 h/);
+assert.match(elements.get('chart-tooltip').textContent,/Acumulado móvel de 1 h/);
 observedSvg.listeners.pointermove({clientX:50});
-assert.match(elements.get('chart-tooltip').textContent,/Sem intervalo registrado/);
+assert.match(elements.get('chart-tooltip').textContent,/Sem amostra/);
 vm.runInContext("panel.station='cemaden-rain:B';renderChart()",context);
-assert.equal(plotNodes('plot','rect').length,1);
+assert.equal(plotNodes('plot','rect').filter(n=>n.attributes.class==='rain-interval').length,0);
 vm.runInContext("panel.station='all';renderChart();renderChart()",context);
 assert.equal(plotNodes('plot','svg').length,1); // repeated rendering stays idempotent
 vm.runInContext("panel.hours=240;renderChart()",context);
 assert.equal(elements.get('observed-panel').hidden,false);assert.equal(elements.get('forecast-panel').hidden,false);
-assert.match(elements.get('observed-caption').textContent,/até 7 dias/);
+assert.match(elements.get('observed-status').textContent,/até 7 dias/);
 vm.runInContext("panel.hours=24;panel.rainWindow=24;renderChart()",context);
-assert.match(elements.get('chart-caption').textContent,/Observado: acumulado de 24 h. Previsto: chuva por hora/);
+assert.match(elements.get('chart-caption').textContent,/Observado: acumulado móvel de 24 h/);
 vm.runInContext("panel.variable='temperature_c';panel.history=null;renderChart()",context);
 assert.equal(plotNodes('plot','svg').length,0);assert.equal(plotNodes('forecast-plot','svg').length,1);
 vm.runInContext('panel.data=null;panel.history=null;renderChart()',context);
@@ -254,30 +259,6 @@ vm.runInContext('panel.scope="local";renderChart()',context);
 assert.equal(plotNodes('plot','rect').filter(n=>n.attributes.class==='station-bar').length,3);
 assert.match(html,/href="\.\/dados\.html#weather-synthesis-detail"/);assert.equal([...html.matchAll(/data-risk-level=/g)].length,6);
 console.log('UX scenarios passed: descriptive normality vs missing data, six colors, explicit signals, human station names, sparse history, optional verified surroundings and local isolation.');
-
-const {chartReadingsAt,chartReadingText}=require('../web/dashboard.js');
-const tooltipAnchor=Date.parse('2026-11-07T12:00:00Z');
-const tooltipSeries=Array.from({length:7},(_,i)=>({id:'station-'+i,name:'Estação '+i,kind:'observation',field:'rain_24h_mm',gapMs:4*3600000}));
-const tooltipPoints=tooltipSeries.flatMap(series=>Array.from({length:24},(_,i)=>({series,time:new Date(tooltipAnchor-i*3600000).toISOString(),start_at:new Date(tooltipAnchor-(i+24)*3600000).toISOString(),value:i})));
-const tooltipInstant=tooltipAnchor-12.5*3600000;
-const tooltipReadings=chartReadingsAt(tooltipPoints,tooltipInstant,true);
-assert.equal(tooltipReadings.length,7); // one per station, despite 13 overlapping windows each
-assert.ok(tooltipReadings.every(p=>Date.parse(p.time)===tooltipAnchor-12*3600000));
-const tooltipText=chartReadingText(tooltipReadings,'mm',tooltipAnchor);
-assert.equal(tooltipText.split('\n').length,7); // heading + common timestamp + four values + omitted count
-assert.equal((tooltipText.match(/06\/11/g)||[]).length,1); // common reference is written only once
-const mixedTooltip=chartReadingText([tooltipReadings[0],{...tooltipReadings[1],time:new Date(tooltipAnchor).toISOString()}],'mm',tooltipAnchor);
-assert.doesNotMatch(mixedTooltip,/Leituras:/); // different station times must remain individually identified
-assert.match(mixedTooltip,/07\/11/);
-assert.match(tooltipText,/\+3 séries/);
-assert.equal((tooltipText.match(/Estação 0:/g)||[]).length,1);
-assert.equal(chartReadingsAt(tooltipPoints,tooltipAnchor+1,true).length,0);
-assert.equal(chartReadingsAt([],tooltipInstant,true).length,0);
-assert.equal(chartReadingsAt([{...tooltipPoints[0],value:null}],tooltipAnchor,true).length,0);
-assert.match(chartReadingText([],'mm',tooltipAnchor),/não significa zero/);
-const tooltipBefore=tooltipPoints.map(p=>p.value);chartReadingsAt(tooltipPoints,tooltipInstant,true);
-assert.deepEqual(tooltipPoints.map(p=>p.value),tooltipBefore); // compact display cannot alter measurements
-console.log('Dense accumulated rain tooltip passed: one nearest ending window per station, bounded text, empty/missing cases and unchanged values.');
 
 // INMET evidence expires independently and never changes the assessment.
 const {inmetNotices}=require('../web/dashboard.js');

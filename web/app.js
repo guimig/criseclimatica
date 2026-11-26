@@ -242,38 +242,17 @@ function svg(tag, attributes = {}, text) {
   return element;
 }
 function renderChart() {
-  const frame=$('chart'),tooltip=$('detail-chart-tooltip');clear(frame);tooltip.hidden=true;
-  if(!state.detail||!freshAt(state.detail.collected_at,8)||!freshAt(state.detail.current?.time,8)){frame.append(child('p','loading-label','Previsão indisponível ou desatualizada. Consulte os horários das fontes.'));return;}
-  const rain=state.metric==='precipitation_mm',start=Math.floor(Date.now()/3600000)*3600000,end=start+24*3600000;
-  const rows=(state.detail?.hourly||[]).filter(r=>{const t=Date.parse(r.time);return Number.isFinite(t)&&(rain?t>start&&t<=end:t>=start&&t<end);}).sort((a,b)=>Date.parse(a.time)-Date.parse(b.time));
-  const points=rows.filter(r=>Number.isFinite(r[state.metric]));
-  if(!points.length){frame.append(child('p','loading-label','Sem dados horários válidos para este período.'));return;}
-  const width=Math.max(180,Math.round(frame.clientWidth||640)),height=260,left=48,right=16,top=20,bottom=44;
-  const innerW=width-left-right,innerH=height-top-bottom;
-  const minimum=rain?0:Math.min(...points.map(r=>r[state.metric]));
-  const maximum=Math.max(...points.map(r=>r[state.metric]));
-  const pad=rain?Math.max(.5,maximum*.15):Math.max(1,(maximum-minimum)*.15);
-  const low=rain?0:minimum-pad,high=Math.max(low+1,maximum+pad);
-  const x=t=>left+(t-start)/(end-start)*innerW,y=v=>top+innerH-(v-low)/(high-low)*innerH;
-  const root=svg('svg',{viewBox:`0 0 ${width} ${height}`,role:'img',tabindex:0,'aria-label':descriptors[state.metric]+' nas próximas 24 horas. Use setas para consultar; clique para fixar a leitura.'});
-  for(let n=0;n<=4;n++){const v=low+(high-low)*n/4;root.append(svg('line',{x1:left,x2:width-right,y1:y(v),y2:y(v),class:'chart-grid'}),svg('text',{x:left-8,y:y(v)+4,'text-anchor':'end',class:'chart-label'},value(v,rain?1:0)));}
-  root.append(svg('text',{x:left,y:12,class:'chart-label'},units[state.metric]));
-  let segment='',last=null;
-  for(const row of rows){const t=Date.parse(row.time),v=row[state.metric];if(!Number.isFinite(v)){last=null;continue;}
-    if(rain)root.append(svg('rect',{x:x(t-3600000)+1,y:y(v),width:Math.max(1,innerW/24-2),height:Math.max(0,y(0)-y(v)),rx:1,class:'chart-bar'}));
-    else {segment+=(last!==null&&t-last===3600000?' L':' M')+x(t)+','+y(v);last=t;}
+  const frame=$('chart'),tooltip=$('detail-chart-tooltip'),legend=$('chart-legend'),tableHost=$('detail-chart-data');clear(frame);tooltip.hidden=true;clear(legend);
+  if(!state.detail||!freshAt(state.detail.collected_at,8)||!freshAt(state.detail.current?.time,8)){
+    frame.append(child('p','loading-label','Previsão indisponível ou desatualizada. Consulte os horários das fontes.'));
+    WeatherCharts.dataTable(tableHost,[],{label:'Previsão horária',unit:units[state.metric]});$('detail-chart-status').textContent='Sem previsão horária vigente.';return;
   }
-  if(!rain)root.append(svg('path',{d:segment,class:'chart-curve'}));
-  const ticks=width<420?2:4;
-  for(let i=0;i<=ticks;i++){const t=start+(end-start)*i/ticks;root.append(svg('text',{x:x(t),y:height-12,'text-anchor':i===0?'start':i===ticks?'end':'middle',class:'chart-label'},new Intl.DateTimeFormat('pt-BR',{timeZone:tz,hour:'2-digit',minute:'2-digit'}).format(new Date(t))));}
-  if(typeof ChartInteraction!=='undefined')ChartInteraction.attach(root,{width,left,right,top,bottom:height-bottom,domain:[start,end],times:points.map(r=>Date.parse(r.time)),tooltip,
-    lookup(t){const selected=rain?points.find(r=>t>Date.parse(r.time)-3600000&&t<=Date.parse(r.time)):points.reduce((a,b)=>Math.abs(Date.parse(a.time)-t)<Math.abs(Date.parse(b.time)-t)?a:b);
-      const eligible=selected&&(rain||Math.abs(Date.parse(selected.time)-t)<=1800000);
-      return {text:eligible?`${rain?datetime(new Date(Date.parse(selected.time)-3600000).toISOString())+' a ':''}${datetime(selected.time)}\n${descriptors[state.metric]}: ${value(selected[state.metric],1)} ${units[state.metric]}\nOpen-Meteo · modelo`:'Sem valor para este horário; lacuna não significa zero.',
-        marks:eligible?[{x:rain?x(t):x(Date.parse(selected.time)),y:y(selected[state.metric]),color:'var(--green)'}]:[]};}
-  });
-  else {let cursor=0;root.addEventListener('keydown',event=>{if(!['Home','End','ArrowRight','ArrowLeft'].includes(event.key))return;event.preventDefault();cursor=event.key==='Home'?0:event.key==='End'?points.length-1:Math.max(0,Math.min(points.length-1,cursor+(event.key==='ArrowRight'?1:-1)));tooltip.textContent=`${datetime(points[cursor].time)} · ${value(points[cursor][state.metric],1)} ${units[state.metric]}`;tooltip.hidden=false;});}
-  frame.append(root);$('chart-legend').textContent=`${descriptors[state.metric]} (${units[state.metric]}) · Open-Meteo · horários de Brasília`;
+  const rain=state.metric==='precipitation_mm',start=Math.floor(Date.now()/3600000)*3600000,end=start+24*3600000;
+  const rows=(state.detail.hourly||[]).filter(r=>{const t=Date.parse(r.time);return Number.isFinite(t)&&(rain?t>start&&t<=end:t>=start&&t<end);});
+  const points=Array.from({length:24},(_,i)=>{const time=new Date(start+(i+(rain?1:0))*3600000).toISOString(),row=rows.find(r=>Date.parse(r.time)===Date.parse(time));return {time,value:Number.isFinite(row?.[state.metric])?row[state.metric]:null,start_at:rain?new Date(Date.parse(time)-3600000).toISOString():null};});
+  const series=[{id:'best_match',identity:'best_match',name:'Open-Meteo · seleção automática',field:state.metric,kind:'forecast',points,gapMs:3600000}];
+  const result=WeatherCharts.render(frame,legend,tooltip,series,{domain:[start,end],label:descriptors[state.metric]+' · próximas 24 h',unit:units[state.metric],forecast:true,tableHost});
+  $('detail-chart-status').textContent=`${result.coverage} Referência da fonte: ${datetime(state.detail.collected_at)}. Horários de Brasília.`;
 }
 function renderStations() {
   const target = $('station-grid');

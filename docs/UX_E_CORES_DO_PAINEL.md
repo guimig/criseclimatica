@@ -1,5 +1,7 @@
 # Leitura do painel, cores e cobertura das estações
 
+**Atualização de 26/11/2026:** a evolução temporal dos acumulados, a densidade das previsões e a interação foram revistas. A especificação atual está em [Gráficos: leitura, intervalos e cobertura](GRAFICOS_E_LEITURA.md); os diagnósticos abaixo registram as etapas anteriores.
+
 ## Problemas corrigidos
 
 O resumo misturava atividade de monitoramento, faixas quantitativas auxiliares e níveis da PN 13/2026. Contadores como “superações” e “coincidências temporais” não explicavam o fenômeno. Com apenas uma coleta, o gráfico observado deixava quase toda a área vazia, com as três barras sobrepostas na borda. Códigos extensos e repetição do nome da fonte dificultavam reconhecer os locais.
@@ -26,8 +28,8 @@ A regra consultiva e o histórico original não foram reclassificados. `suggeste
 
 - Mantêm-se os gráficos separados de observações e previsão, com leitura responsiva.
 - Com menos de quatro horários distintos, a apresentação automática de chuva usa a última amostra de cada estação em barras horizontais, com nome e horário. Não cria amostras anteriores.
-- “Ao longo do tempo” mantém as janelas efetivamente medidas, sem ligar os intervalos de chuva esparsos. A alternativa “Por estação” permanece disponível mesmo com histórico maior.
-- A previsão usa barras horárias, preservando intervalos faltantes e a indicação da hora em curso.
+- “Ao longo do tempo” posiciona cada acumulado no término da leitura, sem somar janelas móveis nem ligar intervalos esparsos. A alternativa “Por estação” permanece disponível mesmo com histórico maior.
+- A previsão usa barras horárias na consulta de 24 h e blocos completos explícitos nas janelas longas, preservando lacunas e a referência da hora em curso.
 - Os eixos usam passos arredondados. Gráficos temporais verticais compartilham escala apenas para acumulados compatíveis. A vista horizontal por estação e a previsão usam escalas próprias, explicitadas no texto; o gráfico por estação não possui eixo de tempo.
 - No resumo e nas legendas, os nomes das localidades substituem códigos. A fonte comum aparece uma vez no cabeçalho. Códigos, coordenadas, distância e horários completos ficam no detalhamento.
 - Nomes ausentes não são inventados: usa-se uma identificação de estação sem expor o código na visão inicial. O código original continua no detalhe.

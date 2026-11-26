@@ -101,7 +101,8 @@ def check_layout(page):
     assert 'Joinville' in page.locator('#plot').inner_text()
     page.get_by_label('Área', exact=True).select_option('local')
     page.get_by_role('button', name='Ao longo do tempo', exact=True).click()
-    assert page.locator('#plot .rain-interval').count() == 3
+    assert page.locator('#plot .rain-interval').count() == 0
+    assert page.locator('#plot .accumulation-sample').count() == 3
     page.get_by_role('button', name='Por estação', exact=True).click()
     assert page.locator('.station-bar').count() == 3
     page.locator('[data-focus=gust_kmh]').click()

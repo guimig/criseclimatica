@@ -81,40 +81,11 @@
     }
     t.append(body);scroll.append(t);target.append(scroll);
   }
-  function chart(target,data,field,hours,tooltip,legend){
-    target.replaceChildren();legend.replaceChildren();tooltip.hidden=true;
+  function chart(target,data,field,hours,tooltip,legend,tableHost){
     const w=data.windows.find(w=>w.hours===hours),start=Date.parse(w.start_at),end=Date.parse(w.end_at),rain=field==='precipitation_mm';
-    const records=data.records.filter(r=>r.status==='available');
-    const series=records.map(r=>({...r,points:r.hourly.filter(p=>{const t=Date.parse(p.time);return rain?t>start&&t<=end:t>=start&&t<end;})}));
-    const values=series.flatMap(r=>r.points.map(p=>p[field]).filter(Number.isFinite));
-    if(!values.length){target.append(dom('p','comparison-note','Sem valores válidos para comparar neste período.'));return;}
-    const dark=document.documentElement.dataset.theme==='dark',colors=dark?['#8bd1ad','#89b9fa','#e9b36e']:['#24714f','#366db4','#a26323'];
-    const W=Math.max(300,Math.round(target.clientWidth||700)),H=280,L=48,R=18,T=22,B=48,low=rain||field==='gust_kmh'?0:Math.floor(Math.min(...values)-1),high=Math.max(low+1,Math.ceil(Math.max(...values)*1.08));
-    const x=t=>L+(t-start)/(end-start)*(W-L-R),y=v=>H-B-(v-low)/(high-low)*(H-B-T);
-    const ns='http://www.w3.org/2000/svg';function svg(tag,attrs,text){const e=document.createElementNS(ns,tag);for(const[k,v]of Object.entries(attrs||{}))e.setAttribute(k,String(v));if(text!==undefined)e.textContent=text;return e;}
-    const root=svg('svg',{viewBox:`0 0 ${W} ${H}`,tabindex:0,role:'img','aria-label':`${short[field]} por modelo. Use setas ou toque para consultar.`});
-    for(let i=0;i<=4;i++){const v=low+(high-low)*i/4;root.append(svg('line',{x1:L,x2:W-R,y1:y(v),y2:y(v),class:'chart-grid'}),svg('text',{x:L-8,y:y(v)+5,'text-anchor':'end',class:'comparison-axis'},n(v)));}
-    const ticks=W<500?2:4;for(let i=0;i<=ticks;i++){const t=start+(end-start)*i/ticks;root.append(svg('text',{x:x(t),y:H-16,'text-anchor':i===0?'start':i===ticks?'end':'middle',class:'comparison-axis'},new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',hour:'2-digit',day:'2-digit',month:'2-digit'}).format(new Date(t))));}
-    series.forEach((r,index)=>{
-      const color=colors[['best_match','ecmwf_ifs025','ncep_gfs_global'].indexOf(r.id)]||colors[0],item=dom('span','');const swatch=dom('i');swatch.style.background=color;item.append(swatch,document.createTextNode(names[r.id]||r.name));legend.append(item);
-      if(rain){const slot=(W-L-R)/hours,bw=Math.max(.8,slot*.8/series.length);for(const p of r.points)if(Number.isFinite(p[field])){const bar=svg('rect',{x:x(Date.parse(p.time)-3600000)+slot*.1+bw*index,y:y(p[field]),width:bw,height:Math.max(0,y(0)-y(p[field])),fill:color});bar.append(svg('title',{},`${r.name}: ${n(p[field])} mm · ${dt(new Date(Date.parse(p.time)-3600000).toISOString())} a ${dt(p.time)}`));root.append(bar);}}
-      else{let d='',last=null;for(const p of r.points){const t=Date.parse(p.time);if(!Number.isFinite(p[field])){last=null;continue;}d+=(last!==null&&t-last===3600000?'L':'M')+x(t)+','+y(p[field])+' ';last=t;}root.append(svg('path',{d,fill:'none',stroke:color,'stroke-width':2.5,'stroke-dasharray':index===1?'7 4':index===2?'2 4':'none'}));}
-    });
-    if(typeof ChartInteraction!=='undefined'){
-      const times=Array.from({length:hours},(_,i)=>start+(i+(rain?1:0))*3600000);
-      ChartInteraction.attach(root,{width:W,left:L,right:R,top:T,bottom:H-B,domain:[start,end],times,tooltip,
-        lookup(t){const index=Math.max(0,Math.min(hours-1,rain?Math.ceil((t-start)/3600000)-1:Math.round((t-start)/3600000)));
-          const targetTime=times[index],marks=[];
-          const parts=series.map(r=>{const p=r.points.find(p=>Date.parse(p.time)===targetTime);if(Number.isFinite(p?.[field]))marks.push({x:rain?x(t):x(targetTime),y:y(p[field]),color:colors[['best_match','ecmwf_ifs025','ncep_gfs_global'].indexOf(r.id)]});
-            return `${names[r.id]}: ${n(p?.[field])} ${rain?'mm':field==='temperature_c'?'°C':'km/h'}`;});
-          return {text:`${rain?dt(new Date(targetTime-3600000).toISOString())+' a ':''}${dt(new Date(targetTime).toISOString())}\n${parts.join('\n')}`,marks};
-        }});target.append(root);return;
-    }
-    let cursor=0;const total=hours;
-    function show(index){cursor=Math.max(0,Math.min(total-1,index));const t=start+(cursor+(rain?1:0))*3600000;const parts=series.map(r=>{const p=r.points.find(p=>Date.parse(p.time)===t);return `${names[r.id]}: ${n(p?.[field])} ${rain?'mm':field==='temperature_c'?'°C':'km/h'}`;});tooltip.textContent=`${rain?dt(new Date(t-3600000).toISOString())+' a ':''}${dt(new Date(t).toISOString())} · ${parts.join(' · ')}`;tooltip.hidden=false;}
-    root.addEventListener('pointermove',e=>{const b=root.getBoundingClientRect();show(Math.floor(((e.clientX-b.left)*W/b.width-L)/(W-L-R)*hours));});
-    root.addEventListener('click',e=>{const b=root.getBoundingClientRect();show(Math.floor(((e.clientX-b.left)*W/b.width-L)/(W-L-R)*hours));});
-    root.addEventListener('keydown',e=>{if(['ArrowRight','ArrowLeft','Home','End'].includes(e.key)){e.preventDefault();show(e.key==='Home'?0:e.key==='End'?total-1:cursor+(e.key==='ArrowRight'?1:-1));}});target.append(root);
+    const series=data.records.filter(r=>r.status==='available').map(r=>({id:r.id,identity:r.id,name:names[r.id]||r.name,field,kind:'forecast',gapMs:3600000,
+      points:Array.from({length:hours},(_,i)=>{const t=start+(i+(rain?1:0))*3600000,p=r.hourly.find(p=>Date.parse(p.time)===t);return {time:new Date(t).toISOString(),value:Number.isFinite(p?.[field])?p[field]:null,start_at:rain?new Date(t-3600000).toISOString():null};})}));
+    return WeatherCharts.render(target,legend,tooltip,series,{domain:[start,end],label:short[field]+' · modelos em Araquari',unit:rain?'mm':field==='temperature_c'?'°C':'km/h',forecast:true,tableHost});
   }
   function renderDetailed(target,data){
     if(!target)return;if(target._comparisonResize)target._comparisonResize.disconnect();if(target._comparisonTheme)document.removeEventListener('observatorythemechange',target._comparisonTheme);target.replaceChildren();target.append(dom('h3','','Previsões em comparação · Araquari'));
@@ -127,9 +98,9 @@
     const selected=target._comparisonSelection;
     if(selected&&Object.hasOwn(short,selected.variable))variable.value=selected.variable;
     if(selected&&[24,72].includes(selected.hours))horizon.value=String(selected.hours);
-    const period=dom('p','comparison-note'),plot=dom('div','model-comparison-plot'),tooltip=dom('p','comparison-tooltip'),legend=dom('div','comparison-legend'),tables=dom('div');tooltip.hidden=true;tooltip.setAttribute('aria-live','polite');
-    target.append(controls,period,plot,legend,tooltip,tables);
-    function update(){if(!current(data)){renderDetailed(target,data);return;}const hours=Number(horizon.value),w=data.windows.find(w=>w.hours===hours);target._comparisonSelection={variable:variable.value,hours};period.textContent=`${dt(w.start_at)} a ${dt(w.end_at)} · Brasília. Chuva: barras por hora e modelo; demais variáveis: linhas. Lacunas não são zero.`;chart(plot,data,variable.value,hours,tooltip,legend);tables.replaceChildren();table(tables,w);}
+    const period=dom('p','comparison-note'),plot=dom('div','model-comparison-plot'),tooltip=dom('p','comparison-tooltip'),legend=dom('div','comparison-legend'),tables=dom('div'),raw=dom('div','comparison-chart-data');tooltip.hidden=true;tooltip.setAttribute('aria-live','polite');
+    target.append(controls,period,plot,legend,tooltip,raw,tables);
+    function update(){if(!current(data)){renderDetailed(target,data);return;}const hours=Number(horizon.value),w=data.windows.find(w=>w.hours===hours);target._comparisonSelection={variable:variable.value,hours};const result=chart(plot,data,variable.value,hours,tooltip,legend,raw);period.textContent=`Próximas ${hours} h · ${dt(w.start_at)} a ${dt(w.end_at)} · Brasília. ${variable.value==='precipitation_mm'?'Chuva: blocos completos de '+result.block+' h por modelo.':'Linhas por modelo.'} ${result.coverage} Lacunas não são zero.`;tables.replaceChildren();table(tables,w);}
     variable.addEventListener('change',update);horizon.addEventListener('change',update);target._comparisonTheme=update;document.addEventListener('observatorythemechange',update);update();if(typeof ResizeObserver!=='undefined'){let lastWidth=0;target._comparisonResize=new ResizeObserver(entries=>{const width=Math.round(entries[0].contentRect.width);if(width>0&&width!==lastWidth){lastWidth=width;requestAnimationFrame(update);}});target._comparisonResize.observe(plot);}
     renderInmet(target,data.inmet);
     target.append(dom('h4','','CPTEC/INPE · contexto diário separado'));
@@ -139,7 +110,7 @@
     const methods=dom('details','comparison-methods');methods.append(dom('summary','','Fontes, grades e limites da comparação'));
     for(const r of data.records)methods.append(dom('p','',`${r.name} · ${r.status==='available'?'coletada em '+dt(r.collected_at):'indisponível'+(r.diagnostic?' ('+r.diagnostic+')':'')} · grade: ${Number.isFinite(r.grid_point?.latitude)?n(r.grid_point.latitude)+', '+n(r.grid_point.longitude):'não informada'}. Rodada: não informada.`));
     for(const text of data.limitations)methods.append(dom('p','',text));
-    methods.append(dom('p','','Arquivo por coleta: sete dias, até 64 publicações, alvos horários futuros de até 72 h. Ainda sem cálculo de erro, pesos ou probabilidades.'));
+    methods.append(dom('p','','Arquivo de rodadas anteriores, limitado pela política de retenção do projeto. Não mede erro, pesos ou probabilidades.'));
     const archive=dom('a','','Abrir arquivo de previsões por coleta (JSON) ↗');archive.href='./data/model_forecast_history.json';methods.append(archive);target.append(methods);
   }
   if(typeof module!=='undefined')module.exports={validComparison,current,validInmet};

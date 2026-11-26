@@ -5,6 +5,7 @@ on:
     paths:
       - 'web/**'
       - 'tests/ui_dashboard.py'
+      - 'tests/ui_chart_improvements.py'
       - 'tests/ui_details.py'
       - 'tests/ui_campus_station.py'
       - 'tests/ui_forecasts.py'
@@ -36,6 +37,7 @@ jobs:
       - name: Check dashboard interactions and responsive layout
         run: |
           /tmp/weather-browser/bin/python tests/ui_dashboard.py
+          /tmp/weather-browser/bin/python tests/ui_chart_improvements.py
           /tmp/weather-browser/bin/python tests/ui_details.py
           /tmp/weather-browser/bin/python tests/ui_campus_station.py
           /tmp/weather-browser/bin/python tests/ui_forecasts.py
