@@ -80,21 +80,27 @@ def check_tooltip_edges(page, width):
         box = hit.bounding_box()
         assert box, 'Chart hit area must be visible'
         initial = None
+        found_reading = False
+        heading = page.locator('#forecast-heading').inner_text()
         for fraction in (0.03, 0.5, 0.95, 0.99, 0.97, 0.5, 0.03):
             x = box['x'] + fraction * box['width']
             y = box['y'] + 0.5 * box['height']
             page.mouse.move(x, y)
             assert tooltip.is_visible()
-            assert 'km/h' in tooltip.inner_text()
+            reading = tooltip.inner_text()
+            assert reading.startswith(heading), (width, fraction, reading)
+            assert 'km/h' in reading or 'Sem amostra' in reading, (width, fraction, reading)
+            found_reading = found_reading or 'km/h' in reading
             bounds = geometry()
             if initial is None:
                 initial = bounds['width']
                 assert initial >= 200, bounds
-            assert bounds['width'] >= 0.9 * initial, bounds
+            assert abs(bounds['width'] - initial) <= 1, (width, fraction, bounds)
             assert bounds['left'] >= bounds['panelLeft'] - 1 and bounds['right'] <= bounds['panelRight'] + 1, bounds
             assert bounds['top'] >= bounds['panelTop'] - 1 and bounds['bottom'] <= bounds['panelBottom'] + 1, bounds
             if fraction >= 0.95:
                 assert bounds['right'] <= x + 1, bounds
+        assert found_reading, 'At least one measured forecast value must be accessible by mouse'
         graph.focus()
         page.keyboard.press('End')
         assert tooltip.is_visible()

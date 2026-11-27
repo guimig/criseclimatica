@@ -439,9 +439,9 @@
   position: absolute;
   z-index: 30;
   pointer-events: none;
-  /* Intrinsic width must not depend on the previous cursor position. */
-  width: max-content;
-  max-width: min(340px, calc(100% - 20px));
+  /* Stable reading width, independent of cursor position and sample availability. */
+  width: 340px;
+  max-width: calc(100% - 20px);
   padding: var(--space-3) var(--space-4);
   background: var(--tooltip-bg);
   color: var(--tooltip-ink);
