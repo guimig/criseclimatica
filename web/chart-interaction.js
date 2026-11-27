@@ -18,12 +18,20 @@
     const nearest=t=>typeof WeatherCharts!=='undefined'?WeatherCharts.nearestIndex(times,t):times.reduce((best,v,i)=>Math.abs(v-t)<Math.abs(times[best]-t)?i:best,0);
     function hide(){tooltip.hidden=true;guide.setAttribute('visibility','hidden');marks.replaceChildren();}
     function position(clientX,clientY){
+      // On small screens the reading stays in the document flow, below the chart.
+      if(getComputedStyle(tooltip).position==='static'){
+        tooltip.style.removeProperty('left');tooltip.style.removeProperty('top');return;
+      }
       const parent=tooltip.offsetParent||tooltip.parentElement,box=parent.getBoundingClientRect();
       const tw=tooltip.offsetWidth,th=tooltip.offsetHeight;
-      let px=Math.max(8,Math.min(clientX-box.left+12,box.width-tw-8));
-      let py=clientY-box.top-th-12;if(py<8)py=clientY-box.top+20;
-      // Keep the reading within its panel, including on narrow touch screens.
-      py=Math.max(8,Math.min(py,Math.max(8,box.height-th-8)));
+      const pad=8,gap=12,w=parent.clientWidth,h=parent.clientHeight;
+      // The absolute containing block starts inside the parent's border.
+      const ax=clientX-box.left-parent.clientLeft,ay=clientY-box.top-parent.clientTop;
+      // Flip to the left near the right edge, then clamp without squeezing the text.
+      let px=ax+gap;if(px+tw>w-pad)px=ax-tw-gap;
+      px=Math.max(pad,Math.min(px,Math.max(pad,w-tw-pad)));
+      let py=ay-th-gap;if(py<pad)py=ay+20;
+      py=Math.max(pad,Math.min(py,Math.max(pad,h-th-pad)));
       tooltip.style.left=px+'px';tooltip.style.top=py+'px';
     }
     function show(t,event,keyboard=false){

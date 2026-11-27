@@ -13,7 +13,8 @@
 .home-page .weather-panel > .small { grid-row: 2; margin-bottom: 8px; min-height: 0; font-size: 13px; }
 .home-page .weather-panel > .plot-tools { grid-row: 3; min-height: 0; }
 .home-page .weather-panel > .plot { grid-row: 4; margin-top: 0; }
-.home-page .weather-panel > .chart-tooltip { grid-row: 4; }
+/* Absolute tooltip coordinates are relative to the full panel, not a grid cell. */
+.home-page .weather-panel > .chart-tooltip { grid-row: auto; grid-column: auto; }
 .home-page .weather-panel > .chart-legend { grid-row: 5; font-size: 14px; }
 .home-page .weather-panel > .chart-hint { grid-row: 6; font-size: 13px; }
 .home-page .weather-panel > .chart-status { grid-row: 7; }
