@@ -168,7 +168,7 @@ console.log('Separate chart data passed: hourly windows, in-progress forecast ho
 // Exercise the real SVG renderer without network or a browser dependency.
 const vm=require('node:vm');
 class Element {
- constructor(tag){this.tag=tag;this.children=[];this.attributes={};this.listeners={};this.style={};this.dataset={};this.hidden=false;this.open=false;this.value='';this.textContent='';this.classList={toggle(){},add(){}};}
+ constructor(tag){this.tag=tag;this.children=[];this.attributes={};this.listeners={};this.style={removeProperty(name){delete this[name];}};this.offsetWidth=300;this.offsetHeight=120;this.dataset={};this.hidden=false;this.open=false;this.value='';this.textContent='';this.classList={toggle(){},add(){}};}
  append(...children){for(const child of children)child.parentElement=this;this.children.push(...children);}
  get textContent(){return (this._textContent||'')+this.children.map(n=>n.textContent||'').join('');}
  set textContent(value){this._textContent=value;this.children=[];}
@@ -186,9 +186,9 @@ class Element {
  }
  getBoundingClientRect(){return {left:0,top:0,width:600,height:280};}
 }
-const elements=new Map([...ids].map(id=>[id,new Element('div')]));for(const n of elements.values())n.parentElement={getBoundingClientRect:()=>({left:0,top:0,width:600,height:600})};
+const elements=new Map([...ids].map(id=>[id,new Element('div')]));for(const n of elements.values())n.parentElement={clientWidth:600,clientHeight:600,clientLeft:0,clientTop:0,getBoundingClientRect:()=>({left:0,top:0,width:600,height:600})};
 const context=vm.createContext({module:{exports:{}},console,Intl,Date,URL,location:{href:'https://guimig.github.io/criseclimatica/'}});
-context.window=context;vm.runInContext(fs.readFileSync(path.join(__dirname,'../web/chart-utils.js'),'utf8'),context);vm.runInContext(interaction,context);
+context.window=context;let tooltipPosition='absolute';context.getComputedStyle=()=>({position:tooltipPosition});vm.runInContext(fs.readFileSync(path.join(__dirname,'../web/chart-utils.js'),'utf8'),context);vm.runInContext(interaction,context);
 vm.runInContext(js,context); // No document yet: avoid application boot and network.
 context.document={querySelectorAll:()=>[],getElementById:id=>elements.get(id),createElement:t=>new Element(t),createElementNS:(_,t)=>new Element(t),createTextNode:t=>{const e=new Element('text-node');e.textContent=t;return e;},documentElement:{dataset:{theme:'dark'}}};
 context.fixture={...irregular,forecast:{...irregular.forecast,sources_by_variable:Object.fromEntries(['precipitation_mm','gust_kmh','temperature_c'].map(field=>[field,{status:'available',valid_until:new Date(Date.now()+3600000).toISOString()}]))}};context.stationHistory=aligned;
@@ -209,6 +209,17 @@ observedSvg.listeners.keydown({key:'Home',preventDefault(){}});
 assert.match(elements.get('chart-tooltip').textContent,/Acumulado móvel de 1 h/);
 observedSvg.listeners.pointermove({clientX:50});
 assert.match(elements.get('chart-tooltip').textContent,/Sem amostra/);
+const observedTip=elements.get('chart-tooltip');
+assert.equal(observedTip.style.left,'62px');
+observedSvg.listeners.pointermove({clientX:570,clientY:220});
+assert.equal(observedTip.style.left,'258px');
+assert.equal(observedTip.style.top,'88px');
+observedSvg.listeners.pointermove({clientX:50,clientY:220});
+assert.equal(observedTip.style.left,'62px');
+tooltipPosition='static';
+observedSvg.listeners.pointermove({clientX:570,clientY:220});
+assert.equal(observedTip.style.left,undefined);assert.equal(observedTip.style.top,undefined);
+tooltipPosition='absolute';
 vm.runInContext("panel.station='cemaden-rain:B';renderChart()",context);
 assert.equal(plotNodes('plot','rect').filter(n=>n.attributes.class==='rain-interval').length,0);
 vm.runInContext("panel.station='all';renderChart();renderChart()",context);

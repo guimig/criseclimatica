@@ -13,21 +13,22 @@
 .home-page .weather-panel > .small { grid-row: 2; margin-bottom: 8px; min-height: 0; font-size: 13px; }
 .home-page .weather-panel > .plot-tools { grid-row: 3; min-height: 0; }
 .home-page .weather-panel > .plot { grid-row: 4; margin-top: 0; }
-.home-page .weather-panel > .chart-tooltip { grid-row: 4; }
+/* Absolute tooltip coordinates are relative to the full panel, not a grid cell. */
+.home-page .weather-panel > .chart-tooltip { grid-row: auto; grid-column: auto; }
 .home-page .weather-panel > .chart-legend { grid-row: 5; font-size: 14px; }
 .home-page .weather-panel > .chart-hint { grid-row: 6; font-size: 13px; }
 .home-page .weather-panel > .chart-status { grid-row: 7; }
 .home-page .weather-panel > .chart-caption { grid-row: 8; font-size: 14px; }
 .home-page .weather-panel > .chart-accessible-summary { grid-row: 9; }
 .home-page :is(#observed-chart-data, #forecast-chart-data) { grid-row: 10; }
-.home-page .weather-panel .interactive-tooltip { max-width: min(360px, calc(100% - 20px)); }
+.home-page .weather-panel .interactive-tooltip { width: 360px; max-width: calc(100% - 20px); }
 @media (max-width: 1023px) {
   .home-page .chart-panels { grid-template-columns: 1fr; row-gap: 24px; }
   .home-page .weather-panel { display: block; grid-row: auto; }
 }
 @media (max-width: 620px) {
   .essential-page .interactive-tooltip { position: static; max-width: 100%; margin-block: 12px; }
-  .home-page .weather-panel .interactive-tooltip { max-width: 100%; }
+  .home-page .weather-panel .interactive-tooltip { width: auto; max-width: 100%; }
 }
 
 .home-page #level-explain{font-size:14px;max-width:100%;white-space:normal;text-align:left}

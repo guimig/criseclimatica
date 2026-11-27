@@ -52,6 +52,67 @@ def chart_contrast(page):
     assert not failures, failures
 
 
+def check_tooltip_edges(page, width):
+    """Moving right must neither shrink the tooltip nor escape the chart panel."""
+    page.locator('#forecast-variable').select_option('gust_kmh')
+    graph = page.locator('#forecast-plot svg')
+    tooltip = page.locator('#forecast-tooltip')
+    hit = graph.locator('[data-chart-hit]')
+    hit.scroll_into_view_if_needed()
+
+    def geometry():
+        return tooltip.evaluate("""node => {
+          const tip=node.getBoundingClientRect(), panel=node.parentElement.getBoundingClientRect();
+          return {width:tip.width,height:tip.height,left:tip.left,right:tip.right,
+            top:tip.top,bottom:tip.bottom,panelLeft:panel.left,panelRight:panel.right,
+            panelTop:panel.top,panelBottom:panel.bottom,position:getComputedStyle(node).position};
+        }""")
+
+    if width <= 620:
+        graph.focus()
+        page.keyboard.press('End')
+        assert tooltip.is_visible()
+        bounds = geometry()
+        assert bounds['position'] == 'static', bounds
+        assert bounds['width'] >= 0.7 * (bounds['panelRight'] - bounds['panelLeft']), bounds
+        assert bounds['left'] >= bounds['panelLeft'] - 1 and bounds['right'] <= bounds['panelRight'] + 1, bounds
+    else:
+        box = hit.bounding_box()
+        assert box, 'Chart hit area must be visible'
+        initial = None
+        found_reading = False
+        heading = page.locator('#forecast-heading').inner_text()
+        for fraction in (0.03, 0.5, 0.95, 0.99, 0.97, 0.5, 0.03):
+            x = box['x'] + fraction * box['width']
+            y = box['y'] + 0.5 * box['height']
+            page.mouse.move(x, y)
+            assert tooltip.is_visible()
+            reading = tooltip.inner_text()
+            assert reading.startswith(heading), (width, fraction, reading)
+            assert 'km/h' in reading or 'Sem amostra' in reading, (width, fraction, reading)
+            found_reading = found_reading or 'km/h' in reading
+            bounds = geometry()
+            if initial is None:
+                initial = bounds['width']
+                assert initial >= 200, bounds
+            assert abs(bounds['width'] - initial) <= 1, (width, fraction, bounds)
+            assert bounds['left'] >= bounds['panelLeft'] - 1 and bounds['right'] <= bounds['panelRight'] + 1, bounds
+            assert bounds['top'] >= bounds['panelTop'] - 1 and bounds['bottom'] <= bounds['panelBottom'] + 1, bounds
+            if fraction >= 0.95:
+                assert bounds['right'] <= x + 1, bounds
+        assert found_reading, 'At least one measured forecast value must be accessible by mouse'
+        graph.focus()
+        page.keyboard.press('End')
+        assert tooltip.is_visible()
+        page.keyboard.press('Enter')
+        assert graph.get_attribute('data-pinned') == 'true'
+        assert 'Fixado' in tooltip.inner_text()
+    graph.focus()
+    page.keyboard.press('Escape')
+    assert not tooltip.is_visible()
+    page.locator('#forecast-variable').select_option('precipitation_mm')
+
+
 def main():
     from playwright.sync_api import sync_playwright
     OUTPUT.mkdir(exist_ok=True)
@@ -123,6 +184,7 @@ def main():
                         page.locator('#theme-toggle').click()
                     chart_contrast(page)
                     check_style_system(page)
+                    check_tooltip_edges(page, width)
                     if width in (390, 1440):
                         page.screenshot(path=str(OUTPUT/f'chart-improvements-{theme}-{width}.png'), full_page=True)
                 if width == 1440:
@@ -196,7 +258,7 @@ def main():
         page.locator('#forecast-variable').select_option('precipitation_mm')
         assert page.locator('#forecast-plot svg').count() == 1
         context.close(); browser.close()
-    print('Chart improvements passed: 320–1440px, rolling endpoints, zero/gaps, complete blocks, stable identity, 4800 raw samples, pagination, keyboard/pinning, per-variable expiry, contrast and unchanged requests.')
+    print('Chart improvements passed: 320–1440px, rolling endpoints, zero/gaps, complete blocks, stable identity, 4800 raw samples, pagination, keyboard/pinning, tooltip edges in both themes, per-variable expiry, contrast and unchanged requests.')
 
 
 if __name__ == '__main__':
